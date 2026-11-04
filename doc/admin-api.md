@@ -474,3 +474,37 @@
 | `admin:SysNotice:listPublished` | 5 分钟 | 已发布公告 |
 | `admin:SysUserOauth:listByUserId:{id}` | 10 分钟 | 第三方绑定 |
 | `admin:SysFile:getById:{id}` | 10 分钟 | 文件元数据 |
+
+---
+
+## 14. 仪表盘与列表扩展
+
+### GET `/admin/dashboard/overview`
+
+登录即可访问，无需 `system:operlog:list` / `system:loginlog:list` 权限。
+
+响应 `data`：
+
+```json
+{
+  "kpis": [
+    { "key": "logins", "label": "今日登录", "value": 12, "delta": 20.0, "unit": "次", "hint": "较昨日", "invert": false }
+  ],
+  "recentOperations": [
+    { "id": 1, "operTime": "2026-11-04T10:42:00", "operName": "admin", "title": "编辑用户", "method": "PUT /admin/system/user/7", "status": 1, "costTime": 42 }
+  ],
+  "loginFailures": [
+    { "id": 1, "username": "root", "ip": "10.0.0.1", "reason": "账号或密码错误", "time": "2026-11-04T10:05:00", "count": 1 }
+  ],
+  "systemStatus": [
+    { "key": "database", "label": "数据库", "value": "正常", "status": "success", "detail": "连接正常" }
+  ]
+}
+```
+
+列表 VO 扩展（已实现）：
+
+- `SysUserVO.roleNames`：用户角色名称列表。
+- `SysRoleVO.userCount`：角色下用户数。
+- `MenuNodeVO` / `SysMenuVO`：`childCount`、`roleCount`。
+- `SysPermissionVO.roleCount`：引用该权限点的角色数。

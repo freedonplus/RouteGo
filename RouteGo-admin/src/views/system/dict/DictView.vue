@@ -305,7 +305,7 @@ onMounted(loadTypes)
                 {{ selectedType.dictType }}
               </span>
             </div>
-            <div class="flex shrink-0 items-center gap-1">
+            <div class="flex flex-wrap shrink-0 items-center gap-1">
               <el-input v-model="dataFilters.dictLabel" size="small" placeholder="标签" clearable style="width: 96px" @keyup.enter="searchData" />
               <el-select v-model="dataFilters.status" size="small" style="width: 84px">
                 <el-option label="全部" value="" />
