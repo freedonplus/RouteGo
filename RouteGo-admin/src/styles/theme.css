@@ -177,6 +177,10 @@ body {
   border-right: 1px solid var(--rg-line);
 }
 
+.el-table .el-table__row--striped td.el-table__cell {
+  background: var(--rg-surface-alt);
+}
+
 .el-tag {
   border-radius: 3px;
   font-size: 11px;

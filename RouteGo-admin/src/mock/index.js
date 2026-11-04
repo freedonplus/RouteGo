@@ -22,6 +22,11 @@ class MockError extends Error {
   }
 }
 
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  // Dev-only handle for manual/automated QA of the in-memory mock.
+  window.__RG_MOCK__ = { state }
+}
+
 const delay = () =>
   new Promise((resolve) => setTimeout(resolve, 150 + Math.random() * 200))
 

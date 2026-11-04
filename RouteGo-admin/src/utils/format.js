@@ -19,6 +19,11 @@ export function maskEmail(value) {
   return `${name.slice(0, 1)}***@${domain}`
 }
 
+export function formatDate(value) {
+  const text = formatDateTime(value)
+  return text === EMPTY ? text : text.slice(0, 10)
+}
+
 export function formatDateTime(value) {
   if (!value) return EMPTY
   const date = value instanceof Date ? value : new Date(value)
