@@ -22,7 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 后台登录认证。
  * <p>
- * 登录接口不要求 Token；登出和当前用户接口通过 {@link SaCheckLogin} 校验。
+ * {@code /login} 不要求 Token；{@code /logout} 和 {@code /me} 通过
+ * {@link SaCheckLogin} 校验，未登录返回 401。
  */
 @Tag(name = "后台认证", description = "后台登录、登出与当前用户信息")
 @RestController
@@ -36,17 +37,21 @@ public class AuthController {
     }
 
     /**
-     * ------------------------------
-     *             登录
-     * ------------------------------
+     * 账号密码登录。
+     * <p>
+     * 先按 BCrypt 校验密码，再检查账号是否启用；成功后记录登录时间与来源 IP。
+     * 浏览器同时收到名为 {@code Authorization} 的 HttpOnly Cookie，App/第三方
+     * 使用响应体中的 {@code tokenValue} 走 Bearer 头。
      */
     @Operation(
             summary = "登录",
-            description = "校验账号密码，成功后返回 Token；浏览器同时写入 HttpOnly Cookie。",
+            description = "BCrypt 校验账号密码，成功后签发 Sa-Token 并记录登录时间与来源 IP；"
+                    + "响应头写入 Authorization HttpOnly Cookie。",
             security = {},
             responses = {
                     @ApiResponse(responseCode = "200", description = "登录成功"),
-                    @ApiResponse(responseCode = "401", description = "账号或密码错误"),
+                    @ApiResponse(responseCode = "400", description = "账号或密码为空"),
+                    @ApiResponse(responseCode = "401", description = "账号不存在或密码错误"),
                     @ApiResponse(responseCode = "403", description = "账号已被禁用")
             })
     @PostMapping("/login")
@@ -56,11 +61,15 @@ public class AuthController {
     }
 
     /**
-     * ------------------------------
-     *             登出
-     * ------------------------------
+     * 注销当前会话，删除服务端存储的 Token。
      */
-    @Operation(summary = "登出", description = "注销当前会话并清理 Token。")
+    @Operation(
+            summary = "登出",
+            description = "注销当前会话并删除服务端（Redis）中的 Token；需要已登录。",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "登出成功"),
+                    @ApiResponse(responseCode = "401", description = "未登录或 Token 已失效")
+            })
     @SaCheckLogin
     @PostMapping("/logout")
     public Result<Void> logout() {
@@ -69,11 +78,16 @@ public class AuthController {
     }
 
     /**
-     * ------------------------------
-     *          当前登录用户
-     * ------------------------------
+     * 当前登录用户及其角色、权限码，数据来自 Sa-Token 会话。
      */
-    @Operation(summary = "当前登录用户", description = "返回当前登录用户的基本信息、角色与权限码。")
+    @Operation(
+            summary = "当前登录用户",
+            description = "返回当前登录用户的基本信息、角色编码和权限码；"
+                    + "admin/super_admin 角色返回通配权限 *。",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "查询成功"),
+                    @ApiResponse(responseCode = "401", description = "未登录或 Token 已失效")
+            })
     @SaCheckLogin
     @GetMapping("/me")
     public Result<CurrentUserInfo> me() {
