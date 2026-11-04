@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.rg.operations.mapper.CsTicketMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.rg.operations.entity.CsTicket">
+        <id column="id" property="id" />
+        <result column="ticket_no" property="ticketNo" />
+        <result column="customer_id" property="customerId" />
+        <result column="order_id" property="orderId" />
+        <result column="type" property="type" />
+        <result column="title" property="title" />
+        <result column="content" property="content" />
+        <result column="priority" property="priority" />
+        <result column="status" property="status" />
+        <result column="handler_id" property="handlerId" />
+        <result column="finish_time" property="finishTime" />
+        <result column="version" property="version" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+        <result column="deleted" property="deleted" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, ticket_no, customer_id, order_id, type, title, content, priority, status, handler_id, finish_time, version, create_by, create_time, update_by, update_time, deleted
+    </sql>
+
+</mapper>

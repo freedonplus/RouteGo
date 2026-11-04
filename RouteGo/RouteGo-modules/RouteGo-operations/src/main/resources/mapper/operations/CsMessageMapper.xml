@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.rg.operations.mapper.CsMessageMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.rg.operations.entity.CsMessage">
+        <id column="id" property="id" />
+        <result column="ticket_id" property="ticketId" />
+        <result column="sender_type" property="senderType" />
+        <result column="sender_id" property="senderId" />
+        <result column="content" property="content" />
+        <result column="images" property="images" />
+        <result column="create_time" property="createTime" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, ticket_id, sender_type, sender_id, content, images, create_time
+    </sql>
+
+</mapper>

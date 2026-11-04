@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<title>生产级能力矩阵 · 旅游电商平台</title>
+<style>
+  :root{
+    --paper:#FBFAF6;
+    --paper-2:#F4F1E8;
+    --paper-3:#EFEBE0;
+    --ink:#14181C;
+    --ink-2:#5A5650;
+    --ink-3:#8C877C;
+    --rule:#D9D3C6;
+    --rule-2:#C4BCAA;
+    --red:#B4451F;
+    --red-20:rgba(180,69,31,.22);
+    --serif:"Source Han Serif SC","Noto Serif SC","Songti SC","STSong","SimSun",serif;
+    --sans:"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+    --mono:"IBM Plex Mono","JetBrains Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    --wrap:1160px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.75;
+    font-variant-numeric:tabular-nums lining-nums;
+    text-wrap:pretty;
+    border-top:2px solid var(--ink);
+    text-rendering:optimizeLegibility;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,p,ol,ul,figure{margin:0}
+  ::selection{background:var(--red);color:var(--paper)}
+  a{color:inherit;text-decoration:none}
+  :focus-visible{outline:2px solid var(--red);outline-offset:3px}
+
+  .skip{
+    position:absolute;left:-9999px;top:0;background:var(--ink);color:var(--paper);
+    padding:10px 16px;font-family:var(--mono);font-size:12px;z-index:99;
+  }
+  .skip:focus{left:16px;top:16px}
+  .sr-only{
+    position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap;border:0;
+  }
+  .sheet{max-width:calc(var(--wrap) + 80px);margin:0 auto;padding:0 40px 88px}
+
+  /* ── masthead ─────────────────────────────────────────── */
+  .masthead{padding-top:22px}
+  .masthead__meta{
+    display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:10.5px;line-height:1.6;letter-spacing:.14em;
+    color:var(--ink-3);text-transform:uppercase;
+    border-bottom:1px solid var(--rule);padding-bottom:12px;
+  }
+  .masthead__grid{
+    display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:72px;
+    align-items:end;padding:54px 0 58px;
+  }
+  h1{
+    font-family:var(--serif);font-weight:600;
+    font-size:clamp(40px,6.4vw,76px);line-height:1.06;letter-spacing:.02em;
+    text-wrap:balance;
+  }
+  h1 .period{color:var(--red)}
+  .deck{
+    margin-top:26px;max-width:660px;font-size:15px;line-height:1.9;color:var(--ink-2);
+  }
+  .deck strong{color:var(--ink);font-weight:500}
+  .deck .cite{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+
+  .composition{border-top:1px solid var(--ink);padding-top:13px}
+  .composition__label{
+    font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--ink-3);
+    text-transform:uppercase;
+  }
+  .composition__figure{display:flex;align-items:baseline;gap:10px;margin:12px 0 14px}
+  .composition__figure b{
+    font-family:var(--serif);font-size:46px;font-weight:600;line-height:1;letter-spacing:.01em;
+  }
+  .composition__figure span{font-size:12px;color:var(--ink-2)}
+  .dist{display:flex;height:10px;border:1px solid var(--rule);background:var(--paper-3)}
+  .dist__seg{display:block;height:100%}
+  .dist__seg--must{background:var(--red)}
+  .dist__seg--opt{background:var(--red-20);border-left:1px solid var(--paper)}
+  .dist__seg--none{background:var(--rule-2);border-left:1px solid var(--paper)}
+  .dist__legend{
+    display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:11px;
+    font-family:var(--mono);font-size:10.5px;color:var(--ink-2);
+  }
+  .dist__legend span{display:inline-flex;align-items:center;gap:7px}
+  .composition__foot{
+    margin-top:14px;padding-top:10px;border-top:1px solid var(--rule);
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--ink-3);
+  }
+
+  /* ── marks ────────────────────────────────────────────── */
+  .mark{position:relative;display:inline-block;width:11px;height:11px;flex:none}
+  .mark--must{border-radius:50%;background:var(--red)}
+  .mark--opt{
+    border-radius:50%;border:1px solid var(--red);
+    background:linear-gradient(90deg,var(--red) 0 50%,transparent 50% 100%);
+  }
+  .mark--none{width:12px;height:11px}
+  .mark--none::before{
+    content:"";position:absolute;left:0;top:50%;width:12px;height:1px;
+    background:var(--rule-2);transform:translateY(-50%);
+  }
+
+  /* ── sections ─────────────────────────────────────────── */
+  .section{border-top:1px solid var(--rule);padding:52px 0 64px}
+  .section__head{
+    display:grid;grid-template-columns:56px minmax(0,1fr) auto;
+    gap:24px;align-items:start;margin-bottom:30px;
+  }
+  .section__no{
+    font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--red);
+    padding-top:9px;
+  }
+  .section__title h2{
+    font-family:var(--serif);font-size:28px;font-weight:600;line-height:1.3;letter-spacing:.01em;
+    text-wrap:balance;
+  }
+  .section__note{margin-top:8px;font-size:13.5px;line-height:1.7;color:var(--ink-2);max-width:64ch}
+  .section__aside{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--ink-3);
+    white-space:nowrap;padding-top:9px;
+  }
+
+  /* ── toolbar ──────────────────────────────────────────── */
+  .toolbar{
+    display:flex;justify-content:space-between;align-items:flex-end;gap:20px 28px;
+    flex-wrap:wrap;border-bottom:1px solid var(--ink);padding-bottom:9px;
+  }
+  .filters{display:flex;gap:24px}
+  .filter{
+    appearance:none;background:none;border:0;border-bottom:2px solid transparent;
+    padding:4px 0 3px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    color:var(--ink-3);cursor:pointer;transition:color .15s,border-color .15s;
+  }
+  .filter:hover{color:var(--ink)}
+  .filter[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--red)}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+  .legend__item{display:inline-flex;align-items:center;gap:8px}
+
+  /* ── matrix ───────────────────────────────────────────── */
+  .matrix-scroll{
+    overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;scrollbar-color:var(--rule-2) transparent;
+  }
+  .matrix-scroll::-webkit-scrollbar{height:8px}
+  .matrix-scroll::-webkit-scrollbar-thumb{background:var(--rule-2)}
+  table.matrix{
+    width:100%;min-width:1000px;border-collapse:collapse;table-layout:fixed;
+  }
+  .matrix .col-biz{width:200px}
+  .scroll-hint{display:none}
+  .matrix thead th{background:var(--paper)}
+  .matrix thead th.biz{
+    width:200px;text-align:left;vertical-align:bottom;
+    padding:22px 16px 12px;border-bottom:1.5px solid var(--ink);
+    position:sticky;left:0;z-index:3;
+  }
+  .matrix thead th.biz .cap__cn{color:var(--ink-2)}
+  .matrix thead th.cap{
+    vertical-align:bottom;text-align:center;padding:22px 6px 12px;
+    border-bottom:1.5px solid var(--ink);
+  }
+  .cap__cn{display:block;font-family:var(--sans);font-size:13px;font-weight:500;line-height:1.4;color:var(--ink)}
+  .cap__en{
+    display:block;margin-top:4px;font-family:var(--mono);font-size:8.5px;
+    letter-spacing:.09em;color:var(--ink-3);white-space:nowrap;
+  }
+  .matrix tbody th{
+    position:sticky;left:0;z-index:2;background:var(--paper);
+    height:52px;padding:0 16px;text-align:left;vertical-align:middle;
+    font-family:var(--sans);font-size:14px;font-weight:400;color:var(--ink);
+    border-bottom:1px solid var(--rule);white-space:nowrap;
+  }
+  .row-no{
+    display:inline-block;width:26px;font-family:var(--mono);font-size:9.5px;
+    letter-spacing:.04em;color:var(--ink-3);
+  }
+  .matrix td{
+    height:52px;padding:0;text-align:center;vertical-align:middle;
+    border-bottom:1px solid var(--rule);text-align:center;
+  }
+  .matrix tbody tr{transition:opacity .2s}
+  .matrix tbody tr:hover th,
+  .matrix tbody tr:hover td{background:var(--paper-2)}
+  .matrix th.is-col,
+  .matrix td.is-col{background:var(--paper-2)}
+  .matrix thead th.is-col .cap__cn{color:var(--red)}
+  .matrix tbody tr:last-child th,
+  .matrix tbody tr:last-child td{border-bottom:1px solid var(--ink)}
+
+  .matrix[data-focus="must"] .mark--opt,
+  .matrix[data-focus="must"] .mark--none,
+  .matrix[data-focus="opt"] .mark--must,
+  .matrix[data-focus="opt"] .mark--none{opacity:.16}
+  .matrix[data-focus="must"] tbody tr:not(.has-must),
+  .matrix[data-focus="opt"] tbody tr:not(.has-opt){opacity:.3}
+  .matrix[data-focus="must"] tbody tr:hover,
+  .matrix[data-focus="opt"] tbody tr:hover{opacity:1}
+  .mark{transition:opacity .2s}
+
+  /* ── data table ───────────────────────────────────────── */
+  .data-table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.65}
+  .data-table thead th{
+    text-align:left;vertical-align:bottom;padding:0 18px 10px 0;
+    border-bottom:1.5px solid var(--ink);white-space:nowrap;
+    font-family:var(--mono);font-size:10px;font-weight:400;letter-spacing:.1em;
+    color:var(--ink-3);
+  }
+  .data-table tbody td{
+    padding:15px 18px 15px 0;border-bottom:1px solid var(--rule);
+    vertical-align:top;color:var(--ink-2);
+  }
+  .data-table tbody td:first-child{
+    font-weight:500;color:var(--ink);white-space:nowrap;padding-right:24px;
+  }
+  .data-table tbody td:last-child{padding-right:0}
+  .data-table tbody tr{transition:background-color .15s}
+  .data-table tbody tr:hover td{background:var(--paper-2)}
+  .group-row th{
+    text-align:left;padding:30px 0 8px;border-bottom:1px solid var(--rule-2);
+    font-family:var(--mono);font-size:10px;font-weight:400;letter-spacing:.12em;
+    color:var(--red);text-transform:none;
+  }
+  .group-row th .group__count{
+    margin-left:10px;color:var(--ink-3);letter-spacing:.06em;
+  }
+  .data-table code,.mono{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:-.01em;color:var(--ink);
+    white-space:nowrap;
+  }
+
+  /* ── priority ─────────────────────────────────────────── */
+  .priority{display:grid;grid-template-columns:repeat(3,1fr);border-top:1.5px solid var(--ink)}
+  .prio{padding:28px 34px 4px 0}
+  .prio + .prio{border-left:1px solid var(--rule);padding-left:34px;padding-right:0}
+  .prio__head{display:flex;align-items:baseline;gap:12px}
+  .prio__code{
+    font-family:var(--serif);font-size:46px;font-weight:600;line-height:1;letter-spacing:.01em;
+  }
+  .prio--p0 .prio__code{color:var(--red)}
+  .prio__tag{font-size:13px;color:var(--ink-2)}
+  .prio__count{
+    margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+    color:var(--ink-3);white-space:nowrap;
+  }
+  .prio ol{list-style:none;counter-reset:item;margin-top:22px}
+  .prio li{
+    counter-increment:item;display:flex;gap:12px;
+    padding:13px 0;border-bottom:1px solid var(--rule);
+    font-size:13.5px;line-height:1.62;color:var(--ink-2);
+  }
+  .prio li::before{
+    content:counter(item,decimal-leading-zero);
+    flex:none;width:16px;padding-top:4px;
+    font-family:var(--mono);font-size:9.5px;color:var(--ink-3);
+  }
+  .prio li:last-child{border-bottom:0}
+
+  /* ── colophon ─────────────────────────────────────────── */
+  .colophon{
+    margin-top:16px;border-top:1.5px solid var(--ink);padding-top:18px;
+    display:flex;justify-content:space-between;gap:16px 32px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:10.5px;line-height:1.8;letter-spacing:.05em;
+    color:var(--ink-3);
+  }
+
+  /* ── motion ───────────────────────────────────────────── */
+  .js .reveal{opacity:0;transform:translateY(10px)}
+  .js .reveal.is-in{
+    opacity:1;transform:none;
+    transition:opacity .55s cubic-bezier(.2,.6,.3,1),transform .55s cubic-bezier(.2,.6,.3,1);
+  }
+  @media (prefers-reduced-motion:reduce){
+    .js .reveal{opacity:1;transform:none}
+    .js .reveal.is-in{transition:none}
+    *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+  }
+
+  /* ── responsive ───────────────────────────────────────── */
+  @media (max-width:1100px){
+    .scroll-hint{
+      display:block;padding:9px 0 4px;text-align:right;
+      font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-3);
+    }
+  }
+  @media (max-width:980px){
+    .masthead__grid{grid-template-columns:1fr;gap:40px;padding:44px 0 48px}
+    .composition{max-width:420px}
+    .section__head{grid-template-columns:40px minmax(0,1fr);gap:16px}
+    .section__aside{display:none}
+    .priority{grid-template-columns:1fr}
+    .prio{padding:26px 0 8px}
+    .prio + .prio{border-left:0;border-top:1px solid var(--rule);padding-left:0}
+    .data-table{font-size:12.5px}
+  }
+  @media (max-width:640px){
+    .sheet{padding:0 20px 64px}
+    .masthead__meta span:nth-child(2){display:none}
+    h1{letter-spacing:.01em}
+    .deck{font-size:14px}
+    .toolbar{align-items:flex-start;flex-direction:column;gap:14px}
+    .legend{font-size:11.5px;gap:14px}
+    .filters{gap:18px}
+    .section{padding:40px 0 48px}
+    .section__head{grid-template-columns:1fr}
+    .section__no{padding-top:0}
+    .section__title h2{font-size:23px}
+    .prio__code{font-size:40px}
+    .colophon{flex-direction:column;gap:6px}
+
+    /* 矩阵：收窄首列，保留横向滑动 */
+    .matrix .col-biz{width:150px}
+    table.matrix{min-width:900px}
+    .matrix tbody th{height:48px;font-size:13px;padding:0 12px}
+    .matrix td{height:48px}
+
+    /* 加密表：改为逐条记录，避免五列在窄屏挤压溢出 */
+    .data-table thead{display:none}
+    .data-table tbody tr:not(.group-row){
+      display:block;padding:16px 0 14px;border-bottom:1px solid var(--rule);
+    }
+    .data-table tbody tr:not(.group-row):hover td{background:transparent}
+    .data-table tbody td{
+      display:block;padding:3px 0 3px 96px;text-indent:-96px;
+      border:0;font-size:12.5px;line-height:1.65;
+    }
+    .data-table tbody td:first-child{
+      padding:0 0 8px;text-indent:0;font-size:14.5px;font-weight:600;
+    }
+    .data-table tbody td:nth-child(2)::before,
+    .data-table tbody td:nth-child(3)::before,
+    .data-table tbody td:nth-child(4)::before,
+    .data-table tbody td:nth-child(5)::before{
+      display:inline-block;width:84px;margin-right:12px;text-indent:0;
+      vertical-align:baseline;
+      font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;
+      color:var(--ink-3);
+    }
+    .data-table tbody td:nth-child(2)::before{content:"加密方式"}
+    .data-table tbody td:nth-child(3)::before{content:"存储形态"}
+    .data-table tbody td:nth-child(4)::before{content:"展示 / 使用"}
+    .data-table tbody td:nth-child(5)::before{content:"密钥管理"}
+    .data-table tbody td code,
+    .data-table tbody td .mono{white-space:normal;overflow-wrap:anywhere}
+    .group-row th{display:block;padding:26px 0 8px}
+  }
+
+  /* ── print ────────────────────────────────────────────── */
+  @page{margin:14mm}
+  @media print{
+    body{background:#fff;border-top:0;font-size:12px}
+    .sheet{max-width:none;padding:0}
+    .skip,.filters,.legend--toolbar{display:none}
+    .matrix-scroll{overflow:visible}
+    .js .reveal{opacity:1;transform:none}
+    .section{break-inside:avoid;page-break-inside:avoid;padding:26px 0 30px}
+    .prio{break-inside:avoid}
+    .section__head{margin-bottom:16px}
+    table.matrix{min-width:0}
+    .matrix thead th.biz{width:150px;padding:12px 10px 8px}
+    .matrix thead th.cap{padding:12px 4px 8px}
+    .matrix tbody th{height:38px;font-size:11.5px;padding:0 10px}
+    .matrix td{height:38px}
+    .cap__cn{font-size:10.5px}
+    .cap__en{font-size:7.5px}
+    .row-no{width:20px;font-size:8px}
+    .data-table{font-size:10.5px}
+    .data-table tbody td{padding:8px 12px 8px 0}
+    .prio li{font-size:11px;padding:7px 0}
+    .colophon{margin-top:8px}
+  }
+</style>
+<script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+<a class="skip" href="#matrix">跳到能力矩阵</a>
+
+<div class="sheet">
+
+  <!-- ══════════ 报头 ══════════ -->
+  <header class="masthead reveal">
+    <div class="masthead__meta">
+      <span>旅游电商平台 / 生产级建设</span>
+      <span>Production Capability Review</span>
+      <span>No. 01 · 2026</span>
+    </div>
+
+    <div class="masthead__grid">
+      <div>
+        <h1>生产级能力矩阵<span class="period">。</span></h1>
+        <p class="deck">
+          全国风景线路旅游电商平台 · 业务域 × 技术能力评估。<strong>14 个业务域</strong>、
+          <strong>8 项技术能力</strong>，共 112 个评估点。每一点只回答一个问题：
+          该业务在生产环境里，是否必须为这项能力付出工程成本。
+          <span class="cite">详细规则见《方案书》第 12 章。</span>
+        </p>
+      </div>
+
+      <figure class="composition">
+        <figcaption class="composition__label">评估构成 / Composition</figcaption>
+        <div class="composition__figure">
+          <b>112</b><span>个评估点</span>
+        </div>
+        <div class="dist" role="img" aria-label="112 个评估点中，必需 53 个，按需 27 个，不涉及 32 个">
+          <span class="dist__seg dist__seg--must" style="flex:53"></span>
+          <span class="dist__seg dist__seg--opt" style="flex:27"></span>
+          <span class="dist__seg dist__seg--none" style="flex:32"></span>
+        </div>
+        <div class="dist__legend">
+          <span><i class="mark mark--must" aria-hidden="true"></i>53 必需</span>
+          <span><i class="mark mark--opt" aria-hidden="true"></i>27 按需</span>
+          <span><i class="mark mark--none" aria-hidden="true"></i>32 不涉及</span>
+        </div>
+        <div class="composition__foot">14 业务域 × 8 技术能力</div>
+      </figure>
+    </div>
+  </header>
+
+  <!-- ══════════ 01 矩阵 ══════════ -->
+  <section class="section reveal" id="matrix">
+    <div class="section__head">
+      <div class="section__no">01</div>
+      <div class="section__title">
+        <h2>业务与能力矩阵</h2>
+        <p class="section__note">
+          每一格表示该业务对该能力的需求强度。矩阵用于指导各业务模块在生产环境的建设重点，
+          具体规则见方案书第 12 章。
+        </p>
+      </div>
+      <div class="section__aside">14 × 8 / 112 CELLS</div>
+    </div>
+
+    <div class="toolbar">
+      <div class="filters" role="group" aria-label="聚焦模式">
+        <button class="filter" type="button" data-focus="all" aria-pressed="true">全部</button>
+        <button class="filter" type="button" data-focus="must" aria-pressed="false">聚焦必需</button>
+        <button class="filter" type="button" data-focus="opt" aria-pressed="false">聚焦按需</button>
+      </div>
+      <div class="legend legend--toolbar">
+        <span class="legend__item"><i class="mark mark--must" aria-hidden="true"></i>必需：上线前必须实现（P0/P1）</span>
+        <span class="legend__item"><i class="mark mark--opt" aria-hidden="true"></i>按需：视业务量启用或可降级</span>
+        <span class="legend__item"><i class="mark mark--none" aria-hidden="true"></i>不涉及：该业务无需引入</span>
+      </div>
+    </div>
+
+    <p class="scroll-hint" aria-hidden="true">← 左右滑动查看 8 项能力 →</p>
+
+    <div class="matrix-scroll">
+      <table class="matrix" id="capMatrix" data-focus="all">
+        <caption class="sr-only">业务域与技术能力矩阵：14 个业务域、8 项能力、112 个评估点</caption>
+        <colgroup>
+          <col class="col-biz">
+          <col><col><col><col><col><col><col><col>
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="biz" scope="col"><span class="cap__cn">业务 / 能力</span><span class="cap__en">DOMAIN / CAPABILITY</span></th>
+            <th class="cap" scope="col" data-col="0"><span class="cap__cn">缓存</span><span class="cap__en">CACHE</span></th>
+            <th class="cap" scope="col" data-col="1"><span class="cap__cn">分布式锁</span><span class="cap__en">LOCK</span></th>
+            <th class="cap" scope="col" data-col="2"><span class="cap__cn">幂等</span><span class="cap__en">IDEMPOTENCY</span></th>
+            <th class="cap" scope="col" data-col="3"><span class="cap__cn">字段加密</span><span class="cap__en">ENCRYPT</span></th>
+            <th class="cap" scope="col" data-col="4"><span class="cap__cn">脱敏</span><span class="cap__en">MASKING</span></th>
+            <th class="cap" scope="col" data-col="5"><span class="cap__cn">限流</span><span class="cap__en">RATE LIMIT</span></th>
+            <th class="cap" scope="col" data-col="6"><span class="cap__cn">异步 / MQ</span><span class="cap__en">ASYNC</span></th>
+            <th class="cap" scope="col" data-col="7"><span class="cap__cn">审计日志</span><span class="cap__en">AUDIT</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">01</span>登录认证</th>
+            <td data-col="0" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">02</span>用户与角色权限</th>
+            <td data-col="0" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">03</span>线路管理</th>
+            <td data-col="0" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">04</span>班期与库存</th>
+            <td data-col="0" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">05</span>订单创建</th>
+            <td data-col="0" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">06</span>支付回调</th>
+            <td data-col="0" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">07</span>退款审核</th>
+            <td data-col="0" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">08</span>客户数据</th>
+            <td data-col="0" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">09</span>优惠券</th>
+            <td data-col="0" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">10</span>报表统计</th>
+            <td data-col="0" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">11</span>客服工单</th>
+            <td data-col="0" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">12</span>定制报价</th>
+            <td data-col="0" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must has-opt">
+            <th scope="row"><span class="row-no">13</span>文件上传</th>
+            <td data-col="0" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="按需或可降级"><i class="mark mark--opt" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+          <tr class="has-must">
+            <th scope="row"><span class="row-no">14</span>定时任务</th>
+            <td data-col="0" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="1" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="2" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+            <td data-col="3" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="4" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="5" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="6" aria-label="不涉及"><i class="mark mark--none" aria-hidden="true"></i></td>
+            <td data-col="7" aria-label="必需"><i class="mark mark--must" aria-hidden="true"></i></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════════ 02 加密 ══════════ -->
+  <section class="section reveal" id="encryption">
+    <div class="section__head">
+      <div class="section__no">02</div>
+      <div class="section__title">
+        <h2>按业务的数据加密方式</h2>
+        <p class="section__note">
+          按数据类型选择加密与展示策略；密钥统一外置，不进入版本库。
+        </p>
+      </div>
+      <div class="section__aside">10 类数据 / 3 组</div>
+    </div>
+
+    <table class="data-table">
+      <caption class="sr-only">按业务的数据加密方式</caption>
+      <thead>
+        <tr>
+          <th scope="col">数据 / 业务</th>
+          <th scope="col">加密方式</th>
+          <th scope="col">存储形态</th>
+          <th scope="col">展示 / 使用</th>
+          <th scope="col">密钥管理</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="group-row"><th scope="colgroup" colspan="5">认证与凭据<span class="group__count">2 项</span></th></tr>
+        <tr>
+          <td>登录密码</td>
+          <td><code>BCrypt</code>（cost 10–12）</td>
+          <td>密文</td>
+          <td>永不回显</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>接口令牌</td>
+          <td><code>JWT HS256 / RS256</code> 签名</td>
+          <td>客户端持有</td>
+          <td>HTTPS 传输</td>
+          <td>私钥与密钥保护</td>
+        </tr>
+
+        <tr class="group-row"><th scope="colgroup" colspan="5">敏感业务数据<span class="group__count">4 项</span></th></tr>
+        <tr>
+          <td>手机号</td>
+          <td><code>AES-256-GCM</code> + <code>HMAC-SHA256</code> 盲索引</td>
+          <td>密文 + 索引列</td>
+          <td><span class="mono">138****8000</span></td>
+          <td>KMS / 环境变量，定期轮换</td>
+        </tr>
+        <tr>
+          <td>身份证号</td>
+          <td><code>AES-256-GCM</code></td>
+          <td>密文</td>
+          <td><span class="mono">110***********1234</span>，明文需授权并审计</td>
+          <td>KMS</td>
+        </tr>
+        <tr>
+          <td>真实姓名</td>
+          <td>明文 + 展示脱敏（可选加密）</td>
+          <td>明文或密文</td>
+          <td><span class="mono">张*</span></td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>支付回调</td>
+          <td><code>RSA2</code> / <code>HMAC-SHA256</code> 验签</td>
+          <td>不落密钥明文</td>
+          <td>—</td>
+          <td>支付平台密钥</td>
+        </tr>
+
+        <tr class="group-row"><th scope="colgroup" colspan="5">存储与基础设施<span class="group__count">4 项</span></th></tr>
+        <tr>
+          <td>上传文件</td>
+          <td>私有存储 + 预签名 URL</td>
+          <td>私有桶或目录</td>
+          <td>鉴权后限时访问</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>数据库/Redis 密码</td>
+          <td><code>Jasypt</code> 加密 / 环境变量</td>
+          <td>不入 Git</td>
+          <td>启动时注入</td>
+          <td>配置中心 / 环境变量</td>
+        </tr>
+        <tr>
+          <td>日志</td>
+          <td>脱敏规则</td>
+          <td>脱敏后明文</td>
+          <td>手机、证件、卡号、密码脱敏</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>备份文件</td>
+          <td><code>AES-256</code> 加密</td>
+          <td>加密文件</td>
+          <td>恢复时解密</td>
+          <td>离线密钥保管</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ══════════ 03 优先级 ══════════ -->
+  <section class="section reveal" id="priority">
+    <div class="section__head">
+      <div class="section__no">03</div>
+      <div class="section__title">
+        <h2>落地优先级</h2>
+        <p class="section__note">按上线节奏拆分为三个层级，同一层级内按工程量排序。</p>
+      </div>
+      <div class="section__aside">3 层级 / 19 项</div>
+    </div>
+
+    <div class="priority">
+      <article class="prio prio--p0">
+        <div class="prio__head">
+          <span class="prio__code">P0</span>
+          <span class="prio__tag">上线前必须</span>
+          <span class="prio__count">08 项</span>
+        </div>
+        <ol>
+          <li>HTTPS / TLS、安全响应头</li>
+          <li>密码 BCrypt、敏感字段 AES 加密与脱敏</li>
+          <li>接口鉴权与越权校验（RBAC）</li>
+          <li>操作日志与登录日志、日志脱敏</li>
+          <li>支付回调 / 退款 / 下单幂等</li>
+          <li>登录与导出接口限流</li>
+          <li>数据库定期备份与恢复演练</li>
+          <li>配置与密钥外置，禁止提交仓库</li>
+        </ol>
+      </article>
+
+      <article class="prio prio--p1">
+        <div class="prio__head">
+          <span class="prio__code">P1</span>
+          <span class="prio__tag">随业务量补齐</span>
+          <span class="prio__count">06 项</span>
+        </div>
+        <ol>
+          <li>Redis 缓存（字典、权限、线路、看板）</li>
+          <li>Redisson 分布式锁（库存、领券、定时任务）</li>
+          <li>慢 SQL 治理、索引优化、连接池调优</li>
+          <li>Prometheus + Grafana 监控与告警</li>
+          <li>优雅停机、健康检查、CI/CD</li>
+          <li>缓存穿透 / 击穿 / 雪崩治理</li>
+        </ol>
+      </article>
+
+      <article class="prio prio--p2">
+        <div class="prio__head">
+          <span class="prio__code">P2</span>
+          <span class="prio__tag">规模化演进</span>
+          <span class="prio__count">05 项</span>
+        </div>
+        <ol>
+          <li>消息队列（订单超时、异步通知、日志）</li>
+          <li>链路追踪（SkyWalking）</li>
+          <li>读写分离、分库分表</li>
+          <li>多级缓存与热点探测</li>
+          <li>多活与容灾</li>
+        </ol>
+      </article>
+    </div>
+  </section>
+
+  <!-- ══════════ 页脚 ══════════ -->
+  <footer class="colophon">
+    <span>说明：矩阵用于指导各业务模块在生产环境的建设重点，具体规则见方案书第 12 章。</span>
+    <span>与方案书保持同步</span>
+    <span>01 / 01</span>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var table = document.getElementById('capMatrix');
+  var filters = Array.prototype.slice.call(document.querySelectorAll('.filter'));
+  if (!table) return;
+
+  filters.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var mode = btn.getAttribute('data-focus');
+      table.setAttribute('data-focus', mode);
+      filters.forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b === btn));
+      });
+    });
+  });
+
+  var activeCol = null;
+  function clearCol() {
+    if (activeCol === null) return;
+    table.querySelectorAll('.is-col').forEach(function (el) {
+      el.classList.remove('is-col');
+    });
+    activeCol = null;
+  }
+  table.addEventListener('pointerover', function (e) {
+    var el = e.target.closest('[data-col]');
+    if (!el) return;
+    var col = el.getAttribute('data-col');
+    if (col === activeCol) return;
+    clearCol();
+    activeCol = col;
+    table.querySelectorAll('[data-col="' + col + '"]').forEach(function (n) {
+      n.classList.add('is-col');
+    });
+  });
+  table.addEventListener('pointerleave', clearCol);
+
+  var reveals = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window) ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    reveals.forEach(function (el) { el.classList.add('is-in'); });
+    return;
+  }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('is-in');
+      io.unobserve(entry.target);
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+  reveals.forEach(function (el) { io.observe(el); });
+})();
+</script>
+</body>
+</html>

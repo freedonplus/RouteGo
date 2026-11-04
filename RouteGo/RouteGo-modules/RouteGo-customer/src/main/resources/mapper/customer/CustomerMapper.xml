@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.rg.customer.mapper.CustomerMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.rg.customer.entity.Customer">
+        <id column="id" property="id" />
+        <result column="phone" property="phone" />
+        <result column="phone_index" property="phoneIndex" />
+        <result column="openid" property="openid" />
+        <result column="unionid" property="unionid" />
+        <result column="password" property="password" />
+        <result column="nickname" property="nickname" />
+        <result column="avatar" property="avatar" />
+        <result column="real_name" property="realName" />
+        <result column="id_card" property="idCard" />
+        <result column="gender" property="gender" />
+        <result column="birthday" property="birthday" />
+        <result column="email" property="email" />
+        <result column="level" property="level" />
+        <result column="points" property="points" />
+        <result column="order_count" property="orderCount" />
+        <result column="total_amount" property="totalAmount" />
+        <result column="status" property="status" />
+        <result column="register_time" property="registerTime" />
+        <result column="last_login_time" property="lastLoginTime" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+        <result column="deleted" property="deleted" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, phone, phone_index, openid, unionid, password, nickname, avatar, real_name, id_card, gender, birthday, email, level, points, order_count, total_amount, status, register_time, last_login_time, create_time, update_time, deleted
+    </sql>
+
+</mapper>

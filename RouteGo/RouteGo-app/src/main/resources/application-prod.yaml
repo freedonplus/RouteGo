@@ -1,0 +1,43 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:routego}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    hikari:
+      pool-name: routego-prod-pool
+      minimum-idle: 5
+      maximum-pool-size: 30
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      initialization-fail-timeout: 10000
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
+      timeout: 3s
+    # Redis 密码通过标准环境变量 SPRING_DATA_REDIS_PASSWORD 注入
+
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER}
+  producer:
+    group: RouteGo-app-producer
+    send-message-timeout: 3000
+    retry-times-when-send-failed: 3
+
+logging:
+  level:
+    root: info
+    com.rg: info
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+sa-token:
+  cookie:
+    secure: true
+

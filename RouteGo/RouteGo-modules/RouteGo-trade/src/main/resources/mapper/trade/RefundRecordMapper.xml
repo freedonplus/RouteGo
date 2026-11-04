@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.rg.trade.mapper.RefundRecordMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.rg.trade.entity.RefundRecord">
+        <id column="id" property="id" />
+        <result column="order_id" property="orderId" />
+        <result column="refund_no" property="refundNo" />
+        <result column="amount" property="amount" />
+        <result column="reason" property="reason" />
+        <result column="status" property="status" />
+        <result column="apply_time" property="applyTime" />
+        <result column="audit_time" property="auditTime" />
+        <result column="audit_by" property="auditBy" />
+        <result column="audit_remark" property="auditRemark" />
+        <result column="version" property="version" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+        <result column="deleted" property="deleted" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, order_id, refund_no, amount, reason, status, apply_time, audit_time, audit_by, audit_remark, version, create_time, update_time, deleted
+    </sql>
+
+</mapper>

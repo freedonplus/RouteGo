@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.rg.catalog.mapper.RouteMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.rg.catalog.entity.Route">
+        <id column="id" property="id" />
+        <result column="category_id" property="categoryId" />
+        <result column="route_no" property="routeNo" />
+        <result column="title" property="title" />
+        <result column="subtitle" property="subtitle" />
+        <result column="cover_image" property="coverImage" />
+        <result column="destination" property="destination" />
+        <result column="departure_city" property="departureCity" />
+        <result column="longitude" property="longitude" />
+        <result column="latitude" property="latitude" />
+        <result column="address" property="address" />
+        <result column="days" property="days" />
+        <result column="nights" property="nights" />
+        <result column="min_price" property="minPrice" />
+        <result column="original_price" property="originalPrice" />
+        <result column="highlights" property="highlights" />
+        <result column="include_items" property="includeItems" />
+        <result column="exclude_items" property="excludeItems" />
+        <result column="booking_notice" property="bookingNotice" />
+        <result column="sales" property="sales" />
+        <result column="rating" property="rating" />
+        <result column="status" property="status" />
+        <result column="sort" property="sort" />
+        <result column="version" property="version" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+        <result column="deleted" property="deleted" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, category_id, route_no, title, subtitle, cover_image, destination, departure_city, longitude, latitude, address, days, nights, min_price, original_price, highlights, include_items, exclude_items, booking_notice, sales, rating, status, sort, version, create_by, create_time, update_by, update_time, deleted
+    </sql>
+
+</mapper>

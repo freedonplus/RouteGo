@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.rg.trade.mapper.OrdersMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.rg.trade.entity.Orders">
+        <id column="id" property="id" />
+        <result column="order_no" property="orderNo" />
+        <result column="customer_id" property="customerId" />
+        <result column="route_id" property="routeId" />
+        <result column="departure_id" property="departureId" />
+        <result column="route_title" property="routeTitle" />
+        <result column="depart_date" property="departDate" />
+        <result column="traveler_count" property="travelerCount" />
+        <result column="unit_price" property="unitPrice" />
+        <result column="total_amount" property="totalAmount" />
+        <result column="discount_amount" property="discountAmount" />
+        <result column="pay_amount" property="payAmount" />
+        <result column="contact_name" property="contactName" />
+        <result column="contact_phone" property="contactPhone" />
+        <result column="contact_phone_index" property="contactPhoneIndex" />
+        <result column="status" property="status" />
+        <result column="pay_status" property="payStatus" />
+        <result column="pay_time" property="payTime" />
+        <result column="cancel_time" property="cancelTime" />
+        <result column="cancel_reason" property="cancelReason" />
+        <result column="remark" property="remark" />
+        <result column="source" property="source" />
+        <result column="version" property="version" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+        <result column="deleted" property="deleted" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, order_no, customer_id, route_id, departure_id, route_title, depart_date, traveler_count, unit_price, total_amount, discount_amount, pay_amount, contact_name, contact_phone, contact_phone_index, status, pay_status, pay_time, cancel_time, cancel_reason, remark, source, version, create_by, create_time, update_by, update_time, deleted
+    </sql>
+
+</mapper>

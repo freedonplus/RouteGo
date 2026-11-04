@@ -1,0 +1,71 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: RouteGo
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 2592000
+  active-timeout: 1800
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-log: false
+  # 浏览器走 HttpOnly Cookie；App/第三方仍可用 Authorization: Bearer
+  is-read-cookie: true
+  is-read-header: true
+  is-read-body: false
+  cookie:
+    http-only: true
+    same-site: Lax
+    path: /
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.rg.admin.entity,com.rg.catalog.entity,com.rg.trade.entity,com.rg.customer.entity,com.rg.operations.entity
+  global-config:
+    banner: false
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+
+routego:
+  redis:
+    enabled: true
+  mq:
+    enabled: true
+  openapi:
+    enabled: true
+  web:
+    request-logging-enabled: true
+    max-log-text-length: 1000
+  security:
+    # 生产环境请改为实际前端域名，可用 ROUTEGO_SECURITY_ALLOWED_ORIGINS 覆盖
+    allowed-origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+      - http://localhost:3000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
