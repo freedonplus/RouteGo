@@ -336,6 +336,10 @@ export function childCountForMenu(menuId) {
   return state.menus.filter((menu) => menu.parentId === Number(menuId)).length
 }
 
+export function roleCountForMenu(menuId) {
+  return Object.values(state.roleMenus).filter((ids) => ids.includes(Number(menuId))).length
+}
+
 export function roleCountForPermission(permissionId) {
   return Object.values(state.rolePermissions).filter((ids) =>
     ids.includes(Number(permissionId))
@@ -346,6 +350,7 @@ export function buildMenuTree(menus = state.menus) {
   const nodes = menus.map((menu) => ({
     ...menu,
     childCount: childCountForMenu(menu.id),
+    roleCount: roleCountForMenu(menu.id),
     children: [],
   }))
   const map = new Map(nodes.map((node) => [node.id, node]))
