@@ -89,17 +89,11 @@ async function submit() {
       <el-form-item label="内容" prop="content">
         <el-input v-model="form.content" type="textarea" :rows="7" placeholder="公告正文" />
       </el-form-item>
-      <div class="grid grid-cols-3 gap-2">
+      <div class="grid grid-cols-2 gap-2">
         <el-form-item label="类型" prop="type">
           <el-select v-model="form.type" class="w-full">
             <el-option label="通知" :value="1" />
             <el-option label="公告" :value="2" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="form.status" class="w-full">
-            <el-option label="草稿" :value="0" />
-            <el-option label="已发布" :value="1" />
           </el-select>
         </el-form-item>
         <el-form-item label="置顶" prop="isTop">
@@ -110,7 +104,7 @@ async function submit() {
         </el-form-item>
       </div>
       <p class="text-[10px] leading-4 text-[#94a3b8]">
-        状态改为“已发布”不会自动写入发布时间；请在列表行内使用“发布”操作。
+        新建默认草稿；发布/下架请使用列表行内操作，以便写入发布时间。
       </p>
     </el-form>
     <template #footer>
