@@ -130,6 +130,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     @Override
     @Transactional
     public Long create(UserCreateRequest request) {
+        AuthServiceImpl.validatePasswordStrength(request.getPassword());
         if (userMapper.countByUsernameIncludingDeleted(request.getUsername()) > 0) {
             throw new AdminException(ErrorCode.CONFLICT, "账号已被使用（可能已删除）");
         }
@@ -207,6 +208,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (existing == null) {
             throw new AdminException(ErrorCode.NOT_FOUND, "用户不存在");
         }
+        if (hasProtectedRole(id) && !actorHasProtectedRole()) {
+            throw new AdminException(ErrorCode.FORBIDDEN, "无权重置超级管理员密码");
+        }
         SysUser update = new SysUser();
         update.setId(id);
         update.setVersion(existing.getVersion());
@@ -221,6 +225,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     @Override
     @Transactional
     public void assignRoles(Long id, AssignRolesRequest request) {
+        if (userMapper.selectById(id) == null) {
+            throw new AdminException(ErrorCode.NOT_FOUND, "用户不存在");
+        }
         List<Long> roleIds = validateRoleIds(request.getRoleIds());
         replaceRoles(id, roleIds);
         cacheHelper.evictAfterCommit(userCacheKeys(id));
@@ -264,7 +271,21 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (invalid) {
             throw new AdminException("角色不存在或已禁用");
         }
+        boolean requestsProtected = roles.stream()
+                .map(SysRole::getRoleCode)
+                .anyMatch(code -> code != null && PROTECTED_ROLE_CODES.contains(code));
+        if (requestsProtected && !actorHasProtectedRole()) {
+            throw new AdminException(ErrorCode.FORBIDDEN, "无权分配内置角色");
+        }
         return distinct;
+    }
+
+    private boolean actorHasProtectedRole() {
+        try {
+            return StpUtil.getRoleList().stream().anyMatch(PROTECTED_ROLE_CODES::contains);
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     private void replaceRoles(Long userId, List<Long> roleIds) {
@@ -284,7 +305,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
         return roleMapper.selectBatchIds(roleIds).stream()
                 .map(SysRole::getRoleCode)
-                .anyMatch(PROTECTED_ROLE_CODES::contains);
+                .anyMatch(code -> code != null && PROTECTED_ROLE_CODES.contains(code));
     }
 
     private boolean isPlainValue(String value) {

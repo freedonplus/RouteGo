@@ -144,7 +144,6 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         update.setVersion(request.getVersion());
         update.setRoleName(request.getRoleName());
         update.setSort(request.getSort());
-        update.setStatus(request.getStatus());
         update.setRemark(request.getRemark());
         if (roleMapper.updateById(update) == 0) {
             throw new AdminException(ErrorCode.CONFLICT, "数据已被修改，请刷新后重试");
@@ -162,7 +161,8 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         if (role == null) {
             throw new AdminException(ErrorCode.NOT_FOUND, "角色不存在");
         }
-        if (status == 0 && PROTECTED_ROLE_CODES.contains(role.getRoleCode())) {
+        if (status == 0 && role.getRoleCode() != null
+                && PROTECTED_ROLE_CODES.contains(role.getRoleCode())) {
             throw new AdminException(ErrorCode.FORBIDDEN, "内置角色不可停用");
         }
         SysRole update = new SysRole();
@@ -196,7 +196,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         if (role == null) {
             throw new AdminException(ErrorCode.NOT_FOUND, "角色不存在");
         }
-        if (PROTECTED_ROLE_CODES.contains(role.getRoleCode())) {
+        if (role.getRoleCode() != null && PROTECTED_ROLE_CODES.contains(role.getRoleCode())) {
             throw new AdminException(ErrorCode.FORBIDDEN, "内置角色不可删除");
         }
         if (relationMapper.countUsersByRoleId(id) > 0) {
@@ -220,7 +220,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     @Override
     @Transactional
     public void assignMenus(Long id, AssignIdsRequest request) {
-        requireRole(id);
+        assertCanModifyProtectedRole(requireRole(id));
         List<Long> menuIds = request.getIds().stream().distinct().toList();
         if (!menuIds.isEmpty() && menuMapper.selectBatchIds(menuIds).size() != menuIds.size()) {
             throw new AdminException("菜单不存在");
@@ -243,7 +243,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     @Override
     @Transactional
     public void assignPermissions(Long id, AssignIdsRequest request) {
-        requireRole(id);
+        assertCanModifyProtectedRole(requireRole(id));
         List<Long> permissionIds = request.getIds().stream().distinct().toList();
         if (!permissionIds.isEmpty()) {
             List<SysPermission> permissions = permissionMapper.selectBatchIds(permissionIds);
@@ -252,6 +252,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
             if (invalid) {
                 throw new AdminException("权限点不存在或已禁用");
             }
+            assertCanGrant(permissions.stream().map(SysPermission::getPermissionCode).toList());
         }
         rolePermissionMapper.delete(Wrappers.<SysRolePermission>lambdaQuery()
                 .eq(SysRolePermission::getRoleId, id));
@@ -292,9 +293,43 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         return userService.page(query);
     }
 
-    private void requireRole(Long id) {
-        if (roleMapper.selectById(id) == null) {
+    private SysRole requireRole(Long id) {
+        SysRole role = roleMapper.selectById(id);
+        if (role == null) {
             throw new AdminException(ErrorCode.NOT_FOUND, "角色不存在");
+        }
+        return role;
+    }
+
+    private void assertCanModifyProtectedRole(SysRole role) {
+        if (role.getRoleCode() != null
+                && PROTECTED_ROLE_CODES.contains(role.getRoleCode())
+                && !actorHasProtectedRole()) {
+            throw new AdminException(ErrorCode.FORBIDDEN, "无权修改内置角色授权");
+        }
+    }
+
+    private void assertCanGrant(List<String> permissionCodes) {
+        List<String> actorPermissions;
+        try {
+            actorPermissions = StpUtil.getPermissionList();
+        } catch (RuntimeException e) {
+            throw new AdminException(ErrorCode.FORBIDDEN, "无法确认操作人权限");
+        }
+        if (actorPermissions.contains("*")) {
+            return;
+        }
+        if (!actorPermissions.containsAll(permissionCodes)) {
+            throw new AdminException(ErrorCode.FORBIDDEN, "无权授予未持有的权限");
+        }
+    }
+
+    private boolean actorHasProtectedRole() {
+        try {
+            return StpUtil.getRoleList().stream()
+                    .anyMatch(code -> code != null && PROTECTED_ROLE_CODES.contains(code));
+        } catch (RuntimeException e) {
+            return false;
         }
     }
 

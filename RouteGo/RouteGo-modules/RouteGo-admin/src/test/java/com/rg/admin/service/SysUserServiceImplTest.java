@@ -144,6 +144,7 @@ class SysUserServiceImplTest {
 
     @Test
     void assignRolesReplacesAndEvictsCachesAndKicksOut() {
+        when(userMapper.selectById(9L)).thenReturn(user(9L, "bob", null, null));
         SysRole r1 = new SysRole();
         r1.setId(2L);
         r1.setStatus((byte) 1);
@@ -186,6 +187,76 @@ class SysUserServiceImplTest {
 
         verify(userMapper).deleteById(3L);
         verify(userRoleMapper).delete(any());
+    }
+
+    @Test
+    void createRejectsWeakPassword() {
+        UserCreateRequest request = createRequest("alice", List.of(1L));
+        request.setPassword("12345678");
+
+        assertThatThrownBy(() -> service.create(request))
+                .isInstanceOf(AdminException.class)
+                .hasMessageContaining("密码");
+    }
+
+    @Test
+    void createRejectsProtectedRoleForNormalActor() {
+        when(userMapper.countByUsernameIncludingDeleted("alice")).thenReturn(0L);
+        SysRole superAdmin = new SysRole();
+        superAdmin.setId(5L);
+        superAdmin.setRoleCode("super_admin");
+        superAdmin.setStatus((byte) 1);
+        when(roleMapper.selectBatchIds(anyList())).thenReturn(List.of(superAdmin));
+
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getRoleList).thenReturn(List.of("ops"));
+
+            assertThatThrownBy(() -> service.create(createRequest("alice", List.of(5L))))
+                    .isInstanceOfSatisfying(AdminException.class,
+                            ex -> assertThat(ex.getCode()).isEqualTo(403));
+        }
+
+        verify(userMapper, never()).insert(any(SysUser.class));
+    }
+
+    @Test
+    void assignRolesRequiresExistingUser() {
+        when(userMapper.selectById(9L)).thenReturn(null);
+
+        AssignRolesRequest request = new AssignRolesRequest();
+        request.setRoleIds(List.of(2L));
+
+        assertThatThrownBy(() -> service.assignRoles(9L, request))
+                .isInstanceOfSatisfying(AdminException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(404));
+    }
+
+    @Test
+    void resetProtectedAccountRequiresProtectedActor() {
+        SysUser target = user(2L, "root", null, null);
+        when(userMapper.selectById(2L)).thenReturn(target);
+        SysUserRole relation = new SysUserRole();
+        relation.setUserId(2L);
+        relation.setRoleId(5L);
+        when(userRoleMapper.selectList(any())).thenReturn(List.of(relation));
+        SysRole role = new SysRole();
+        role.setId(5L);
+        role.setRoleCode("super_admin");
+        role.setStatus((byte) 1);
+        when(roleMapper.selectBatchIds(anyList())).thenReturn(List.of(role));
+
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setNewPassword("NewPass123");
+
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getRoleList).thenReturn(List.of("ops"));
+
+            assertThatThrownBy(() -> service.resetPassword(2L, request))
+                    .isInstanceOfSatisfying(AdminException.class,
+                            ex -> assertThat(ex.getCode()).isEqualTo(403));
+        }
+
+        verify(userMapper, never()).updateById(any(SysUser.class));
     }
 
     @Test

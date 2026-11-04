@@ -21,9 +21,6 @@ public class RoleUpdateRequest {
     @Schema(description = "排序", example = "0")
     private Integer sort;
 
-    @Schema(description = "状态：0 禁用，1 启用", example = "1")
-    private Byte status;
-
     @Schema(description = "备注")
     private String remark;
 }

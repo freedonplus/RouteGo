@@ -18,6 +18,12 @@ import java.util.List;
 public interface SysPermissionMapper extends BaseMapper<SysPermission> {
 
     /**
+     * 统计权限码占用情况，包含逻辑删除行。
+     */
+    @Select("SELECT COUNT(1) FROM sys_permission WHERE permission_code = #{permissionCode}")
+    long countByPermissionCodeIncludingDeleted(@Param("permissionCode") String permissionCode);
+
+    /**
      * 查询用户通过角色获得的启用状态权限码。
      */
     @Select("""

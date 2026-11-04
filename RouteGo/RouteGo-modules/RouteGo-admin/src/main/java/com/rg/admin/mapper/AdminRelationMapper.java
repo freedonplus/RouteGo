@@ -67,4 +67,20 @@ public interface AdminRelationMapper {
             WHERE rp.permission_id = #{permissionId} AND r.deleted = 0
             """)
     long countRolesByPermissionId(@Param("permissionId") Long permissionId);
+
+    @Select("""
+            SELECT COUNT(DISTINCT rm.role_id)
+            FROM sys_role_menu rm
+            JOIN sys_role r ON r.id = rm.role_id
+            WHERE rm.menu_id = #{menuId} AND r.deleted = 0
+            """)
+    long countRolesByMenuId(@Param("menuId") Long menuId);
+
+    @Select("""
+            SELECT DISTINCT rm.menu_id
+            FROM sys_user_role ur
+            JOIN sys_role_menu rm ON rm.role_id = ur.role_id
+            WHERE ur.user_id = #{userId}
+            """)
+    List<Long> selectMenuIdsByUserId(@Param("userId") Long userId);
 }

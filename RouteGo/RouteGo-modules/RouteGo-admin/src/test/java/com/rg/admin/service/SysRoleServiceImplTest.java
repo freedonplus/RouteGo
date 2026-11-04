@@ -118,7 +118,11 @@ class SysRoleServiceImplTest {
         AssignIdsRequest request = new AssignIdsRequest();
         request.setIds(List.of(11L, 12L));
 
-        service.assignPermissions(2L, request);
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getPermissionList).thenReturn(List.of("system:test:11", "system:test:12"));
+
+            service.assignPermissions(2L, request);
+        }
 
         verify(rolePermissionMapper).delete(any());
         verify(rolePermissionMapper, times(2)).insert(any(SysRolePermission.class));
@@ -149,6 +153,42 @@ class SysRoleServiceImplTest {
                 "admin:SysUser:getRoles:8",
                 "admin:SysUser:getPermissions:8",
                 "admin:SysMenu:getUserTree:8");
+    }
+
+    @Test
+    void assignPermissionsRejectsCodesActorDoesNotHold() {
+        when(roleMapper.selectById(2L)).thenReturn(role(2L, "ops"));
+        SysPermission p = permission(11L);
+        when(permissionMapper.selectBatchIds(anyList())).thenReturn(List.of(p));
+
+        AssignIdsRequest request = new AssignIdsRequest();
+        request.setIds(List.of(11L));
+
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getPermissionList).thenReturn(List.of("system:other:list"));
+
+            assertThatThrownBy(() -> service.assignPermissions(2L, request))
+                    .isInstanceOfSatisfying(AdminException.class,
+                            ex -> assertThat(ex.getCode()).isEqualTo(403));
+        }
+
+        verify(rolePermissionMapper, org.mockito.Mockito.never()).delete(any());
+    }
+
+    @Test
+    void protectedRolePermissionsRequireProtectedActor() {
+        when(roleMapper.selectById(1L)).thenReturn(role(1L, "super_admin"));
+
+        AssignIdsRequest request = new AssignIdsRequest();
+        request.setIds(List.of());
+
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getRoleList).thenReturn(List.of("ops"));
+
+            assertThatThrownBy(() -> service.assignPermissions(1L, request))
+                    .isInstanceOfSatisfying(AdminException.class,
+                            ex -> assertThat(ex.getCode()).isEqualTo(403));
+        }
     }
 
     private SysRole role(Long id, String code) {
