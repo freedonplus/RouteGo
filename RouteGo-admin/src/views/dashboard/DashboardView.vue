@@ -195,7 +195,7 @@ onMounted(load)
                 class="flex items-center gap-2 px-3 py-2"
               >
                 <span
-                  class="h-1.5 w-1.5 shrink-0 rounded-full"
+                  class="h-1.5 w-1.5 shrink-0 rounded"
                   :class="{
                     'bg-[#15803d]': item.status === 'success',
                     'bg-[#b45309]': item.status === 'warning',

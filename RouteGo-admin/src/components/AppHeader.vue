@@ -135,7 +135,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             <el-icon><Bell /></el-icon>
             <span
               v-if="notices.length"
-              class="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#e89aaf]"
+              class="absolute right-1 top-1 h-1.5 w-1.5 rounded bg-[#e89aaf]"
             ></span>
           </button>
         </template>
