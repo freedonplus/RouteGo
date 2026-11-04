@@ -76,8 +76,9 @@ async function submit() {
     if (remember.value) localStorage.setItem(REMEMBER_KEY, form.username.trim())
     else localStorage.removeItem(REMEMBER_KEY)
     ElMessage.success('登录成功')
-    const redirect = route.query.redirect
-    router.replace(typeof redirect === 'string' ? redirect : '/dashboard')
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+    const safe = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/dashboard'
+    router.replace(safe)
   } catch (error) {
     errorMessage.value = error.message || '登录失败'
     await refreshCaptcha()

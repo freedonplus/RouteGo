@@ -58,15 +58,31 @@ function headerValue(config, name) {
   return ''
 }
 
+const SESSION_STORE_KEY = 'rg-mock-sessions'
+
+function persistSessions() {
+  if (typeof sessionStorage === 'undefined') return
+  sessionStorage.setItem(SESSION_STORE_KEY, JSON.stringify([...state.sessions.entries()]))
+}
+
+function restoreSessions() {
+  if (typeof sessionStorage === 'undefined') return
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORE_KEY)
+    if (!raw) return
+    JSON.parse(raw).forEach(([token, userId]) => state.sessions.set(token, userId))
+  } catch {
+    // 损坏的 mock 会话直接忽略
+  }
+}
+
+restoreSessions()
+
 function sessionUser(config) {
   const raw = headerValue(config, 'Authorization')
   const token = raw.replace(/^Bearer\s+/i, '')
   const userId = state.sessions.get(token)
-  if (userId) return userById(userId)
-  // Mock-only convenience: a session token survives a full page reload even
-  // though the in-memory session map does not.
-  const match = token.match(/^mock-token-(\d+)-/)
-  return match ? userById(match[1]) || null : null
+  return userId ? userById(userId) : null
 }
 
 function parseBody(data) {
@@ -220,9 +236,14 @@ route('post', /^\/admin\/auth\/login$/, ({ body, config }) => {
     throw new MockError(401, '账号或密码错误')
   }
   if (user.status !== 1) throw new MockError(403, '账号已禁用')
-  const token = `mock-token-${user.id}-${Math.random().toString(16).slice(2)}`
+  const nonce =
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(16).slice(2)
+  const token = `mock-token-${user.id}-${nonce}`
   state.sessions.set(token, user.id)
   state.currentUserId = user.id
+  persistSessions()
   return ok(
     {
       tokenName: 'Authorization',
@@ -238,6 +259,7 @@ route('post', /^\/admin\/auth\/login$/, ({ body, config }) => {
 route('post', /^\/admin\/auth\/logout$/, ({ config }) => {
   const raw = headerValue(config, 'Authorization').replace(/^Bearer\s+/i, '')
   state.sessions.delete(raw)
+  persistSessions()
   return ok(null, config)
 })
 
