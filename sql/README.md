@@ -29,9 +29,7 @@ Get-Content .\sql\routego.sql -Raw | mysql -u root -p
 
 ## 历史脚本
 
-`routego_admin.sql`、`routego_catalog.sql`、`routego_trade.sql`、
-`routego_customer.sql`、`routego_operations.sql`、`schema.sql` 是原微服务版
-的分库脚本，保留作参考；单体部署请使用 **`routego.sql`**。
+单体部署请使用 **`routego.sql`**。
 
 ## 数据边界
 
