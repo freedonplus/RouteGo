@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppLayout from '@/layouts/AppLayout.vue'
-import ComingSoonView from '@/views/ComingSoonView.vue'
 import LoginView from '@/views/login/LoginView.vue'
+import DashboardView from '@/views/dashboard/DashboardView.vue'
 import DynamicMenuView from '@/views/system/DynamicMenuView.vue'
 import ForbiddenView from '@/views/error/ForbiddenView.vue'
 import NotFoundView from '@/views/error/NotFoundView.vue'
@@ -22,7 +22,7 @@ const routes = [
       {
         path: 'dashboard',
         name: 'dashboard',
-        component: ComingSoonView,
+        component: DashboardView,
         meta: { title: '仪表盘' },
       },
       {

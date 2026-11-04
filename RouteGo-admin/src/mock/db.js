@@ -219,7 +219,7 @@ function buildDashboard() {
       { key: 'logins', label: '今日登录', value: 128, delta: 12.4, unit: '次', hint: '较昨日' },
       { key: 'online', label: '在线用户', value: 23, delta: 3, unit: '人', hint: '近 5 分钟活跃' },
       { key: 'admins', label: '管理员总数', value: 24, delta: 1, unit: '人', hint: '含 2 个内置账号' },
-      { key: 'abnormal', label: '7 日异常登录', value: 6, delta: -2, unit: '次', hint: '失败或锁定' },
+      { key: 'abnormal', label: '7 日异常登录', value: 6, delta: -2, unit: '次', hint: '失败或锁定', invert: true },
     ],
     recentOperations: [
       { id: 901, operTime: iso(0, 10, 42), operName: 'admin', title: '编辑用户', method: 'PUT /admin/system/user/7', status: 1, costTime: 42 },
