@@ -51,6 +51,26 @@ class LogSanitizerTest {
     }
 
     @Test
+    void masksSecondKeyWhenFirstValueHasEscapedQuote() {
+        String json = "{\"token\":\"a\\\", \"password\":\"SECRET\"}";
+
+        String out = LogSanitizer.maskAndTruncate(json, 200);
+
+        assertThat(out).doesNotContain("SECRET");
+    }
+
+    @Test
+    void masksPlainTextKeyValueCredentials() {
+        String text = "password=secret-value, user=alice";
+
+        String out = LogSanitizer.maskAndTruncate(text, 100);
+
+        assertThat(out).doesNotContain("secret-value")
+                .contains("password=***")
+                .contains("alice");
+    }
+
+    @Test
     void toJsonFallbackNeverLeaksToStringContent() {
         Object object = new Object() {
             @Override
