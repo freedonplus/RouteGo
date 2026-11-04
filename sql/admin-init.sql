@@ -1,6 +1,8 @@
 -- RouteGo admin 初始化脚本（可选执行，幂等）
--- 升级后请重新执行本脚本：权限码已统一为 admin:<Controller>:<method>，
--- 脚本会按 id 覆盖旧编码，并保持 sys_role_permission 的关联不变。
+-- 升级后请重新执行本脚本：权限码已统一为 admin:<Controller>:<method>。
+-- 脚本会先删除旧格式（system:*）的权限点及其角色关联，再按固定 id 写入新权限，
+-- 因此 sys_role_permission 中指向旧权限的记录会被清理，需要给角色重新勾选权限。
+-- 如需连菜单/权限目录一起清空，先执行 sql/admin-reset.sql。
 -- 仅创建内置角色、权限点、菜单及授权；不预置任何用户账号。
 -- 需要管理员时，用 BCrypt 生成密码后手工插入：
 --   INSERT INTO sys_user (username, password, nickname, status, deleted)
@@ -15,6 +17,13 @@ ON DUPLICATE KEY UPDATE role_name = VALUES(role_name), status = VALUES(status);
 
 -- 2. 权限点（与 Controller 上的 @SaCheckPermission 一一对应）
 -- 格式：admin:<Controller>:<method>
+-- 先清理旧格式权限点及其角色关联，避免留下 system:* 的孤儿数据
+DELETE rp FROM sys_role_permission rp
+JOIN sys_permission p ON p.id = rp.permission_id
+WHERE p.permission_code LIKE 'system:%';
+
+DELETE FROM sys_permission WHERE permission_code LIKE 'system:%';
+
 INSERT INTO sys_permission (id, permission_name, permission_code, module, status, deleted)
 VALUES
  (1, '仪表盘概览', 'admin:Dashboard:overview', 'admin', 1, 0),

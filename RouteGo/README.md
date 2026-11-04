@@ -280,11 +280,17 @@ TTL ±10% 抖动（防雪崩）。写操作在事务提交后删除相关 key。
 ### 初始化
 
 ```bash
+# 仅更新权限码：直接重跑 init（会清理 system:* 旧权限并重建）
+mysql -u root -p routego < sql/admin-init.sql
+
+# 想彻底清空旧菜单/权限目录时，先 reset 再 init
+mysql -u root -p routego < sql/admin-reset.sql
 mysql -u root -p routego < sql/admin-init.sql
 ```
 
 脚本只创建内置角色、权限点、菜单与授权，不预置用户。管理员密码用 BCrypt 生成后手工插入，
-再把用户加入 `super_admin` 角色。
+再把用户加入 `super_admin` 角色。`admin-reset.sql` 会清空 `sys_role_menu` 和
+`sys_role_permission`，执行后需要重新给角色勾选权限。
 
 ### 测试
 
