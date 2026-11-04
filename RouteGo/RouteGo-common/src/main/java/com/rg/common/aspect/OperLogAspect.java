@@ -51,7 +51,7 @@ public class OperLogAspect {
             return result;
         } catch (Throwable e) {
             record.setStatus(0);
-            record.setErrorMsg(e.getMessage());
+            record.setErrorMsg(LogSanitizer.maskAndTruncate(e.getMessage(), 500));
             throw e;
         } finally {
             record.setCostTime(System.currentTimeMillis() - start);

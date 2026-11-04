@@ -29,13 +29,38 @@ class LogSanitizerTest {
     }
 
     @Test
-    void toJsonFallsBackToStringValue() {
-        Object circular = new Object() {
+    void masksKeysContainingSensitiveWords() {
+        String json = "{\"tokenValue\":\"secret-token\",\"userName\":\"alice\"}";
+
+        String out = LogSanitizer.maskAndTruncate(json, 200);
+
+        assertThat(out).doesNotContain("secret-token")
+                .contains("\"tokenValue\":\"***\"")
+                .contains("\"userName\":\"alice\"");
+    }
+
+    @Test
+    void masksEscapedQuotesInsideSensitiveValues() {
+        String json = "{\"password\":\"p\\\"ss\",\"userName\":\"alice\"}";
+
+        String out = LogSanitizer.maskAndTruncate(json, 200);
+
+        assertThat(out).doesNotContain("p\\\"ss")
+                .contains("\"password\":\"***\"")
+                .contains("\"userName\":\"alice\"");
+    }
+
+    @Test
+    void toJsonFallbackNeverLeaksToStringContent() {
+        Object object = new Object() {
             @Override
             public String toString() {
-                return "fallback";
+                return "password=secret-value";
             }
         };
-        assertThat(LogSanitizer.toJson(circular, 100)).isEqualTo("fallback");
+
+        String out = LogSanitizer.toJson(object, 100);
+
+        assertThat(out).doesNotContain("secret-value").contains("<unserializable");
     }
 }

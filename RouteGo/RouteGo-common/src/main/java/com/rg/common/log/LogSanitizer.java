@@ -13,8 +13,15 @@ public final class LogSanitizer {
 
     private static final int DEFAULT_MAX_LENGTH = 2000;
 
+    private static final String SENSITIVE_WORDS =
+            "password|passwd|pwd|token|secret|phone|idcard|bankcard|credential";
+
+    /**
+     * 匹配“字段名包含敏感词”的 JSON 字符串值；值部分支持转义引号，
+     * 避免 \{"password":"p\"ss"\} 这类内容绕过脱敏。
+     */
     private static final Pattern SENSITIVE_JSON_FIELD = Pattern.compile(
-            "(\"(?:password|token|secret|phone|idCard|bankCard)\"\\s*:\\s*)\"[^\"]*\"",
+            "(\"[^\"]*(?:" + SENSITIVE_WORDS + ")[^\"]*\"\\s*:\\s*)\"(?:\\\\.|[^\"\\\\])*\"",
             Pattern.CASE_INSENSITIVE);
 
     private static final ObjectMapper MAPPER = JsonMapper.builder()
@@ -31,7 +38,8 @@ public final class LogSanitizer {
         try {
             return maskAndTruncate(MAPPER.writeValueAsString(value), maxLength);
         } catch (Exception e) {
-            return maskAndTruncate(String.valueOf(value), maxLength);
+            // 不用 toString 兜底：未知对象的 toString 可能带出密码/令牌
+            return maskAndTruncate("<unserializable:" + value.getClass().getName() + ">", maxLength);
         }
     }
 
