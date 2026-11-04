@@ -11,7 +11,7 @@ export class ApiError extends Error {
   }
 }
 
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 
 // The production API authenticates with an HttpOnly cookie, so the bearer token
 // is kept in memory only. Mock mode has no cookie, so its throwaway session
@@ -28,7 +28,7 @@ function currentToken() {
 }
 
 export const http = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 15000,
   withCredentials: true,
 })

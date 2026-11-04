@@ -103,7 +103,7 @@
 
 ### 6.2 仪表盘 `/dashboard`
 
-数据契约：`GET /admin/dashboard/overview`（当前仅 mock，后端待补）。返回 `{ kpis, recentOperations, loginFailures, systemStatus }`。仪表盘不依赖 `operlog` / `loginlog` 权限，避免非超级管理员 403。
+数据契约：`GET /admin/dashboard/overview`（已实现）。返回 `{ kpis, recentOperations, loginFailures, systemStatus }`，指标来自登录日志、操作日志与用户表。仪表盘不依赖 `operlog` / `loginlog` 权限，避免非超级管理员 403。
 
 - 顶部 4 个紧凑 KPI 卡片（每卡：标签、主数值 `font-mono`、环比、说明）：今日登录、在线用户、管理员总数、7 日异常登录。
 - 主区两栏（`lg:grid-cols-3`）：
@@ -203,16 +203,16 @@ src/
 4. `docs/design/style-contract.md`：Data Dense 硬性风格契约（禁止项 / 必须项 / 自检清单）。
 5. 本设计文档。
 
-## 12. 后端待办（UI 已按扩展契约实现）
+## 12. 后端扩展（已完成）
 
-| 接口 | 需要的变更 | 原因 |
+| 接口 | 变更 | 状态 |
 | --- | --- | --- |
-| `GET /admin/dashboard/overview` | 新增仪表盘聚合接口 | 在线人数、系统状态、KPI 环比无数据源 |
-| `GET /admin/system/user/page` | `SysUserVO` 增加 `roleNames: string[]` | 用户列表直接展示角色，避免 N+1 |
-| `GET /admin/system/role/page` | `SysRoleVO` 增加 `userCount` | 删除按钮启用条件与列表信息量 |
-| `PUT /admin/system/user/status/batch` | 可选：批量启停 | 当前前端循环单条调用 |
-| `GET /admin/system/menu/tree` | 节点增加 `roleCount` | 菜单删除按钮的“角色引用”禁用条件 |
-| `GET /admin/system/permission/page` | `SysPermissionVO` 增加 `roleCount` | 权限点删除按钮的引用禁用条件 |
+| `GET /admin/dashboard/overview` | 新增仪表盘聚合接口 | 已实现 |
+| `GET /admin/system/user/page` | `SysUserVO` 增加 `roleNames` | 已实现（批量查询） |
+| `GET /admin/system/role/page` | `SysRoleVO` 增加 `userCount` | 已实现 |
+| `GET /admin/system/menu/tree` | 节点增加 `childCount`、`roleCount` | 已实现 |
+| `GET /admin/system/permission/page` | `SysPermissionVO` 增加 `roleCount` | 已实现 |
+| `PUT /admin/system/user/status/batch` | 可选批量启停 | 未实现，前端循环单条调用 |
 
 ## 13. Builder 决策（已确定，不再询问）
 

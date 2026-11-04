@@ -6,7 +6,7 @@ import { Refresh } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
 const REMEMBER_KEY = 'rg-remember-username'
-const isMock = import.meta.env.VITE_USE_MOCK !== 'false'
+const isMock = import.meta.env.VITE_USE_MOCK === 'true'
 
 const auth = useAuthStore()
 const route = useRoute()

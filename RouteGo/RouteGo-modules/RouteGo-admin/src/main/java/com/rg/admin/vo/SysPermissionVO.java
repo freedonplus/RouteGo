@@ -32,4 +32,7 @@ public class SysPermissionVO {
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
+
+    @Schema(description = "引用该权限点的角色数量")
+    private Long roleCount;
 }

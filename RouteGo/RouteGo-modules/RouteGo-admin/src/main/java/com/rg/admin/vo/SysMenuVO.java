@@ -50,4 +50,10 @@ public class SysMenuVO {
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
+
+    @Schema(description = "子菜单数量")
+    private Long childCount;
+
+    @Schema(description = "引用该菜单的角色数量")
+    private Long roleCount;
 }

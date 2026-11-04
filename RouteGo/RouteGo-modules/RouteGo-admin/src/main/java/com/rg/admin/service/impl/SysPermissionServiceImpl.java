@@ -189,6 +189,7 @@ public class SysPermissionServiceImpl extends ServiceImpl<SysPermissionMapper, S
         vo.setDescription(permission.getDescription());
         vo.setStatus(permission.getStatus());
         vo.setCreateTime(permission.getCreateTime());
+        vo.setRoleCount(relationMapper.countRolesByPermissionId(permission.getId()));
         return vo;
     }
 }

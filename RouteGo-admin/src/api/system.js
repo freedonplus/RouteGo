@@ -149,7 +149,141 @@ export function setPermissionStatus(id, status) {
   return http.put(`/admin/system/permission/${id}/status`, null, { params: { status } })
 }
 
+/* dict types */
+export function pageDictTypes(params) {
+  return http.get('/admin/system/dict/type/page', { params })
+}
+export function getDictType(id) {
+  return http.get(`/admin/system/dict/type/${id}`)
+}
+export function createDictType(data) {
+  return http.post('/admin/system/dict/type', data)
+}
+export function updateDictType(id, data) {
+  return http.put(`/admin/system/dict/type/${id}`, data)
+}
+export function deleteDictType(id) {
+  return http.delete(`/admin/system/dict/type/${id}`)
+}
+export function setDictTypeStatus(id, status) {
+  return http.put(`/admin/system/dict/type/${id}/status`, null, { params: { status } })
+}
+
+/* dict data */
+export function pageDictData(params) {
+  return http.get('/admin/system/dict/data/page', { params })
+}
+export function listDictDataByType(dictType) {
+  return http.get(`/admin/system/dict/data/list/${dictType}`)
+}
+export function getDictData(id) {
+  return http.get(`/admin/system/dict/data/${id}`)
+}
+export function createDictData(data) {
+  return http.post('/admin/system/dict/data', data)
+}
+export function updateDictData(id, data) {
+  return http.put(`/admin/system/dict/data/${id}`, data)
+}
+export function deleteDictData(id) {
+  return http.delete(`/admin/system/dict/data/${id}`)
+}
+export function setDictDataStatus(id, status) {
+  return http.put(`/admin/system/dict/data/${id}/status`, null, { params: { status } })
+}
+export function setDictDataDefault(id) {
+  return http.put(`/admin/system/dict/data/${id}/default`)
+}
+
+/* configs */
+export function pageConfigs(params) {
+  return http.get('/admin/system/config/page', { params })
+}
+export function getConfig(id) {
+  return http.get(`/admin/system/config/${id}`)
+}
+export function getConfigByKey(configKey) {
+  return http.get(`/admin/system/config/key/${configKey}`)
+}
+export function createConfig(data) {
+  return http.post('/admin/system/config', data)
+}
+export function updateConfig(id, data) {
+  return http.put(`/admin/system/config/${id}`, data)
+}
+export function deleteConfig(id) {
+  return http.delete(`/admin/system/config/${id}`)
+}
+export function batchUpdateConfigs(items) {
+  return http.put('/admin/system/config/batch', { items })
+}
+
 /* notices */
 export function getPublishedNotices() {
   return http.get('/admin/system/notice/published')
+}
+export function pageNotices(params) {
+  return http.get('/admin/system/notice/page', { params })
+}
+export function getNotice(id) {
+  return http.get(`/admin/system/notice/${id}`)
+}
+export function createNotice(data) {
+  return http.post('/admin/system/notice', data)
+}
+export function updateNotice(id, data) {
+  return http.put(`/admin/system/notice/${id}`, data)
+}
+export function deleteNotice(id) {
+  return http.delete(`/admin/system/notice/${id}`)
+}
+export function publishNotice(id) {
+  return http.put(`/admin/system/notice/${id}/publish`)
+}
+export function unpublishNotice(id) {
+  return http.put(`/admin/system/notice/${id}/unpublish`)
+}
+export function setNoticeTop(id, top) {
+  return http.put(`/admin/system/notice/${id}/top`, null, { params: { top } })
+}
+
+/* files */
+export function pageFiles(params) {
+  return http.get('/admin/system/file/page', { params })
+}
+export function getFile(id) {
+  return http.get(`/admin/system/file/${id}`)
+}
+export function uploadFile(file) {
+  const form = new FormData()
+  form.append('file', file)
+  return http.post('/admin/system/file/upload', form)
+}
+export function deleteFile(id) {
+  return http.delete(`/admin/system/file/${id}`)
+}
+export function downloadFile(id) {
+  return http.get(`/admin/system/file/${id}/download`, { responseType: 'blob' })
+}
+
+/* logs */
+export function pageOperLogs(params) {
+  return http.get('/admin/system/oper-log/page', { params })
+}
+export function getOperLog(id) {
+  return http.get(`/admin/system/oper-log/${id}`)
+}
+export function pageLoginLogs(params) {
+  return http.get('/admin/system/login-log/page', { params })
+}
+
+/* user oauth */
+export function getUserOauth(userId) {
+  return http.get(`/admin/system/user-oauth/user/${userId}`)
+}
+export function bindUserOauth(data) {
+  return http.post('/admin/system/user-oauth', data)
+}
+export function unbindUserOauth(id) {
+  return http.delete(`/admin/system/user-oauth/${id}`)
 }

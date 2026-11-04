@@ -5,11 +5,12 @@ const props = defineProps({
   label: { type: String, required: true },
   value: { type: [Number, String], default: 0 },
   unit: { type: String, default: '' },
-  delta: { type: Number, default: 0 },
+  delta: { type: Number, default: null },
   hint: { type: String, default: '' },
   invert: { type: Boolean, default: false },
 })
 
+const hasDelta = computed(() => props.delta !== null && props.delta !== undefined)
 const positive = computed(() =>
   props.invert ? Number(props.delta) <= 0 : Number(props.delta) >= 0
 )
@@ -26,6 +27,7 @@ const deltaText = computed(() => {
       <span class="font-mono text-base font-semibold leading-5 text-[#121212]">{{ value }}</span>
       <span v-if="unit" class="text-[10px] text-[#94a3b8]">{{ unit }}</span>
       <span
+        v-if="hasDelta"
         class="ml-auto inline-flex items-center gap-0.5 font-mono text-[10px]"
         :class="positive ? 'text-[#15803d]' : 'text-[#b91c1c]'"
       >

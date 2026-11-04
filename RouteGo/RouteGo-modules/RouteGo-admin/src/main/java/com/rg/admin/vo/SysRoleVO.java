@@ -35,4 +35,7 @@ public class SysRoleVO {
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
+
+    @Schema(description = "角色下用户数", example = "3")
+    private Long userCount;
 }

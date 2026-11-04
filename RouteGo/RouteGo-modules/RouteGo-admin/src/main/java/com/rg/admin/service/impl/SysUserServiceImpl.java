@@ -33,7 +33,9 @@ import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 系统用户业务实现：唯一性、角色校验、脱敏回写保护、缓存失效与踢下线。
@@ -99,6 +101,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
         Page<SysUser> page = userMapper.selectPage(query.toPage(), wrapper);
         List<SysUserVO> records = page.getRecords().stream().map(this::toVO).toList();
+        fillRoleNames(records);
         return new PageResult<>(records, page.getTotal(), page.getCurrent(), page.getSize(), page.getPages());
     }
 
@@ -340,6 +343,18 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         cache.setCreateBy(user.getCreateBy());
         cache.setUpdateBy(user.getUpdateBy());
         return cache;
+    }
+
+    private void fillRoleNames(List<SysUserVO> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        List<Long> userIds = records.stream().map(SysUserVO::getId).toList();
+        Map<Long, List<String>> byUser = userMapper.selectRoleNamesByUserIds(userIds).stream()
+                .collect(Collectors.groupingBy(
+                        row -> ((Number) row.get("userId")).longValue(),
+                        Collectors.mapping(row -> String.valueOf(row.get("roleName")), Collectors.toList())));
+        records.forEach(vo -> vo.setRoleNames(byUser.getOrDefault(vo.getId(), List.of())));
     }
 
     private SysUserVO toVO(SysUser user) {

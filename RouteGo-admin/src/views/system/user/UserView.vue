@@ -11,6 +11,7 @@ import StatusTag from '@/components/StatusTag.vue'
 import UserFormDrawer from './UserFormDrawer.vue'
 import UserRoleDrawer from './UserRoleDrawer.vue'
 import ResetPasswordDialog from './ResetPasswordDialog.vue'
+import UserOauthDrawer from './UserOauthDrawer.vue'
 
 const auth = useAuthStore()
 const loading = ref(false)
@@ -36,6 +37,8 @@ const roleOpen = ref(false)
 const roleUser = ref(null)
 const passwordOpen = ref(false)
 const passwordUser = ref(null)
+const oauthOpen = ref(false)
+const oauthUser = ref(null)
 
 const canOperate = computed(() =>
   auth.hasPerm([
@@ -130,6 +133,11 @@ function openRoles(row) {
 function openReset(row) {
   passwordUser.value = row
   passwordOpen.value = true
+}
+
+function openOauth(row) {
+  oauthUser.value = row
+  oauthOpen.value = true
 }
 
 async function toggleStatus(row) {
@@ -409,7 +417,7 @@ onMounted(() => {
                 </span>
               </template>
             </el-table-column>
-            <el-table-column v-if="canOperate" label="操作" width="240" fixed="right">
+            <el-table-column v-if="canOperate" label="操作" width="278" fixed="right">
               <template #default="{ row }">
                 <div class="flex items-center gap-0.5">
                   <el-button
@@ -429,6 +437,15 @@ onMounted(() => {
                     @click="openRoles(row)"
                   >
                     角色
+                  </el-button>
+                  <el-button
+                    v-perm="'system:user:edit'"
+                    link
+                    type="primary"
+                    size="small"
+                    @click="openOauth(row)"
+                  >
+                    绑定
                   </el-button>
                   <el-button
                     v-perm="'system:user:reset-password'"
@@ -490,5 +507,6 @@ onMounted(() => {
     />
     <UserRoleDrawer v-model="roleOpen" :user="roleUser" @saved="load" />
     <ResetPasswordDialog v-model="passwordOpen" :user="passwordUser" />
+    <UserOauthDrawer v-model="oauthOpen" :user="oauthUser" />
   </div>
 </template>

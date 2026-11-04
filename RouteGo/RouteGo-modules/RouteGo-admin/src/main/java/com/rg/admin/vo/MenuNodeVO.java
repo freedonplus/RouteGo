@@ -46,6 +46,12 @@ public class MenuNodeVO {
     @Schema(description = "状态：0 禁用，1 启用")
     private Byte status;
 
+    @Schema(description = "子菜单数量")
+    private Long childCount;
+
+    @Schema(description = "引用该菜单的角色数量")
+    private Long roleCount;
+
     @Schema(description = "子节点")
     private List<MenuNodeVO> children = new ArrayList<>();
 }

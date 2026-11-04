@@ -342,6 +342,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     private SysRoleVO toVO(SysRole role) {
         SysRoleVO vo = new SysRoleVO();
         copy(role, vo);
+        vo.setUserCount(relationMapper.countUsersByRoleId(role.getId()));
         return vo;
     }
 

@@ -248,6 +248,8 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             MenuNodeVO node = new MenuNodeVO();
             copy(child, node);
             node.setChildren(buildChildren(child.getId(), byParent));
+            node.setChildCount((long) node.getChildren().size());
+            node.setRoleCount(relationMapper.countRolesByMenuId(child.getId()));
             nodes.add(node);
         }
         return nodes;
@@ -281,5 +283,8 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         vo.setStatus(menu.getStatus());
         vo.setVersion(menu.getVersion());
         vo.setCreateTime(menu.getCreateTime());
+        vo.setChildCount(menuMapper.selectCount(
+                Wrappers.<SysMenu>lambdaQuery().eq(SysMenu::getParentId, menu.getId())));
+        vo.setRoleCount(relationMapper.countRolesByMenuId(menu.getId()));
     }
 }
