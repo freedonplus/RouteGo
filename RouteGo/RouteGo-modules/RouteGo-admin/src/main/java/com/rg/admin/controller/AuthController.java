@@ -36,6 +36,9 @@ public class AuthController {
         this.authService = authService;
     }
 
+
+
+
     /**
      * 账号密码登录。
      * <p>
@@ -60,6 +63,9 @@ public class AuthController {
         return Result.success(authService.login(request, resolveClientIp(servletRequest)));
     }
 
+
+
+
     /**
      * 注销当前会话，删除服务端存储的 Token。
      */
@@ -77,6 +83,9 @@ public class AuthController {
         return Result.success();
     }
 
+
+
+
     /**
      * 当前登录用户及其角色、权限码，数据来自 Sa-Token 会话。
      */
@@ -93,6 +102,11 @@ public class AuthController {
     public Result<CurrentUserInfo> me() {
         return Result.success(authService.currentUser());
     }
+
+
+
+
+
 
     private String resolveClientIp(HttpServletRequest request) {
         String forwarded = request.getHeader("X-Forwarded-For");
