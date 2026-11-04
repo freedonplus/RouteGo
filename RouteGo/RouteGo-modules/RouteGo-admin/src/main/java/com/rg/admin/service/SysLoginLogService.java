@@ -1,16 +1,15 @@
 package com.rg.admin.service;
 
-import com.rg.admin.entity.SysLoginLog;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.rg.admin.entity.SysLoginLog;
 
 /**
- * <p>
- * 登录日志表 服务类
- * </p>
- *
- * @author RouteGo
- * @since 2026-11-03
+ * 登录日志服务。
  */
 public interface SysLoginLogService extends IService<SysLoginLog> {
 
+    /**
+     * 异步记录一次登录结果，失败不影响登录主流程。
+     */
+    void record(String username, String ip, boolean success, String msg);
 }

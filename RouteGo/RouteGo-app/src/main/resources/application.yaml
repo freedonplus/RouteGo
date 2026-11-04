@@ -63,6 +63,8 @@ routego:
       - http://localhost:5173
       - http://127.0.0.1:5173
       - http://localhost:3000
+    # 只有直接对端命中这些代理地址时，才信任 X-Forwarded-For
+    trusted-proxies: []
 
 management:
   endpoints:

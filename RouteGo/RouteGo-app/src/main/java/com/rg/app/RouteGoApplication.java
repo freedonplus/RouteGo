@@ -3,6 +3,7 @@ package com.rg.app;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
  * RouteGo 单体多模块应用唯一启动入口。
@@ -18,6 +19,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "com.rg.customer.mapper",
         "com.rg.operations.mapper"
 })
+@EnableAsync
 public class RouteGoApplication {
 
     public static void main(String[] args) {

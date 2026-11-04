@@ -2,19 +2,24 @@ package com.rg.admin.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
+import com.rg.admin.config.AdminSecurityProperties;
+import com.rg.admin.dto.ChangePasswordRequest;
 import com.rg.admin.dto.LoginRequest;
 import com.rg.admin.service.AuthService;
+import com.rg.admin.service.CaptchaService;
+import com.rg.admin.vo.CaptchaResponse;
 import com.rg.admin.vo.CurrentUserInfo;
 import com.rg.admin.vo.LoginResult;
+import com.rg.common.util.IpUtils;
 import com.rg.common.util.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,49 +27,59 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 后台登录认证。
  * <p>
- * {@code /login} 不要求 Token；{@code /logout} 和 {@code /me} 通过
+ * {@code /captcha}、{@code /login} 不要求 Token；其余接口通过
  * {@link SaCheckLogin} 校验，未登录返回 401。
  */
-@Tag(name = "后台认证", description = "后台登录、登出与当前用户信息")
+@Tag(name = "后台认证", description = "验证码、登录、登出、当前用户与修改密码")
 @RestController
 @RequestMapping("/admin/auth")
 public class AuthController {
 
     private final AuthService authService;
+    private final CaptchaService captchaService;
+    private final AdminSecurityProperties securityProperties;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService,
+                          CaptchaService captchaService,
+                          AdminSecurityProperties securityProperties) {
         this.authService = authService;
+        this.captchaService = captchaService;
+        this.securityProperties = securityProperties;
     }
 
-
-
+    /**
+     * 生成 4 位字符验证码，答案在 Redis 保存 2 分钟且只能使用一次。
+     */
+    @Operation(summary = "获取图形验证码", description = "返回验证码标识与 PNG 图片的 Base64 编码。",
+            security = {})
+    @GetMapping("/captcha")
+    public Result<CaptchaResponse> captcha() {
+        return Result.success(captchaService.generate());
+    }
 
     /**
      * 账号密码登录。
      * <p>
-     * 先按 BCrypt 校验密码，再检查账号是否启用；成功后记录登录时间与来源 IP。
-     * 浏览器同时收到名为 {@code Authorization} 的 HttpOnly Cookie，App/第三方
-     * 使用响应体中的 {@code tokenValue} 走 Bearer 头。
+     * 校验顺序：验证码 → 失败锁定 → 账号密码 → 账号状态；成功后记录登录时间与来源 IP。
+     * 浏览器同时收到名为 {@code Authorization} 的 HttpOnly Cookie。
      */
     @Operation(
             summary = "登录",
-            description = "BCrypt 校验账号密码，成功后签发 Sa-Token 并记录登录时间与来源 IP；"
+            description = "校验验证码与账号密码（BCrypt），成功后签发 Sa-Token 并记录登录时间与来源 IP；"
                     + "响应头写入 Authorization HttpOnly Cookie。",
             security = {},
             responses = {
                     @ApiResponse(responseCode = "200", description = "登录成功"),
-                    @ApiResponse(responseCode = "400", description = "账号或密码为空"),
+                    @ApiResponse(responseCode = "400", description = "验证码错误或参数为空"),
                     @ApiResponse(responseCode = "401", description = "账号不存在或密码错误"),
-                    @ApiResponse(responseCode = "403", description = "账号已被禁用")
+                    @ApiResponse(responseCode = "403", description = "账号已被禁用"),
+                    @ApiResponse(responseCode = "429", description = "登录失败次数过多，已锁定")
             })
     @PostMapping("/login")
     public Result<LoginResult> login(@Valid @RequestBody LoginRequest request,
                                      HttpServletRequest servletRequest) {
         return Result.success(authService.login(request, resolveClientIp(servletRequest)));
     }
-
-
-
 
     /**
      * 注销当前会话，删除服务端存储的 Token。
@@ -83,9 +98,6 @@ public class AuthController {
         return Result.success();
     }
 
-
-
-
     /**
      * 当前登录用户及其角色、权限码，数据来自 Sa-Token 会话。
      */
@@ -103,16 +115,26 @@ public class AuthController {
         return Result.success(authService.currentUser());
     }
 
-
-
-
-
+    /**
+     * 修改本人密码，成功后所有会话失效。
+     */
+    @Operation(
+            summary = "修改本人密码",
+            description = "校验旧密码与新密码强度（8–20 位，至少含字母和数字），"
+                    + "修改成功后该用户全部会话失效。",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "修改成功"),
+                    @ApiResponse(responseCode = "400", description = "旧密码错误或新密码强度不足"),
+                    @ApiResponse(responseCode = "401", description = "未登录")
+            })
+    @SaCheckLogin
+    @PutMapping("/password")
+    public Result<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(request.getOldPassword(), request.getNewPassword());
+        return Result.success();
+    }
 
     private String resolveClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (StringUtils.hasText(forwarded)) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        return IpUtils.resolveClientIp(request, securityProperties.getTrustedProxies());
     }
 }
