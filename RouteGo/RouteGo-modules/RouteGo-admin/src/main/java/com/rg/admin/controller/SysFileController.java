@@ -1,6 +1,5 @@
 package com.rg.admin.controller;
 
-import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.rg.admin.dto.FileQuery;
 import com.rg.admin.service.SysFileService;
@@ -13,11 +12,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.nio.charset.StandardCharsets;
 
 @Tag(name = "文件管理", description = "文件上传、分页、下载与删除")
 @RestController
@@ -53,15 +55,17 @@ public class SysFileController {
     }
 
     @Operation(summary = "下载文件")
-    @SaCheckLogin
+    @SaCheckPermission("system:file:list")
     @GetMapping("/{id}/download")
     public ResponseEntity<Resource> download(@PathVariable Long id) {
         SysFileVO file = fileService.detail(id);
         Resource resource = fileService.download(id);
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(file.getOriginalName(), StandardCharsets.UTF_8)
+                .build();
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + file.getOriginalName() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(resource);
     }
 

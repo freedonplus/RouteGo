@@ -74,7 +74,7 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
     @Override
     @Transactional
     public SysFileVO upload(MultipartFile file) {
-        String originalName = file.getOriginalFilename();
+        String originalName = sanitizeName(file.getOriginalFilename());
         String extension = extensionOf(originalName);
         if (!properties.getAllowedExtensions().contains(extension)) {
             throw new AdminException("不支持的文件类型");
@@ -138,6 +138,13 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
             throw new AdminException(ErrorCode.NOT_FOUND, "文件不存在");
         }
         return file;
+    }
+
+    private String sanitizeName(String name) {
+        if (name == null) {
+            return "file";
+        }
+        return name.replaceAll("[\\\\/:*?\"<>|\\r\\n]", "_");
     }
 
     private String extensionOf(String name) {

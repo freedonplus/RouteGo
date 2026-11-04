@@ -157,6 +157,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (existing == null) {
             throw new AdminException(ErrorCode.NOT_FOUND, "用户不存在");
         }
+        if (hasProtectedRole(id) && !actorHasProtectedRole()) {
+            throw new AdminException(ErrorCode.FORBIDDEN, "无权修改超级管理员信息");
+        }
         SysUser update = new SysUser();
         update.setId(id);
         update.setVersion(request.getVersion());
