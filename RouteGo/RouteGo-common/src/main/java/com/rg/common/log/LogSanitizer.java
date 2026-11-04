@@ -16,7 +16,7 @@ public final class LogSanitizer {
     private static final int MAX_SCAN_LENGTH = 10000;
 
     private static final String SENSITIVE_WORDS =
-            "password|passwd|pwd|token|secret|phone|idcard|bankcard|credential";
+            "password|passwd|pwd|token|secret|phone|idcard|bankcard|credential|configvalue|configkey";
 
     /**
      * 匹配“字段名包含敏感词”的 JSON 字符串值。字段名长度受限、量词使用

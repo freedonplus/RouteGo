@@ -232,3 +232,64 @@ java -jar RouteGo-app/target/RouteGo-app-0.0.1-SNAPSHOT.jar
   `RouteGo-modules`，`RouteGo-gateway` 已删除。
 - `doc/方案书.md` 仍是微服务版设计文档，单体版以本 README 与
   `sql/routego.sql` 为准。
+
+## Admin module (implemented)
+
+后台模块已按 `doc/superpowers/specs/2026-11-04-admin-module-design.md` 落地。
+
+### Endpoints
+
+| 模块 | 路径 |
+| --- | --- |
+| 认证 | `GET /admin/auth/captcha`、`POST /admin/auth/login`、`POST /admin/auth/logout`、`GET /admin/auth/me`、`PUT /admin/auth/password` |
+| 用户 | `/admin/system/user`（page、详情、增删改、status、password、roles） |
+| 角色 | `/admin/system/role`（page、详情、增删改、status、menus、permissions、users） |
+| 菜单 | `/admin/system/menu`（tree、user-tree、详情、增删改、status、visible） |
+| 权限点 | `/admin/system/permission`（page、grouped、详情、增删改、status） |
+| 字典 | `/admin/system/dict/type`、`/admin/system/dict/data` |
+| 参数 | `/admin/system/config`（page、key、详情、增删改、batch） |
+| 公告 | `/admin/system/notice`（page、published、详情、增删改、publish/unpublish/top） |
+| 文件 | `/admin/system/file`（upload、page、详情、download、delete） |
+| 日志 | `/admin/system/oper-log`、`/admin/system/login-log` |
+| 第三方绑定 | `/admin/system/user-oauth` |
+
+### 登录与验证码
+
+1. `GET /api/admin/auth/captcha` 返回 `{uuid, image}`，`image` 是 4 位字符 PNG 的 Base64。
+2. 登录请求体：`{username, password, captchaUuid, captchaCode}`。
+3. 验证码在 Redis 保存 2 分钟且只能使用一次；登录失败 5 次锁定 10 分钟。
+
+### 缓存 key 规范
+
+格式 `[模块]:[表/控制器]:[方法]:[参数]`，全部定义在
+`com.rg.common.constant.CacheKeyConstants`，例如：
+
+- `admin:SysUser:getById:1`
+- `admin:SysDictData:listByType:sys_user_status`
+- `admin:SysConfig:getByKey:site.name`
+- `lock:cache:rebuild:{key}`
+
+统一使用 `CacheHelper.getOrLoad`：空值缓存 60 秒（防穿透）、Redisson 互斥锁重建（防击穿）、
+TTL ±10% 抖动（防雪崩）。写操作在事务提交后删除相关 key。
+
+### 脱敏
+
+`@Sensitive(PHONE/EMAIL/NAME/ID_CARD/BANK_CARD)` 加在 VO 字段上，仅影响 JSON 输出；
+数据库与缓存保持明文。编辑接口收到带 `*` 的掩码值时视为不修改。
+
+### 初始化
+
+```bash
+mysql -u root -p routego < sql/admin-init.sql
+```
+
+脚本只创建内置角色、权限点、菜单与授权，不预置用户。管理员密码用 BCrypt 生成后手工插入，
+再把用户加入 `super_admin` 角色。
+
+### 测试
+
+```bash
+cd RouteGo
+PATH="/usr/bin:$PATH" JAVA_HOME="/d/Program Files/java/java21" \
+  ./mvnw -pl RouteGo-modules/RouteGo-admin -am test
+```
