@@ -181,6 +181,11 @@ body {
   background: var(--rg-surface-alt);
 }
 
+/* 菜单树：展开/折叠统一由表格上方按钮控制 */
+.rg-menu-table .el-table__expand-icon {
+  display: none !important;
+}
+
 .el-tag {
   border-radius: 3px;
   font-size: 11px;

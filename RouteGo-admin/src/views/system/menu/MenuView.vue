@@ -1,17 +1,21 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { Expand, Fold, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { deleteMenu, getMenuTree, setMenuStatus, setMenuVisible } from '@/api/system'
+import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import { resolveMenuIcon } from '@/components/menu-icons'
 import MenuFormDrawer from './MenuFormDrawer.vue'
 
+const auth = useAuthStore()
 const loading = ref(false)
 const tree = ref([])
 const filters = reactive({ keyword: '', type: '' })
 const tableKey = ref(0)
+const expandAll = ref(true)
+const tableRef = ref()
 
 const formOpen = ref(false)
 const formMode = ref('create')
@@ -45,10 +49,39 @@ const filtered = computed(() =>
   filterTree(tree.value, filters.keyword.trim(), filters.type)
 )
 
+function setAllExpanded(expanded) {
+  const walk = (nodes) => {
+    nodes.forEach((node) => {
+      tableRef.value?.toggleRowExpansion(node, expanded)
+      if (node.children?.length) walk(node.children)
+    })
+  }
+  walk(filtered.value)
+}
+
+async function refreshTable() {
+  tableKey.value += 1
+  await nextTick()
+  setAllExpanded(expandAll.value)
+}
+
+async function refreshSession() {
+  try {
+    await auth.loadSession()
+  } catch {
+    // 会话失效时拦截器会跳转登录
+  }
+}
+
+async function onSaved() {
+  await load()
+  await refreshSession()
+}
+
 watch(
   () => [filters.keyword, filters.type],
   () => {
-    tableKey.value += 1
+    refreshTable()
   }
 )
 
@@ -56,7 +89,7 @@ async function load() {
   loading.value = true
   try {
     tree.value = (await getMenuTree()) || []
-    tableKey.value += 1
+    await refreshTable()
   } catch (error) {
     ElMessage.error(error.message || '菜单树加载失败')
     tree.value = []
@@ -68,6 +101,11 @@ async function load() {
 function resetFilters() {
   filters.keyword = ''
   filters.type = ''
+}
+
+function toggleExpandAll() {
+  expandAll.value = !expandAll.value
+  setAllExpanded(expandAll.value)
 }
 
 function openCreate(parentRow = null) {
@@ -93,6 +131,7 @@ async function toggleField(row, field, enabled) {
     ElMessage.success(
       field === 'visible' ? (value ? '已显示' : '已隐藏') : value ? '已启用' : '已禁用'
     )
+    await refreshSession()
   } catch (error) {
     ElMessage.error(error.message || '操作失败')
     load()
@@ -113,6 +152,7 @@ async function remove(row) {
     await deleteMenu(row.id)
     ElMessage.success('菜单已删除')
     load()
+    await refreshSession()
   } catch (error) {
     ElMessage.error(error.message || '删除失败')
   }
@@ -148,7 +188,7 @@ onMounted(load)
             placeholder="名称 / 路径 / 权限码"
             clearable
             style="width: 200px"
-            @keyup.enter="tableKey += 1"
+            @keyup.enter="refreshTable"
           />
         </label>
         <label class="flex flex-col gap-0.5">
@@ -161,7 +201,10 @@ onMounted(load)
           </el-select>
         </label>
         <template #actions>
-          <el-button size="small" type="primary" :icon="Search" @click="tableKey += 1">
+          <el-button size="small" :icon="expandAll ? Fold : Expand" @click="toggleExpandAll">
+            {{ expandAll ? '折叠全部' : '展开全部' }}
+          </el-button>
+          <el-button size="small" type="primary" :icon="Search" @click="refreshTable">
             查询
           </el-button>
           <el-button size="small" @click="resetFilters">重置</el-button>
@@ -171,7 +214,9 @@ onMounted(load)
       <div class="rg-card min-w-0">
         <div class="rg-scroll-x">
           <el-table
+            ref="tableRef"
             :key="tableKey"
+            class="rg-menu-table"
             v-loading="loading"
             :data="filtered"
             size="small"
@@ -310,7 +355,7 @@ onMounted(load)
       :mode="formMode"
       :menu-id="formMenuId"
       :parent-id="formParentId"
-      @saved="load"
+      @saved="onSaved"
     />
   </div>
 </template>

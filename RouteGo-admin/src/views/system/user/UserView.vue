@@ -209,6 +209,15 @@ function onSizeChange() {
   load()
 }
 
+async function refreshAfterRoleChange() {
+  await load()
+  try {
+    await auth.loadSession()
+  } catch {
+    // 会话失效时拦截器会跳转登录
+  }
+}
+
 function onSelectionChange(value) {
   selection.value = value
 }
@@ -505,7 +514,7 @@ onMounted(() => {
       :user-id="formUserId"
       @saved="load"
     />
-    <UserRoleDrawer v-model="roleOpen" :user="roleUser" @saved="load" />
+    <UserRoleDrawer v-model="roleOpen" :user="roleUser" @saved="refreshAfterRoleChange" />
     <ResetPasswordDialog v-model="passwordOpen" :user="passwordUser" />
     <UserOauthDrawer v-model="oauthOpen" :user="oauthUser" />
   </div>

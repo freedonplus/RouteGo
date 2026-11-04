@@ -1,7 +1,10 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import AppSidebar from '@/components/AppSidebar.vue'
 import AppHeader from '@/components/AppHeader.vue'
+
+const auth = useAuthStore()
 
 const collapsed = ref(false)
 const mobileOpen = ref(false)
@@ -48,7 +51,7 @@ onBeforeUnmount(() => {
     <div class="flex min-w-0 flex-1 flex-col">
       <AppHeader :collapsed="collapsed" @toggle="handleToggle" />
       <main class="min-w-0 flex-1">
-        <router-view />
+        <router-view :key="auth.sessionVersion" />
       </main>
     </div>
   </div>

@@ -64,6 +64,15 @@ function search() {
   load()
 }
 
+async function refreshAfterAuthChange() {
+  await load()
+  try {
+    await auth.loadSession()
+  } catch {
+    // 会话失效时拦截器会跳转登录
+  }
+}
+
 function resetFilters() {
   Object.assign(filters, { roleName: '', roleCode: '', status: '' })
   page.pageNum = 1
@@ -348,8 +357,12 @@ onMounted(load)
     </div>
 
     <RoleFormDrawer v-model="formOpen" :mode="formMode" :role-id="formRoleId" @saved="load" />
-    <RoleMenuDrawer v-model="menuOpen" :role="currentRole" @saved="load" />
-    <RolePermissionDrawer v-model="permissionOpen" :role="currentRole" @saved="load" />
+    <RoleMenuDrawer v-model="menuOpen" :role="currentRole" @saved="refreshAfterAuthChange" />
+    <RolePermissionDrawer
+      v-model="permissionOpen"
+      :role="currentRole"
+      @saved="refreshAfterAuthChange"
+    />
     <RoleUsersDrawer v-model="usersOpen" :role="currentRole" />
   </div>
 </template>

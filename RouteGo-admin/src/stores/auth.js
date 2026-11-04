@@ -26,6 +26,7 @@ export const useAuthStore = defineStore('auth', {
     user: null,
     menus: [],
     loaded: false,
+    sessionVersion: 0,
   }),
 
   getters: {
@@ -54,6 +55,7 @@ export const useAuthStore = defineStore('auth', {
       this.user = me
       this.menus = menus || []
       this.loaded = true
+      this.sessionVersion += 1
       return me
     },
 

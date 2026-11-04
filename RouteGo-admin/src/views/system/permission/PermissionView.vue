@@ -8,11 +8,13 @@ import {
   pagePermissions,
   setPermissionStatus,
 } from '@/api/system'
+import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import PermissionTable from './PermissionTable.vue'
 import PermissionFormDrawer from './PermissionFormDrawer.vue'
 
+const auth = useAuthStore()
 const viewMode = ref('list')
 const loading = ref(false)
 const rows = ref([])
@@ -68,6 +70,19 @@ function search() {
   loadList()
 }
 
+async function refreshSession() {
+  try {
+    await auth.loadSession()
+  } catch {
+    // 会话失效时拦截器会跳转登录
+  }
+}
+
+async function onSaved() {
+  refresh()
+  await refreshSession()
+}
+
 function resetFilters() {
   Object.assign(filters, { permissionName: '', permissionCode: '', module: '', status: '' })
   page.pageNum = 1
@@ -95,6 +110,7 @@ async function toggleStatus(row) {
     await setPermissionStatus(row.id, next)
     ElMessage.success(`已${action} ${row.permissionName}`)
     refresh()
+    await refreshSession()
   } catch (error) {
     ElMessage.error(error.message || `${action}失败`)
   }
@@ -114,6 +130,7 @@ async function remove(row) {
     await deletePermission(row.id)
     ElMessage.success('权限点已删除')
     refresh()
+    await refreshSession()
   } catch (error) {
     ElMessage.error(error.message || '删除失败')
   }
@@ -258,7 +275,7 @@ onMounted(loadList)
       v-model="formOpen"
       :mode="formMode"
       :permission-id="formPermissionId"
-      @saved="refresh"
+      @saved="onSaved"
     />
   </div>
 </template>

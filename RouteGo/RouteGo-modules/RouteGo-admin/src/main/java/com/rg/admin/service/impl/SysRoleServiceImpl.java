@@ -35,6 +35,8 @@ import com.rg.common.web.PageQuery;
 import com.rg.common.web.PageResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
@@ -235,9 +237,11 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
 
         List<String> keys = new ArrayList<>();
         keys.add(String.format(CacheKeyConstants.Admin.ROLE_MENUS, id));
-        relationMapper.selectUserIdsByRoleId(id)
-                .forEach(userId -> keys.add(String.format(CacheKeyConstants.Admin.USER_MENU_TREE, userId)));
+        List<Long> affectedUserIds = relationMapper.selectUserIdsByRoleId(id);
+        affectedUserIds.forEach(userId ->
+                keys.add(String.format(CacheKeyConstants.Admin.USER_MENU_TREE, userId)));
         cacheHelper.evictAfterCommit(keys.toArray(String[]::new));
+        logoutUsersAfterCommit(affectedUserIds);
     }
 
     @Override
@@ -265,9 +269,11 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
 
         List<String> keys = new ArrayList<>();
         keys.add(String.format(CacheKeyConstants.Admin.ROLE_PERMISSIONS, id));
-        relationMapper.selectUserIdsByRoleId(id)
-                .forEach(userId -> keys.add(String.format(CacheKeyConstants.Admin.USER_PERMISSIONS, userId)));
+        List<Long> affectedUserIds = relationMapper.selectUserIdsByRoleId(id);
+        affectedUserIds.forEach(userId ->
+                keys.add(String.format(CacheKeyConstants.Admin.USER_PERMISSIONS, userId)));
         cacheHelper.evictAfterCommit(keys.toArray(String[]::new));
+        logoutUsersAfterCommit(affectedUserIds);
     }
 
     @Override
@@ -330,6 +336,23 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
                     .anyMatch(code -> code != null && PROTECTED_ROLE_CODES.contains(code));
         } catch (RuntimeException e) {
             return false;
+        }
+    }
+
+    private void logoutUsersAfterCommit(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return;
+        }
+        Runnable action = () -> userIds.forEach(StpUtil::logout);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
         }
     }
 
