@@ -4,4 +4,5 @@ com.rg.common.autoconfigure.RouteGoSpringDocAutoConfiguration
 com.rg.common.autoconfigure.RouteGoMybatisPlusAutoConfiguration
 com.rg.common.autoconfigure.RouteGoRedisAutoConfiguration
 com.rg.common.autoconfigure.RouteGoRedissonAutoConfiguration
+com.rg.common.autoconfigure.RouteGoCacheAutoConfiguration
 com.rg.common.autoconfigure.RouteGoRocketMqAutoConfiguration

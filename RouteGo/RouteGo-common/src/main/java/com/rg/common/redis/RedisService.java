@@ -46,6 +46,13 @@ public class RedisService {
         return redisTemplate.delete(key);
     }
 
+    /**
+     * 原子读取并删除，用于一次性凭证（验证码、幂等键）。
+     */
+    public <T> T getAndDelete(String key) {
+        return (T) redisTemplate.opsForValue().getAndDelete(key);
+    }
+
     public Long delete(Collection<String> keys) {
         return redisTemplate.delete(keys);
     }
