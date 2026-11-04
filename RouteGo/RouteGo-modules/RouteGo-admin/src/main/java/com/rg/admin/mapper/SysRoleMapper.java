@@ -18,6 +18,12 @@ import java.util.List;
 public interface SysRoleMapper extends BaseMapper<SysRole> {
 
     /**
+     * 统计角色编码占用情况，包含逻辑删除行。
+     */
+    @Select("SELECT COUNT(1) FROM sys_role WHERE role_code = #{roleCode}")
+    long countByRoleCodeIncludingDeleted(@Param("roleCode") String roleCode);
+
+    /**
      * 查询用户拥有的启用状态角色编码。
      */
     @Select("""
