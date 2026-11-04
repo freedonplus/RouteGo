@@ -57,7 +57,11 @@ function sessionUser(config) {
   const raw = headerValue(config, 'Authorization')
   const token = raw.replace(/^Bearer\s+/i, '')
   const userId = state.sessions.get(token)
-  return userId ? userById(userId) : null
+  if (userId) return userById(userId)
+  // Mock-only convenience: a session token survives a full page reload even
+  // though the in-memory session map does not.
+  const match = token.match(/^mock-token-(\d+)-/)
+  return match ? userById(match[1]) || null : null
 }
 
 function parseBody(data) {

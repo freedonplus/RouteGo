@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppLayout from '@/layouts/AppLayout.vue'
 import ComingSoonView from '@/views/ComingSoonView.vue'
+import LoginView from '@/views/login/LoginView.vue'
 import DynamicMenuView from '@/views/system/DynamicMenuView.vue'
 import ForbiddenView from '@/views/error/ForbiddenView.vue'
 import NotFoundView from '@/views/error/NotFoundView.vue'
@@ -10,7 +11,7 @@ const routes = [
   {
     path: '/login',
     name: 'login',
-    component: ComingSoonView,
+    component: LoginView,
     meta: { public: true, title: '登录' },
   },
   {
@@ -55,12 +56,16 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
   if (to.meta.public) {
-    if (auth.token && to.name === 'login') return { path: '/dashboard' }
+    if (to.name === 'login' && !auth.loaded) {
+      // The production API uses an HttpOnly cookie; try to restore that session.
+      try {
+        await auth.loadSession()
+      } catch {
+        auth.clear()
+      }
+    }
+    if (auth.loaded && to.name === 'login') return { path: '/dashboard' }
     return true
-  }
-
-  if (!auth.token) {
-    return { path: '/login', query: { redirect: to.fullPath } }
   }
 
   if (!auth.loaded) {

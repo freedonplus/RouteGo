@@ -1,5 +1,5 @@
 <script setup>
-import { computed, defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { findMenuByPath } from '@/utils/menu'
@@ -18,6 +18,10 @@ const asyncComponent = computed(() => {
   if (!node.value) return null
   const loader = resolveMenuComponent(node.value.component)
   return loader ? defineAsyncComponent(loader) : null
+})
+
+watchEffect(() => {
+  if (node.value) document.title = `${node.value.menuName} · RouteGo Admin`
 })
 </script>
 

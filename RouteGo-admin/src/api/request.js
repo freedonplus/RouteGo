@@ -2,7 +2,6 @@ import axios from 'axios'
 import { mockAdapter } from '@/mock'
 
 export const TOKEN_KEY = 'rg-admin-token'
-export const USER_KEY = 'rg-admin-user'
 
 export class ApiError extends Error {
   constructor(code, message) {
@@ -12,7 +11,21 @@ export class ApiError extends Error {
   }
 }
 
-const useMock = import.meta.env.VITE_USE_MOCK !== 'false'
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
+
+// The production API authenticates with an HttpOnly cookie, so the bearer token
+// is kept in memory only. Mock mode has no cookie, so its throwaway session
+// token lives in sessionStorage (cleared when the tab closes).
+let authToken = ''
+
+export function setAuthToken(token) {
+  authToken = token || ''
+}
+
+function currentToken() {
+  if (authToken) return authToken
+  return USE_MOCK ? sessionStorage.getItem(TOKEN_KEY) || '' : ''
+}
 
 export const http = axios.create({
   baseURL: '/api',
@@ -20,21 +33,21 @@ export const http = axios.create({
   withCredentials: true,
 })
 
-if (useMock) {
+if (USE_MOCK) {
   http.defaults.adapter = mockAdapter
 }
 
 function handleUnauthorized() {
-  const hadToken = Boolean(localStorage.getItem(TOKEN_KEY))
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(USER_KEY)
-  if (!hadToken || window.location.pathname === '/login') return
+  const hadSession = Boolean(authToken) || Boolean(sessionStorage.getItem(TOKEN_KEY))
+  setAuthToken('')
+  sessionStorage.removeItem(TOKEN_KEY)
+  if (!hadSession || window.location.pathname === '/login') return
   const redirect = encodeURIComponent(window.location.pathname + window.location.search)
   window.location.assign(`/login?redirect=${redirect}`)
 }
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY)
+  const token = currentToken()
   if (token) {
     config.headers = config.headers || {}
     config.headers.Authorization = `Bearer ${token}`

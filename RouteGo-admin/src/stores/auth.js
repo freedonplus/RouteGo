@@ -6,7 +6,7 @@ import {
   logout as logoutApi,
 } from '@/api/auth'
 import { getUserMenuTree } from '@/api/system'
-import { TOKEN_KEY, USER_KEY } from '@/api/request'
+import { setAuthToken, TOKEN_KEY, USE_MOCK } from '@/api/request'
 
 export function hasPermission(perms, needed) {
   if (!needed || (Array.isArray(needed) && needed.length === 0)) return true
@@ -16,19 +16,14 @@ export function hasPermission(perms, needed) {
   return list.includes(needed)
 }
 
-function readStoredUser() {
-  try {
-    const raw = localStorage.getItem(USER_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
+function initialToken() {
+  return USE_MOCK ? sessionStorage.getItem(TOKEN_KEY) || '' : ''
 }
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    token: localStorage.getItem(TOKEN_KEY) || '',
-    user: readStoredUser(),
+    token: initialToken(),
+    user: null,
     menus: [],
     loaded: false,
   }),
@@ -47,20 +42,18 @@ export const useAuthStore = defineStore('auth', {
     async login(payload) {
       const result = await loginApi(payload)
       this.token = result.tokenValue
-      localStorage.setItem(TOKEN_KEY, result.tokenValue)
+      setAuthToken(result.tokenValue)
+      if (USE_MOCK) sessionStorage.setItem(TOKEN_KEY, result.tokenValue)
       await this.loadSession()
       return result
     },
 
     async loadSession() {
+      if (this.token) setAuthToken(this.token)
       const [me, menus] = await Promise.all([getMe(), getUserMenuTree()])
       this.user = me
       this.menus = menus || []
       this.loaded = true
-      localStorage.setItem(USER_KEY, JSON.stringify(me))
-      if (!this.token) {
-        this.token = localStorage.getItem(TOKEN_KEY) || ''
-      }
       return me
     },
 
@@ -79,8 +72,8 @@ export const useAuthStore = defineStore('auth', {
       this.user = null
       this.menus = []
       this.loaded = false
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(USER_KEY)
+      setAuthToken('')
+      sessionStorage.removeItem(TOKEN_KEY)
     },
   },
 })
