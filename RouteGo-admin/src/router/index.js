@@ -2,6 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppLayout from '@/layouts/AppLayout.vue'
 import ComingSoonView from '@/views/ComingSoonView.vue'
+import DynamicMenuView from '@/views/system/DynamicMenuView.vue'
+import ForbiddenView from '@/views/error/ForbiddenView.vue'
+import NotFoundView from '@/views/error/NotFoundView.vue'
 
 const routes = [
   {
@@ -24,7 +27,7 @@ const routes = [
       {
         path: 'system/:pathMatch(.*)*',
         name: 'dynamic-menu',
-        component: ComingSoonView,
+        component: DynamicMenuView,
         meta: { title: '系统管理' },
       },
     ],
@@ -32,13 +35,13 @@ const routes = [
   {
     path: '/403',
     name: 'forbidden',
-    component: ComingSoonView,
+    component: ForbiddenView,
     meta: { title: '无权限' },
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
-    component: ComingSoonView,
+    component: NotFoundView,
     meta: { public: true, title: '页面不存在' },
   },
 ]

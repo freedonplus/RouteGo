@@ -239,6 +239,20 @@ body {
   border-radius: 4px;
 }
 
+.rg-command-dialog .el-dialog__header {
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.rg-command-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.rg-command-dialog .el-dialog__footer {
+  display: none;
+}
+
 .el-popper.is-light {
   border-color: var(--rg-line);
 }
