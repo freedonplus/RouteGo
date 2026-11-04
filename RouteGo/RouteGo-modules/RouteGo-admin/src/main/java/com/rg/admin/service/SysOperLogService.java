@@ -1,16 +1,14 @@
 package com.rg.admin.service;
 
-import com.rg.admin.entity.SysOperLog;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.rg.admin.dto.OperLogQuery;
+import com.rg.admin.entity.SysOperLog;
+import com.rg.admin.vo.SysOperLogVO;
+import com.rg.common.web.PageResult;
 
-/**
- * <p>
- * 操作日志表 服务类
- * </p>
- *
- * @author RouteGo
- * @since 2026-11-03
- */
 public interface SysOperLogService extends IService<SysOperLog> {
 
+    PageResult<SysOperLogVO> page(OperLogQuery query);
+
+    SysOperLogVO detail(Long id);
 }

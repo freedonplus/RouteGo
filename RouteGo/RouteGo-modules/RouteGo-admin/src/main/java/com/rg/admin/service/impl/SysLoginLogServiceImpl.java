@@ -1,14 +1,22 @@
 package com.rg.admin.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.rg.admin.dto.LoginLogQuery;
 import com.rg.admin.entity.SysLoginLog;
 import com.rg.admin.mapper.SysLoginLogMapper;
 import com.rg.admin.service.SysLoginLogService;
+import com.rg.admin.vo.SysLoginLogVO;
+import com.rg.common.web.PageResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 登录日志实现：异步写入，异常只记日志。
@@ -32,5 +40,42 @@ public class SysLoginLogServiceImpl extends ServiceImpl<SysLoginLogMapper, SysLo
         } catch (RuntimeException e) {
             log.warn("登录日志写入失败: username={}, reason={}", username, e.getMessage());
         }
+    }
+
+    @Override
+    public PageResult<SysLoginLogVO> page(LoginLogQuery query) {
+        LambdaQueryWrapper<SysLoginLog> wrapper = Wrappers.lambdaQuery();
+        if (StringUtils.hasText(query.getUsername())) {
+            wrapper.like(SysLoginLog::getUsername, query.getUsername());
+        }
+        if (StringUtils.hasText(query.getIp())) {
+            wrapper.like(SysLoginLog::getIp, query.getIp());
+        }
+        if (query.getStatus() != null) {
+            wrapper.eq(SysLoginLog::getStatus, query.getStatus());
+        }
+        if (query.getStartTime() != null) {
+            wrapper.ge(SysLoginLog::getLoginTime, query.getStartTime());
+        }
+        if (query.getEndTime() != null) {
+            wrapper.le(SysLoginLog::getLoginTime, query.getEndTime());
+        }
+        wrapper.orderByDesc(SysLoginLog::getId);
+        Page<SysLoginLog> page = baseMapper.selectPage(query.toPage(), wrapper);
+        List<SysLoginLogVO> records = page.getRecords().stream().map(this::toVO).toList();
+        return new PageResult<>(records, page.getTotal(), page.getCurrent(), page.getSize(), page.getPages());
+    }
+
+    private SysLoginLogVO toVO(SysLoginLog log) {
+        SysLoginLogVO vo = new SysLoginLogVO();
+        vo.setId(log.getId());
+        vo.setUsername(log.getUsername());
+        vo.setIp(log.getIp());
+        vo.setBrowser(log.getBrowser());
+        vo.setOs(log.getOs());
+        vo.setStatus(log.getStatus());
+        vo.setMsg(log.getMsg());
+        vo.setLoginTime(log.getLoginTime());
+        return vo;
     }
 }

@@ -1,18 +1,51 @@
 package com.rg.admin.controller;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.rg.admin.dto.UserOauthBindRequest;
+import com.rg.admin.service.SysUserOauthService;
+import com.rg.admin.vo.SysUserOauthVO;
+import com.rg.common.annotation.BusinessType;
+import com.rg.common.annotation.OperLog;
+import com.rg.common.util.Result;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
 
-/**
- * <p>
- * 后台用户第三方登录绑定表 前端控制器
- * </p>
- *
- * @author RouteGo
- * @since 2026-11-03
- */
+import java.util.List;
+
+@Tag(name = "第三方绑定", description = "后台用户第三方账号绑定与解绑")
 @RestController
-@RequestMapping("/admin/sysUserOauth")
+@RequestMapping("/admin/system/user-oauth")
 public class SysUserOauthController {
 
+    private final SysUserOauthService oauthService;
+
+    public SysUserOauthController(SysUserOauthService oauthService) {
+        this.oauthService = oauthService;
+    }
+
+    @Operation(summary = "用户绑定列表")
+    @SaCheckPermission("system:user:list")
+    @GetMapping("/user/{userId}")
+    public Result<List<SysUserOauthVO>> listByUser(@PathVariable Long userId) {
+        return Result.success(oauthService.listByUserId(userId));
+    }
+
+    @Operation(summary = "绑定第三方账号")
+    @SaCheckPermission("system:user:edit")
+    @OperLog(title = "第三方绑定", type = BusinessType.INSERT)
+    @PostMapping
+    public Result<Long> bind(@Valid @RequestBody UserOauthBindRequest request) {
+        return Result.success(oauthService.bind(request));
+    }
+
+    @Operation(summary = "解绑第三方账号")
+    @SaCheckPermission("system:user:edit")
+    @OperLog(title = "第三方绑定", type = BusinessType.DELETE)
+    @DeleteMapping("/{id}")
+    public Result<Void> unbind(@PathVariable Long id) {
+        oauthService.unbind(id);
+        return Result.success();
+    }
 }
