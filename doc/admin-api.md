@@ -481,7 +481,8 @@
 
 ### GET `/admin/dashboard/overview`
 
-登录即可访问，无需 `system:operlog:list` / `system:loginlog:list` 权限。
+需要权限码 `system:dashboard:view`（初始化脚本 `sql/admin-init.sql` 已包含）。
+接口只返回聚合统计与脱敏摘要，不返回文件系统路径；最近操作与失败登录摘要仅在拥有该权限时可看。
 
 响应 `data`：
 
@@ -497,7 +498,8 @@
     { "id": 1, "username": "root", "ip": "10.0.0.1", "reason": "账号或密码错误", "time": "2026-11-04T10:05:00", "count": 1 }
   ],
   "systemStatus": [
-    { "key": "database", "label": "数据库", "value": "正常", "status": "success", "detail": "连接正常" }
+    { "key": "database", "label": "数据库", "value": "正常", "status": "success", "detail": "连接正常" },
+    { "key": "storage", "label": "文件存储", "value": "正常", "status": "success", "detail": "目录存在" }
   ]
 }
 ```

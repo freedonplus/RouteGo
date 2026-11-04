@@ -54,7 +54,8 @@ VALUES
  (38, '文件列表',     'system:file:list',            'system', 1, 0),
  (39, '删除文件',     'system:file:delete',          'system', 1, 0),
  (40, '操作日志',     'system:operlog:list',         'system', 1, 0),
- (41, '登录日志',     'system:loginlog:list',        'system', 1, 0)
+ (41, '登录日志',     'system:loginlog:list',        'system', 1, 0),
+ (42, '仪表盘概览',   'system:dashboard:view',       'system', 1, 0)
 ON DUPLICATE KEY UPDATE permission_name = VALUES(permission_name), status = 1;
 
 -- 3. 菜单（目录 + 菜单）

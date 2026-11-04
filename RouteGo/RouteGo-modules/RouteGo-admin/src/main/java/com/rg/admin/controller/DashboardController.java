@@ -1,5 +1,6 @@
 package com.rg.admin.controller;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.rg.admin.config.StorageProperties;
 import com.rg.admin.entity.SysLoginLog;
@@ -47,7 +48,9 @@ public class DashboardController {
         this.storageProperties = storageProperties;
     }
 
-    @Operation(summary = "仪表盘概览")
+    @Operation(summary = "仪表盘概览",
+            description = "仅返回聚合统计与脱敏摘要；需要 system:dashboard:view 权限。")
+    @SaCheckPermission("system:dashboard:view")
     @GetMapping("/overview")
     public Result<Map<String, Object>> overview() {
         LocalDateTime now = LocalDateTime.now();
@@ -142,7 +145,7 @@ public class DashboardController {
         try {
             boolean exists = Files.exists(Path.of(storageProperties.getLocalPath()));
             return exists
-                    ? status("storage", "文件存储", "正常", "success", storageProperties.getLocalPath())
+                    ? status("storage", "文件存储", "正常", "success", "目录存在")
                     : status("storage", "文件存储", "待初始化", "warning", "目录不存在");
         } catch (RuntimeException e) {
             return status("storage", "文件存储", "异常", "danger", "路径不可用");
