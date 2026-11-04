@@ -24,10 +24,13 @@ public interface SysPermissionMapper extends BaseMapper<SysPermission> {
             SELECT DISTINCT p.permission_code
             FROM sys_permission p
             JOIN sys_role_permission rp ON rp.permission_id = p.id
+            JOIN sys_role r ON r.id = rp.role_id
             JOIN sys_user_role ur ON ur.role_id = rp.role_id
             WHERE ur.user_id = #{userId}
               AND p.deleted = 0
               AND p.status = 1
+              AND r.deleted = 0
+              AND r.status = 1
             """)
     List<String> selectPermissionCodesByUserId(@Param("userId") Long userId);
 }
