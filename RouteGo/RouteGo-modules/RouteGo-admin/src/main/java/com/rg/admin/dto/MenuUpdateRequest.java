@@ -47,7 +47,4 @@ public class MenuUpdateRequest {
 
     @Schema(description = "是否显示：0 隐藏，1 显示", example = "1")
     private Byte visible;
-
-    @Schema(description = "状态：0 禁用，1 启用", example = "1")
-    private Byte status;
 }

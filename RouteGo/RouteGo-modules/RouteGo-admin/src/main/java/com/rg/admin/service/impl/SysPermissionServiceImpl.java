@@ -136,7 +136,6 @@ public class SysPermissionServiceImpl extends ServiceImpl<SysPermissionMapper, S
         update.setPermissionName(request.getPermissionName());
         update.setModule(request.getModule());
         update.setDescription(request.getDescription());
-        update.setStatus(request.getStatus());
         if (permissionMapper.updateById(update) == 0) {
             throw new AdminException(ErrorCode.CONFLICT, "数据已被修改，请刷新后重试");
         }

@@ -149,7 +149,6 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         update.setIcon(request.getIcon());
         update.setSort(request.getSort());
         update.setVisible(request.getVisible());
-        update.setStatus(request.getStatus());
         if (menuMapper.updateById(update) == 0) {
             throw new AdminException(ErrorCode.CONFLICT, "数据已被修改，请刷新后重试");
         }

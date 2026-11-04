@@ -228,6 +228,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (userMapper.selectById(id) == null) {
             throw new AdminException(ErrorCode.NOT_FOUND, "用户不存在");
         }
+        if (hasProtectedRole(id) && !actorHasProtectedRole()) {
+            throw new AdminException(ErrorCode.FORBIDDEN, "无权修改超级管理员角色");
+        }
         List<Long> roleIds = validateRoleIds(request.getRoleIds());
         replaceRoles(id, roleIds);
         cacheHelper.evictAfterCommit(userCacheKeys(id));

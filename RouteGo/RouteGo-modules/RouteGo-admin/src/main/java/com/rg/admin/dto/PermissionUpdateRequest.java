@@ -18,7 +18,4 @@ public class PermissionUpdateRequest {
 
     @Schema(description = "说明")
     private String description;
-
-    @Schema(description = "状态：0 禁用，1 启用", example = "1")
-    private Byte status;
 }
