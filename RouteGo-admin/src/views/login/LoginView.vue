@@ -77,7 +77,15 @@ async function submit() {
     else localStorage.removeItem(REMEMBER_KEY)
     ElMessage.success('登录成功')
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-    const safe = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/dashboard'
+    let safe = '/dashboard'
+    try {
+      const target = new URL(redirect, window.location.origin)
+      if (target.origin === window.location.origin && redirect.startsWith('/')) {
+        safe = `${target.pathname}${target.search}${target.hash}`
+      }
+    } catch {
+      safe = '/dashboard'
+    }
     router.replace(safe)
   } catch (error) {
     errorMessage.value = error.message || '登录失败'
