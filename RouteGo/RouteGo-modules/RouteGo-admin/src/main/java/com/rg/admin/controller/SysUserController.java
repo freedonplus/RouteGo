@@ -44,21 +44,21 @@ public class SysUserController {
     }
 
     @Operation(summary = "用户分页")
-    @SaCheckPermission("system:user:list")
+    @SaCheckPermission("admin:SysUser:page")
     @GetMapping("/page")
     public Result<PageResult<SysUserVO>> page(@Valid UserQuery query) {
         return Result.success(userService.page(query));
     }
 
     @Operation(summary = "用户详情")
-    @SaCheckPermission("system:user:list")
+    @SaCheckPermission("admin:SysUser:detail")
     @GetMapping("/{id}")
     public Result<SysUserDetailVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(userService.detail(id));
     }
 
     @Operation(summary = "新增用户")
-    @SaCheckPermission("system:user:add")
+    @SaCheckPermission("admin:SysUser:create")
     @OperLog(title = "用户管理", type = BusinessType.INSERT)
     @PostMapping
     public Result<Long> create(@Valid @RequestBody UserCreateRequest request) {
@@ -66,7 +66,7 @@ public class SysUserController {
     }
 
     @Operation(summary = "编辑用户")
-    @SaCheckPermission("system:user:edit")
+    @SaCheckPermission("admin:SysUser:update")
     @OperLog(title = "用户管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
     public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
@@ -75,7 +75,7 @@ public class SysUserController {
     }
 
     @Operation(summary = "启用/禁用用户")
-    @SaCheckPermission("system:user:status")
+    @SaCheckPermission("admin:SysUser:updateStatus")
     @OperLog(title = "用户管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {
@@ -84,7 +84,7 @@ public class SysUserController {
     }
 
     @Operation(summary = "重置用户密码")
-    @SaCheckPermission("system:user:reset-password")
+    @SaCheckPermission("admin:SysUser:resetPassword")
     @OperLog(title = "用户管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/password")
     public Result<Void> resetPassword(@Parameter(description = "主键 ID") @PathVariable Long id,
@@ -94,14 +94,14 @@ public class SysUserController {
     }
 
     @Operation(summary = "查询用户角色")
-    @SaCheckPermission("system:user:list")
+    @SaCheckPermission("admin:SysUser:listRoles")
     @GetMapping("/{id}/roles")
     public Result<List<Long>> listRoles(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(userService.listRoleIds(id));
     }
 
     @Operation(summary = "分配用户角色")
-    @SaCheckPermission("system:user:assign-role")
+    @SaCheckPermission("admin:SysUser:assignRoles")
     @OperLog(title = "用户管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/roles")
     public Result<Void> assignRoles(@Parameter(description = "主键 ID") @PathVariable Long id,
@@ -111,7 +111,7 @@ public class SysUserController {
     }
 
     @Operation(summary = "删除用户")
-    @SaCheckPermission("system:user:delete")
+    @SaCheckPermission("admin:SysUser:delete")
     @OperLog(title = "用户管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {

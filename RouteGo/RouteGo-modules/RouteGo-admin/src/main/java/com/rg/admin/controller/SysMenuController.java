@@ -42,7 +42,7 @@ public class SysMenuController {
     }
 
     @Operation(summary = "菜单树")
-    @SaCheckPermission("system:menu:list")
+    @SaCheckPermission("admin:SysMenu:tree")
     @GetMapping("/tree")
     public Result<List<MenuNodeVO>> tree() {
         return Result.success(menuService.tree());
@@ -56,14 +56,14 @@ public class SysMenuController {
     }
 
     @Operation(summary = "菜单详情")
-    @SaCheckPermission("system:menu:list")
+    @SaCheckPermission("admin:SysMenu:detail")
     @GetMapping("/{id}")
     public Result<SysMenuVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(menuService.detail(id));
     }
 
     @Operation(summary = "新增菜单")
-    @SaCheckPermission("system:menu:add")
+    @SaCheckPermission("admin:SysMenu:create")
     @OperLog(title = "菜单管理", type = BusinessType.INSERT)
     @PostMapping
     public Result<Long> create(@Valid @RequestBody MenuCreateRequest request) {
@@ -71,7 +71,7 @@ public class SysMenuController {
     }
 
     @Operation(summary = "编辑菜单")
-    @SaCheckPermission("system:menu:edit")
+    @SaCheckPermission("admin:SysMenu:update")
     @OperLog(title = "菜单管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
     public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid @RequestBody MenuUpdateRequest request) {
@@ -80,7 +80,7 @@ public class SysMenuController {
     }
 
     @Operation(summary = "删除菜单")
-    @SaCheckPermission("system:menu:delete")
+    @SaCheckPermission("admin:SysMenu:delete")
     @OperLog(title = "菜单管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
@@ -89,7 +89,7 @@ public class SysMenuController {
     }
 
     @Operation(summary = "启用/禁用菜单")
-    @SaCheckPermission("system:menu:status")
+    @SaCheckPermission("admin:SysMenu:updateStatus")
     @OperLog(title = "菜单管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {
@@ -98,7 +98,7 @@ public class SysMenuController {
     }
 
     @Operation(summary = "显示/隐藏菜单")
-    @SaCheckPermission("system:menu:edit")
+    @SaCheckPermission("admin:SysMenu:updateVisible")
     @OperLog(title = "菜单管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/visible")
     public Result<Void> updateVisible(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "是否显示：0 隐藏，1 显示") @RequestParam Byte visible) {

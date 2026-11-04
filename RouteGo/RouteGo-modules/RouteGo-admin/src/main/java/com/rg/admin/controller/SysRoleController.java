@@ -45,21 +45,21 @@ public class SysRoleController {
     }
 
     @Operation(summary = "角色分页")
-    @SaCheckPermission("system:role:list")
+    @SaCheckPermission("admin:SysRole:page")
     @GetMapping("/page")
     public Result<PageResult<SysRoleVO>> page(@Valid RoleQuery query) {
         return Result.success(roleService.page(query));
     }
 
     @Operation(summary = "角色详情")
-    @SaCheckPermission("system:role:list")
+    @SaCheckPermission("admin:SysRole:detail")
     @GetMapping("/{id}")
     public Result<SysRoleDetailVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(roleService.detail(id));
     }
 
     @Operation(summary = "新增角色")
-    @SaCheckPermission("system:role:add")
+    @SaCheckPermission("admin:SysRole:create")
     @OperLog(title = "角色管理", type = BusinessType.INSERT)
     @PostMapping
     public Result<Long> create(@Valid @RequestBody RoleCreateRequest request) {
@@ -67,7 +67,7 @@ public class SysRoleController {
     }
 
     @Operation(summary = "编辑角色")
-    @SaCheckPermission("system:role:edit")
+    @SaCheckPermission("admin:SysRole:update")
     @OperLog(title = "角色管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
     public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid @RequestBody RoleUpdateRequest request) {
@@ -76,7 +76,7 @@ public class SysRoleController {
     }
 
     @Operation(summary = "启用/禁用角色")
-    @SaCheckPermission("system:role:status")
+    @SaCheckPermission("admin:SysRole:updateStatus")
     @OperLog(title = "角色管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {
@@ -85,7 +85,7 @@ public class SysRoleController {
     }
 
     @Operation(summary = "删除角色")
-    @SaCheckPermission("system:role:delete")
+    @SaCheckPermission("admin:SysRole:delete")
     @OperLog(title = "角色管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
@@ -94,14 +94,14 @@ public class SysRoleController {
     }
 
     @Operation(summary = "查询角色菜单")
-    @SaCheckPermission("system:role:list")
+    @SaCheckPermission("admin:SysRole:listMenus")
     @GetMapping("/{id}/menus")
     public Result<List<Long>> listMenus(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(roleService.listMenuIds(id));
     }
 
     @Operation(summary = "分配角色菜单")
-    @SaCheckPermission("system:role:assign-menu")
+    @SaCheckPermission("admin:SysRole:assignMenus")
     @OperLog(title = "角色管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/menus")
     public Result<Void> assignMenus(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid @RequestBody AssignIdsRequest request) {
@@ -110,14 +110,14 @@ public class SysRoleController {
     }
 
     @Operation(summary = "查询角色权限点")
-    @SaCheckPermission("system:role:list")
+    @SaCheckPermission("admin:SysRole:listPermissions")
     @GetMapping("/{id}/permissions")
     public Result<List<Long>> listPermissions(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(roleService.listPermissionIds(id));
     }
 
     @Operation(summary = "分配角色权限点")
-    @SaCheckPermission("system:role:assign-permission")
+    @SaCheckPermission("admin:SysRole:assignPermissions")
     @OperLog(title = "角色管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/permissions")
     public Result<Void> assignPermissions(@Parameter(description = "主键 ID") @PathVariable Long id,
@@ -127,7 +127,7 @@ public class SysRoleController {
     }
 
     @Operation(summary = "角色下用户分页")
-    @SaCheckPermission("system:role:list")
+    @SaCheckPermission("admin:SysRole:pageUsers")
     @GetMapping("/{id}/users")
     public Result<PageResult<SysUserVO>> pageUsers(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid PageQuery pageQuery) {
         return Result.success(roleService.pageUsers(id, pageQuery));

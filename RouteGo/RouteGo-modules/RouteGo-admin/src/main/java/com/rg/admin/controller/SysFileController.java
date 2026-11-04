@@ -34,7 +34,7 @@ public class SysFileController {
     }
 
     @Operation(summary = "上传文件")
-    @SaCheckPermission("system:file:upload")
+    @SaCheckPermission("admin:SysFile:upload")
     @OperLog(title = "文件管理", type = BusinessType.INSERT)
     @PostMapping("/upload")
     public Result<SysFileVO> upload(@RequestPart("file") MultipartFile file) {
@@ -42,21 +42,21 @@ public class SysFileController {
     }
 
     @Operation(summary = "文件分页")
-    @SaCheckPermission("system:file:list")
+    @SaCheckPermission("admin:SysFile:page")
     @GetMapping("/page")
     public Result<PageResult<SysFileVO>> page(@Valid FileQuery query) {
         return Result.success(fileService.page(query));
     }
 
     @Operation(summary = "文件详情")
-    @SaCheckPermission("system:file:list")
+    @SaCheckPermission("admin:SysFile:detail")
     @GetMapping("/{id}")
     public Result<SysFileVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(fileService.detail(id));
     }
 
     @Operation(summary = "下载文件")
-    @SaCheckPermission("system:file:list")
+    @SaCheckPermission("admin:SysFile:download")
     @GetMapping("/{id}/download")
     public ResponseEntity<Resource> download(@Parameter(description = "主键 ID") @PathVariable Long id) {
         SysFileVO file = fileService.detail(id);
@@ -71,7 +71,7 @@ public class SysFileController {
     }
 
     @Operation(summary = "删除文件")
-    @SaCheckPermission("system:file:delete")
+    @SaCheckPermission("admin:SysFile:delete")
     @OperLog(title = "文件管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {

@@ -11,12 +11,12 @@ import java.util.List;
  * Sa-Token 角色/权限数据源。
  * <p>
  * 角色和权限码来自 sys_user_role / sys_role / sys_role_permission /
- * sys_permission；admin / super_admin 角色直接拥有通配权限 {@code *}。
+ * sys_permission。<b>只有 super_admin 拥有通配权限 {@code *}</b>；
+ * admin 角色必须显式分配权限，这样修改角色权限后立即生效。
  */
 @Component
 public class SaTokenStpInterface implements StpInterface {
 
-    private static final String ADMIN_ROLE = "admin";
     private static final String SUPER_ADMIN_ROLE = "super_admin";
 
     private final SysRoleMapper sysRoleMapper;
@@ -31,7 +31,7 @@ public class SaTokenStpInterface implements StpInterface {
     @Override
     public List<String> getPermissionList(Object loginId, String loginType) {
         List<String> roles = getRoleList(loginId, loginType);
-        if (roles.contains(ADMIN_ROLE) || roles.contains(SUPER_ADMIN_ROLE)) {
+        if (roles.contains(SUPER_ADMIN_ROLE)) {
             return List.of("*");
         }
         return sysPermissionMapper.selectPermissionCodesByUserId(asUserId(loginId));

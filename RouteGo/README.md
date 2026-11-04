@@ -81,7 +81,7 @@ Useful classes: `RedisService`、`DistributedLock`、`EventPublisher`、
 - CSRF：`CsrfOriginFilter` 对 POST/PUT/PATCH/DELETE 校验 `Origin`，
   允许来源由 `routego.security.allowed-origins` 配置，默认
   `http://localhost:5173`、`http://127.0.0.1:5173`、`http://localhost:3000`。
-- 注解鉴权：`@SaCheckLogin`、`@SaCheckPermission("system:config:list")`、
+- 注解鉴权：`@SaCheckLogin`、`@SaCheckPermission("admin:SysConfig:getByKey")`、
   `@SaCheckRole("admin")`。**只有标注注解的接口会校验**，未标注接口默认放行。
 - 角色/权限来源：`sys_user_role` / `sys_role` /
   `sys_role_permission` / `sys_permission`；`admin` / `super_admin`

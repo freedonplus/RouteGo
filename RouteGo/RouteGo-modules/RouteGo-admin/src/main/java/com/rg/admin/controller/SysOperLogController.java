@@ -27,14 +27,14 @@ public class SysOperLogController {
     }
 
     @Operation(summary = "操作日志分页")
-    @SaCheckPermission("system:operlog:list")
+    @SaCheckPermission("admin:SysOperLog:page")
     @GetMapping("/page")
     public Result<PageResult<SysOperLogVO>> page(@Valid OperLogQuery query) {
         return Result.success(operLogService.page(query));
     }
 
     @Operation(summary = "操作日志详情")
-    @SaCheckPermission("system:operlog:list")
+    @SaCheckPermission("admin:SysOperLog:detail")
     @GetMapping("/{id}")
     public Result<SysOperLogVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(operLogService.detail(id));

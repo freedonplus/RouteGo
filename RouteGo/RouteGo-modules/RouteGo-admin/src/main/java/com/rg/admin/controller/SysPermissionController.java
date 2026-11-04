@@ -42,28 +42,28 @@ public class SysPermissionController {
     }
 
     @Operation(summary = "权限点分页")
-    @SaCheckPermission("system:permission:list")
+    @SaCheckPermission("admin:SysPermission:page")
     @GetMapping("/page")
     public Result<PageResult<SysPermissionVO>> page(@Valid PermissionQuery query) {
         return Result.success(permissionService.page(query));
     }
 
     @Operation(summary = "权限点分组")
-    @SaCheckPermission("system:permission:list")
+    @SaCheckPermission("admin:SysPermission:grouped")
     @GetMapping("/grouped")
     public Result<List<PermissionGroupVO>> grouped() {
         return Result.success(permissionService.grouped());
     }
 
     @Operation(summary = "权限点详情")
-    @SaCheckPermission("system:permission:list")
+    @SaCheckPermission("admin:SysPermission:detail")
     @GetMapping("/{id}")
     public Result<SysPermissionVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(permissionService.detail(id));
     }
 
     @Operation(summary = "新增权限点")
-    @SaCheckPermission("system:permission:add")
+    @SaCheckPermission("admin:SysPermission:create")
     @OperLog(title = "权限点管理", type = BusinessType.INSERT)
     @PostMapping
     public Result<Long> create(@Valid @RequestBody PermissionCreateRequest request) {
@@ -71,7 +71,7 @@ public class SysPermissionController {
     }
 
     @Operation(summary = "编辑权限点")
-    @SaCheckPermission("system:permission:edit")
+    @SaCheckPermission("admin:SysPermission:update")
     @OperLog(title = "权限点管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
     public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id,
@@ -81,7 +81,7 @@ public class SysPermissionController {
     }
 
     @Operation(summary = "删除权限点")
-    @SaCheckPermission("system:permission:delete")
+    @SaCheckPermission("admin:SysPermission:delete")
     @OperLog(title = "权限点管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
@@ -90,7 +90,7 @@ public class SysPermissionController {
     }
 
     @Operation(summary = "启用/禁用权限点")
-    @SaCheckPermission("system:permission:status")
+    @SaCheckPermission("admin:SysPermission:updateStatus")
     @OperLog(title = "权限点管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {

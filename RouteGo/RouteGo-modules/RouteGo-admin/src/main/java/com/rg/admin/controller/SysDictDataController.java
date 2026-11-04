@@ -31,7 +31,7 @@ public class SysDictDataController {
     }
 
     @Operation(summary = "字典数据分页")
-    @SaCheckPermission("system:dict:list")
+    @SaCheckPermission("admin:SysDictData:page")
     @GetMapping("/page")
     public Result<PageResult<DictDataVO>> page(@Valid DictDataQuery query) {
         return Result.success(dictDataService.page(query));
@@ -45,14 +45,14 @@ public class SysDictDataController {
     }
 
     @Operation(summary = "字典数据详情")
-    @SaCheckPermission("system:dict:list")
+    @SaCheckPermission("admin:SysDictData:detail")
     @GetMapping("/{id}")
     public Result<DictDataVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(dictDataService.detail(id));
     }
 
     @Operation(summary = "新增字典数据")
-    @SaCheckPermission("system:dict:add")
+    @SaCheckPermission("admin:SysDictData:create")
     @OperLog(title = "字典管理", type = BusinessType.INSERT)
     @PostMapping
     public Result<Long> create(@Valid @RequestBody DictDataCreateRequest request) {
@@ -60,7 +60,7 @@ public class SysDictDataController {
     }
 
     @Operation(summary = "编辑字典数据")
-    @SaCheckPermission("system:dict:edit")
+    @SaCheckPermission("admin:SysDictData:update")
     @OperLog(title = "字典管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
     public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id,
@@ -70,7 +70,7 @@ public class SysDictDataController {
     }
 
     @Operation(summary = "删除字典数据")
-    @SaCheckPermission("system:dict:delete")
+    @SaCheckPermission("admin:SysDictData:delete")
     @OperLog(title = "字典管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
@@ -79,7 +79,7 @@ public class SysDictDataController {
     }
 
     @Operation(summary = "启用/禁用字典数据")
-    @SaCheckPermission("system:dict:edit")
+    @SaCheckPermission("admin:SysDictData:updateStatus")
     @OperLog(title = "字典管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {
@@ -88,7 +88,7 @@ public class SysDictDataController {
     }
 
     @Operation(summary = "设为默认项")
-    @SaCheckPermission("system:dict:edit")
+    @SaCheckPermission("admin:SysDictData:setDefault")
     @OperLog(title = "字典管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/default")
     public Result<Void> setDefault(@Parameter(description = "主键 ID") @PathVariable Long id) {

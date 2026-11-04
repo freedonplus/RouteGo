@@ -50,7 +50,7 @@ public class DashboardController {
 
     @Operation(summary = "仪表盘概览",
             description = "仅返回聚合统计与脱敏摘要；需要 system:dashboard:view 权限。")
-    @SaCheckPermission("system:dashboard:view")
+    @SaCheckPermission("admin:Dashboard:overview")
     @GetMapping("/overview")
     public Result<Map<String, Object>> overview() {
         LocalDateTime now = LocalDateTime.now();

@@ -29,28 +29,28 @@ public class SysConfigController {
     }
 
     @Operation(summary = "参数分页")
-    @SaCheckPermission("system:config:list")
+    @SaCheckPermission("admin:SysConfig:page")
     @GetMapping("/page")
     public Result<PageResult<SysConfigVO>> page(@Valid ConfigQuery query) {
         return Result.success(configService.page(query));
     }
 
     @Operation(summary = "按 key 查询参数")
-    @SaCheckPermission("system:config:list")
+    @SaCheckPermission("admin:SysConfig:getByKey")
     @GetMapping("/key/{configKey}")
     public Result<SysConfigVO> getByKey(@Parameter(description = "参数键") @PathVariable String configKey) {
         return Result.success(configService.getByKey(configKey));
     }
 
     @Operation(summary = "参数详情")
-    @SaCheckPermission("system:config:list")
+    @SaCheckPermission("admin:SysConfig:detail")
     @GetMapping("/{id}")
     public Result<SysConfigVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(configService.detail(id));
     }
 
     @Operation(summary = "新增参数")
-    @SaCheckPermission("system:config:add")
+    @SaCheckPermission("admin:SysConfig:create")
     @OperLog(title = "参数管理", type = BusinessType.INSERT)
     @PostMapping
     public Result<Long> create(@Valid @RequestBody ConfigCreateRequest request) {
@@ -58,7 +58,7 @@ public class SysConfigController {
     }
 
     @Operation(summary = "编辑参数")
-    @SaCheckPermission("system:config:edit")
+    @SaCheckPermission("admin:SysConfig:update")
     @OperLog(title = "参数管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
     public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id,
@@ -68,7 +68,7 @@ public class SysConfigController {
     }
 
     @Operation(summary = "删除参数")
-    @SaCheckPermission("system:config:delete")
+    @SaCheckPermission("admin:SysConfig:delete")
     @OperLog(title = "参数管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
@@ -77,7 +77,7 @@ public class SysConfigController {
     }
 
     @Operation(summary = "批量更新参数")
-    @SaCheckPermission("system:config:edit")
+    @SaCheckPermission("admin:SysConfig:batchUpdate")
     @OperLog(title = "参数管理", type = BusinessType.UPDATE)
     @PutMapping("/batch")
     public Result<Void> batchUpdate(@Valid @RequestBody ConfigBatchRequest request) {

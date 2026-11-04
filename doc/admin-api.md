@@ -134,7 +134,7 @@
 
 ## 3. 系统用户 `/admin/system/user`
 
-权限码：`system:user:list/add/edit/delete/status/reset-password/assign-role`。
+权限码格式：`admin:SysUser:<method>`，如 `admin:SysUser:page`、`admin:SysUser:create`。
 
 ### GET `/admin/system/user/page`
 
@@ -208,7 +208,7 @@
 
 ## 4. 角色 `/admin/system/role`
 
-权限码：`system:role:list/add/edit/delete/status/assign-menu/assign-permission`。
+权限码格式：`admin:SysRole:<method>`，如 `admin:SysRole:page`、`admin:SysRole:assignPermissions`。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -234,7 +234,7 @@
 
 ## 5. 菜单 `/admin/system/menu`
 
-权限码：`system:menu:list/add/edit/delete/status`。
+权限码格式：`admin:SysMenu:<method>`，如 `admin:SysMenu:tree`、`admin:SysMenu:create`。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -256,7 +256,7 @@
   "menuType": "C",
   "path": "/system/user",
   "component": "system/user/index",
-  "perms": "system:user:list",
+  "perms": "admin:SysUser:page",
   "icon": "User",
   "sort": 1,
   "visible": 1,
@@ -271,7 +271,7 @@
 
 ## 6. 权限点 `/admin/system/permission`
 
-权限码：`system:permission:list/add/edit/delete/status`。
+权限码格式：`admin:SysPermission:<method>`，如 `admin:SysPermission:page`。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -288,7 +288,7 @@
 ```json
 {
   "permissionName": "查看用户",
-  "permissionCode": "system:user:list",
+  "permissionCode": "admin:SysUser:page",
   "module": "system",
   "description": "",
   "status": 1
@@ -299,7 +299,7 @@
 
 ## 7. 字典 `/admin/system/dict`
 
-权限码：`system:dict:list/add/edit/delete`。
+权限码格式：`admin:SysDictType:<method>` 与 `admin:SysDictData:<method>`。
 
 ### 字典类型 `/admin/system/dict/type`
 
@@ -346,7 +346,7 @@
 
 ## 8. 系统参数 `/admin/system/config`
 
-权限码：`system:config:list/add/edit/delete`。
+权限码格式：`admin:SysConfig:<method>`。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -368,7 +368,7 @@
 
 ## 9. 公告 `/admin/system/notice`
 
-权限码：`system:notice:list/add/edit/delete`。
+权限码格式：`admin:SysNotice:<method>`。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -386,14 +386,14 @@
 
 ## 10. 文件 `/admin/system/file`
 
-权限码：`system:file:upload/list/delete`。
+权限码格式：`admin:SysFile:<method>`。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | POST | `/upload` | `multipart/form-data`，字段名 `file`；白名单 jpg/jpeg/png/webp/pdf，最大 20MB |
 | GET | `/page` | 参数 `originalName/fileType` |
 | GET | `/{id}` | 详情 |
-| GET | `/{id}/download` | 鉴权下载，需 `system:file:list` |
+| GET | `/{id}/download` | 鉴权下载，需 `admin:SysFile:download` |
 | DELETE | `/{id}` | 逻辑删除记录并尽力删除物理文件 |
 
 上传响应：
@@ -417,9 +417,9 @@
 
 | 方法 | 路径 | 权限码 | 说明 |
 | --- | --- | --- | --- |
-| GET | `/oper-log/page` | `system:operlog:list` | 参数 `title/operName/status/startTime/endTime` |
-| GET | `/oper-log/{id}` | `system:operlog:list` | 详情 |
-| GET | `/login-log/page` | `system:loginlog:list` | 参数 `username/ip/status/startTime/endTime` |
+| GET | `/oper-log/page` | admin:SysOperLog:page / admin:SysOperLog:detail | 参数 `title/operName/status/startTime/endTime` |
+| GET | `/oper-log/{id}` | admin:SysOperLog:page / admin:SysOperLog:detail | 详情 |
+| GET | `/login-log/page` | admin:SysLoginLog:page | 参数 `username/ip/status/startTime/endTime` |
 
 日志只读；操作日志由 `@OperLog` 切面异步写入，参数与结果已脱敏、截断。
 
@@ -429,9 +429,9 @@
 
 | 方法 | 路径 | 权限码 | 说明 |
 | --- | --- | --- | --- |
-| GET | `/user/{userId}` | `system:user:list` | 用户绑定列表 |
-| POST | `/` | `system:user:edit` | 绑定 |
-| DELETE | `/{id}` | `system:user:edit` | 解绑 |
+| GET | `/user/{userId}` | admin:SysUserOauth:listByUser |
+| POST | `/` | admin:SysUserOauth:bind |
+| DELETE | `/{id}` | admin:SysUserOauth:unbind |
 
 绑定请求：
 
@@ -481,7 +481,7 @@
 
 ### GET `/admin/dashboard/overview`
 
-需要权限码 `system:dashboard:view`（初始化脚本 `sql/admin-init.sql` 已包含）。
+需要权限码 `admin:Dashboard:overview`（初始化脚本 `sql/admin-init.sql` 已包含）。
 接口只返回聚合统计与脱敏摘要，不返回文件系统路径；最近操作与失败登录摘要仅在拥有该权限时可看。
 
 响应 `data`：

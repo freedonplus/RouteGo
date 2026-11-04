@@ -28,21 +28,21 @@ public class SysDictTypeController {
     }
 
     @Operation(summary = "字典类型分页")
-    @SaCheckPermission("system:dict:list")
+    @SaCheckPermission("admin:SysDictType:page")
     @GetMapping("/page")
     public Result<PageResult<DictTypeVO>> page(@Valid DictTypeQuery query) {
         return Result.success(dictTypeService.page(query));
     }
 
     @Operation(summary = "字典类型详情")
-    @SaCheckPermission("system:dict:list")
+    @SaCheckPermission("admin:SysDictType:detail")
     @GetMapping("/{id}")
     public Result<DictTypeVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(dictTypeService.detail(id));
     }
 
     @Operation(summary = "新增字典类型")
-    @SaCheckPermission("system:dict:add")
+    @SaCheckPermission("admin:SysDictType:create")
     @OperLog(title = "字典管理", type = BusinessType.INSERT)
     @PostMapping
     public Result<Long> create(@Valid @RequestBody DictTypeCreateRequest request) {
@@ -50,7 +50,7 @@ public class SysDictTypeController {
     }
 
     @Operation(summary = "编辑字典类型")
-    @SaCheckPermission("system:dict:edit")
+    @SaCheckPermission("admin:SysDictType:update")
     @OperLog(title = "字典管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
     public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id,
@@ -60,7 +60,7 @@ public class SysDictTypeController {
     }
 
     @Operation(summary = "删除字典类型")
-    @SaCheckPermission("system:dict:delete")
+    @SaCheckPermission("admin:SysDictType:delete")
     @OperLog(title = "字典管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
@@ -69,7 +69,7 @@ public class SysDictTypeController {
     }
 
     @Operation(summary = "启用/禁用字典类型")
-    @SaCheckPermission("system:dict:edit")
+    @SaCheckPermission("admin:SysDictType:updateStatus")
     @OperLog(title = "字典管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
     public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {

@@ -25,7 +25,7 @@ public class SysLoginLogController {
     }
 
     @Operation(summary = "登录日志分页")
-    @SaCheckPermission("system:loginlog:list")
+    @SaCheckPermission("admin:SysLoginLog:page")
     @GetMapping("/page")
     public Result<PageResult<SysLoginLogVO>> page(@Valid LoginLogQuery query) {
         return Result.success(loginLogService.page(query));

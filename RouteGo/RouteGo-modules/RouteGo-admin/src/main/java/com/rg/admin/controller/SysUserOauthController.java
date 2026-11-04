@@ -27,14 +27,14 @@ public class SysUserOauthController {
     }
 
     @Operation(summary = "用户绑定列表")
-    @SaCheckPermission("system:user:list")
+    @SaCheckPermission("admin:SysUserOauth:listByUser")
     @GetMapping("/user/{userId}")
     public Result<List<SysUserOauthVO>> listByUser(@Parameter(description = "用户 ID") @PathVariable Long userId) {
         return Result.success(oauthService.listByUserId(userId));
     }
 
     @Operation(summary = "绑定第三方账号")
-    @SaCheckPermission("system:user:edit")
+    @SaCheckPermission("admin:SysUserOauth:bind")
     @OperLog(title = "第三方绑定", type = BusinessType.INSERT)
     @PostMapping
     public Result<Long> bind(@Valid @RequestBody UserOauthBindRequest request) {
@@ -42,7 +42,7 @@ public class SysUserOauthController {
     }
 
     @Operation(summary = "解绑第三方账号")
-    @SaCheckPermission("system:user:edit")
+    @SaCheckPermission("admin:SysUserOauth:unbind")
     @OperLog(title = "第三方绑定", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> unbind(@Parameter(description = "主键 ID") @PathVariable Long id) {
