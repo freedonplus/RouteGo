@@ -7,6 +7,7 @@ import com.rg.admin.vo.SysOperLogVO;
 import com.rg.common.util.Result;
 import com.rg.common.web.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,7 +36,7 @@ public class SysOperLogController {
     @Operation(summary = "操作日志详情")
     @SaCheckPermission("system:operlog:list")
     @GetMapping("/{id}")
-    public Result<SysOperLogVO> detail(@PathVariable Long id) {
+    public Result<SysOperLogVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(operLogService.detail(id));
     }
 }

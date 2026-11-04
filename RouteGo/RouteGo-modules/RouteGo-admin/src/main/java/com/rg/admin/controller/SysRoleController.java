@@ -15,6 +15,7 @@ import com.rg.common.util.Result;
 import com.rg.common.web.PageQuery;
 import com.rg.common.web.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -53,7 +54,7 @@ public class SysRoleController {
     @Operation(summary = "角色详情")
     @SaCheckPermission("system:role:list")
     @GetMapping("/{id}")
-    public Result<SysRoleDetailVO> detail(@PathVariable Long id) {
+    public Result<SysRoleDetailVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(roleService.detail(id));
     }
 
@@ -69,7 +70,7 @@ public class SysRoleController {
     @SaCheckPermission("system:role:edit")
     @OperLog(title = "角色管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody RoleUpdateRequest request) {
+    public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid @RequestBody RoleUpdateRequest request) {
         roleService.update(id, request);
         return Result.success();
     }
@@ -78,7 +79,7 @@ public class SysRoleController {
     @SaCheckPermission("system:role:status")
     @OperLog(title = "角色管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
-    public Result<Void> updateStatus(@PathVariable Long id, @RequestParam Byte status) {
+    public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {
         roleService.updateStatus(id, status);
         return Result.success();
     }
@@ -87,7 +88,7 @@ public class SysRoleController {
     @SaCheckPermission("system:role:delete")
     @OperLog(title = "角色管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
         roleService.deleteRole(id);
         return Result.success();
     }
@@ -95,7 +96,7 @@ public class SysRoleController {
     @Operation(summary = "查询角色菜单")
     @SaCheckPermission("system:role:list")
     @GetMapping("/{id}/menus")
-    public Result<List<Long>> listMenus(@PathVariable Long id) {
+    public Result<List<Long>> listMenus(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(roleService.listMenuIds(id));
     }
 
@@ -103,7 +104,7 @@ public class SysRoleController {
     @SaCheckPermission("system:role:assign-menu")
     @OperLog(title = "角色管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/menus")
-    public Result<Void> assignMenus(@PathVariable Long id, @Valid @RequestBody AssignIdsRequest request) {
+    public Result<Void> assignMenus(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid @RequestBody AssignIdsRequest request) {
         roleService.assignMenus(id, request);
         return Result.success();
     }
@@ -111,7 +112,7 @@ public class SysRoleController {
     @Operation(summary = "查询角色权限点")
     @SaCheckPermission("system:role:list")
     @GetMapping("/{id}/permissions")
-    public Result<List<Long>> listPermissions(@PathVariable Long id) {
+    public Result<List<Long>> listPermissions(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(roleService.listPermissionIds(id));
     }
 
@@ -119,7 +120,7 @@ public class SysRoleController {
     @SaCheckPermission("system:role:assign-permission")
     @OperLog(title = "角色管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/permissions")
-    public Result<Void> assignPermissions(@PathVariable Long id,
+    public Result<Void> assignPermissions(@Parameter(description = "主键 ID") @PathVariable Long id,
                                           @Valid @RequestBody AssignIdsRequest request) {
         roleService.assignPermissions(id, request);
         return Result.success();
@@ -128,7 +129,7 @@ public class SysRoleController {
     @Operation(summary = "角色下用户分页")
     @SaCheckPermission("system:role:list")
     @GetMapping("/{id}/users")
-    public Result<PageResult<SysUserVO>> pageUsers(@PathVariable Long id, @Valid PageQuery pageQuery) {
+    public Result<PageResult<SysUserVO>> pageUsers(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid PageQuery pageQuery) {
         return Result.success(roleService.pageUsers(id, pageQuery));
     }
 }

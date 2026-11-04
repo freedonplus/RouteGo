@@ -12,6 +12,7 @@ import com.rg.common.annotation.OperLog;
 import com.rg.common.util.Result;
 import com.rg.common.web.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -46,7 +47,7 @@ public class SysNoticeController {
     @Operation(summary = "公告详情")
     @SaCheckPermission("system:notice:list")
     @GetMapping("/{id}")
-    public Result<SysNoticeVO> detail(@PathVariable Long id) {
+    public Result<SysNoticeVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(noticeService.detail(id));
     }
 
@@ -62,7 +63,7 @@ public class SysNoticeController {
     @SaCheckPermission("system:notice:edit")
     @OperLog(title = "公告管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody NoticeUpdateRequest request) {
+    public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid @RequestBody NoticeUpdateRequest request) {
         noticeService.update(id, request);
         return Result.success();
     }
@@ -71,7 +72,7 @@ public class SysNoticeController {
     @SaCheckPermission("system:notice:delete")
     @OperLog(title = "公告管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
         noticeService.deleteNotice(id);
         return Result.success();
     }
@@ -80,7 +81,7 @@ public class SysNoticeController {
     @SaCheckPermission("system:notice:edit")
     @OperLog(title = "公告管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/publish")
-    public Result<Void> publish(@PathVariable Long id) {
+    public Result<Void> publish(@Parameter(description = "主键 ID") @PathVariable Long id) {
         noticeService.publish(id);
         return Result.success();
     }
@@ -89,7 +90,7 @@ public class SysNoticeController {
     @SaCheckPermission("system:notice:edit")
     @OperLog(title = "公告管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/unpublish")
-    public Result<Void> unpublish(@PathVariable Long id) {
+    public Result<Void> unpublish(@Parameter(description = "主键 ID") @PathVariable Long id) {
         noticeService.unpublish(id);
         return Result.success();
     }
@@ -98,7 +99,7 @@ public class SysNoticeController {
     @SaCheckPermission("system:notice:edit")
     @OperLog(title = "公告管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/top")
-    public Result<Void> setTop(@PathVariable Long id, @RequestParam boolean top) {
+    public Result<Void> setTop(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "是否置顶") @RequestParam boolean top) {
         noticeService.setTop(id, top);
         return Result.success();
     }

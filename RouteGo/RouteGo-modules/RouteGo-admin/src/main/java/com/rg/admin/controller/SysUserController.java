@@ -14,6 +14,7 @@ import com.rg.common.annotation.OperLog;
 import com.rg.common.util.Result;
 import com.rg.common.web.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -52,7 +53,7 @@ public class SysUserController {
     @Operation(summary = "用户详情")
     @SaCheckPermission("system:user:list")
     @GetMapping("/{id}")
-    public Result<SysUserDetailVO> detail(@PathVariable Long id) {
+    public Result<SysUserDetailVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(userService.detail(id));
     }
 
@@ -68,7 +69,7 @@ public class SysUserController {
     @SaCheckPermission("system:user:edit")
     @OperLog(title = "用户管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
+    public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
         userService.update(id, request);
         return Result.success();
     }
@@ -77,7 +78,7 @@ public class SysUserController {
     @SaCheckPermission("system:user:status")
     @OperLog(title = "用户管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
-    public Result<Void> updateStatus(@PathVariable Long id, @RequestParam Byte status) {
+    public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {
         userService.updateStatus(id, status);
         return Result.success();
     }
@@ -86,7 +87,7 @@ public class SysUserController {
     @SaCheckPermission("system:user:reset-password")
     @OperLog(title = "用户管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/password")
-    public Result<Void> resetPassword(@PathVariable Long id,
+    public Result<Void> resetPassword(@Parameter(description = "主键 ID") @PathVariable Long id,
                                       @Valid @RequestBody ResetPasswordRequest request) {
         userService.resetPassword(id, request);
         return Result.success();
@@ -95,7 +96,7 @@ public class SysUserController {
     @Operation(summary = "查询用户角色")
     @SaCheckPermission("system:user:list")
     @GetMapping("/{id}/roles")
-    public Result<List<Long>> listRoles(@PathVariable Long id) {
+    public Result<List<Long>> listRoles(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(userService.listRoleIds(id));
     }
 
@@ -103,7 +104,7 @@ public class SysUserController {
     @SaCheckPermission("system:user:assign-role")
     @OperLog(title = "用户管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/roles")
-    public Result<Void> assignRoles(@PathVariable Long id,
+    public Result<Void> assignRoles(@Parameter(description = "主键 ID") @PathVariable Long id,
                                     @Valid @RequestBody AssignRolesRequest request) {
         userService.assignRoles(id, request);
         return Result.success();
@@ -113,7 +114,7 @@ public class SysUserController {
     @SaCheckPermission("system:user:delete")
     @OperLog(title = "用户管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
         userService.deleteUser(id);
         return Result.success();
     }

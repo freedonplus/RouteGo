@@ -12,6 +12,7 @@ import com.rg.common.annotation.BusinessType;
 import com.rg.common.annotation.OperLog;
 import com.rg.common.util.Result;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -57,7 +58,7 @@ public class SysMenuController {
     @Operation(summary = "菜单详情")
     @SaCheckPermission("system:menu:list")
     @GetMapping("/{id}")
-    public Result<SysMenuVO> detail(@PathVariable Long id) {
+    public Result<SysMenuVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(menuService.detail(id));
     }
 
@@ -73,7 +74,7 @@ public class SysMenuController {
     @SaCheckPermission("system:menu:edit")
     @OperLog(title = "菜单管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody MenuUpdateRequest request) {
+    public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id, @Valid @RequestBody MenuUpdateRequest request) {
         menuService.updateMenu(id, request);
         return Result.success();
     }
@@ -82,7 +83,7 @@ public class SysMenuController {
     @SaCheckPermission("system:menu:delete")
     @OperLog(title = "菜单管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
         menuService.deleteMenu(id);
         return Result.success();
     }
@@ -91,7 +92,7 @@ public class SysMenuController {
     @SaCheckPermission("system:menu:status")
     @OperLog(title = "菜单管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
-    public Result<Void> updateStatus(@PathVariable Long id, @RequestParam Byte status) {
+    public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {
         menuService.updateStatus(id, status);
         return Result.success();
     }
@@ -100,7 +101,7 @@ public class SysMenuController {
     @SaCheckPermission("system:menu:edit")
     @OperLog(title = "菜单管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/visible")
-    public Result<Void> updateVisible(@PathVariable Long id, @RequestParam Byte visible) {
+    public Result<Void> updateVisible(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "是否显示：0 隐藏，1 显示") @RequestParam Byte visible) {
         menuService.updateVisible(id, visible);
         return Result.success();
     }

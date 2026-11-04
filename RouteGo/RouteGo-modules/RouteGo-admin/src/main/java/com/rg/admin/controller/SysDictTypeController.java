@@ -11,6 +11,7 @@ import com.rg.common.annotation.OperLog;
 import com.rg.common.util.Result;
 import com.rg.common.web.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -36,7 +37,7 @@ public class SysDictTypeController {
     @Operation(summary = "字典类型详情")
     @SaCheckPermission("system:dict:list")
     @GetMapping("/{id}")
-    public Result<DictTypeVO> detail(@PathVariable Long id) {
+    public Result<DictTypeVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(dictTypeService.detail(id));
     }
 
@@ -52,7 +53,7 @@ public class SysDictTypeController {
     @SaCheckPermission("system:dict:edit")
     @OperLog(title = "字典管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id,
+    public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id,
                                @Valid @RequestBody DictTypeUpdateRequest request) {
         dictTypeService.update(id, request);
         return Result.success();
@@ -62,7 +63,7 @@ public class SysDictTypeController {
     @SaCheckPermission("system:dict:delete")
     @OperLog(title = "字典管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
         dictTypeService.deleteType(id);
         return Result.success();
     }
@@ -71,7 +72,7 @@ public class SysDictTypeController {
     @SaCheckPermission("system:dict:edit")
     @OperLog(title = "字典管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
-    public Result<Void> updateStatus(@PathVariable Long id, @RequestParam Byte status) {
+    public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {
         dictTypeService.updateStatus(id, status);
         return Result.success();
     }

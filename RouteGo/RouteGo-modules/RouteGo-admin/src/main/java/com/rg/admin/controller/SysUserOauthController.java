@@ -8,6 +8,7 @@ import com.rg.common.annotation.BusinessType;
 import com.rg.common.annotation.OperLog;
 import com.rg.common.util.Result;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -28,7 +29,7 @@ public class SysUserOauthController {
     @Operation(summary = "用户绑定列表")
     @SaCheckPermission("system:user:list")
     @GetMapping("/user/{userId}")
-    public Result<List<SysUserOauthVO>> listByUser(@PathVariable Long userId) {
+    public Result<List<SysUserOauthVO>> listByUser(@Parameter(description = "用户 ID") @PathVariable Long userId) {
         return Result.success(oauthService.listByUserId(userId));
     }
 
@@ -44,7 +45,7 @@ public class SysUserOauthController {
     @SaCheckPermission("system:user:edit")
     @OperLog(title = "第三方绑定", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
-    public Result<Void> unbind(@PathVariable Long id) {
+    public Result<Void> unbind(@Parameter(description = "主键 ID") @PathVariable Long id) {
         oauthService.unbind(id);
         return Result.success();
     }

@@ -12,6 +12,7 @@ import com.rg.common.annotation.OperLog;
 import com.rg.common.util.Result;
 import com.rg.common.web.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -37,14 +38,14 @@ public class SysConfigController {
     @Operation(summary = "按 key 查询参数")
     @SaCheckPermission("system:config:list")
     @GetMapping("/key/{configKey}")
-    public Result<SysConfigVO> getByKey(@PathVariable String configKey) {
+    public Result<SysConfigVO> getByKey(@Parameter(description = "参数键") @PathVariable String configKey) {
         return Result.success(configService.getByKey(configKey));
     }
 
     @Operation(summary = "参数详情")
     @SaCheckPermission("system:config:list")
     @GetMapping("/{id}")
-    public Result<SysConfigVO> detail(@PathVariable Long id) {
+    public Result<SysConfigVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(configService.detail(id));
     }
 
@@ -60,7 +61,7 @@ public class SysConfigController {
     @SaCheckPermission("system:config:edit")
     @OperLog(title = "参数管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id,
+    public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id,
                                @Valid @RequestBody ConfigUpdateRequest request) {
         configService.update(id, request);
         return Result.success();
@@ -70,7 +71,7 @@ public class SysConfigController {
     @SaCheckPermission("system:config:delete")
     @OperLog(title = "参数管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
         configService.deleteConfig(id);
         return Result.success();
     }

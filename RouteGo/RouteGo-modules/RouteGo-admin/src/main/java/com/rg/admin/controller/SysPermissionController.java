@@ -12,6 +12,7 @@ import com.rg.common.annotation.OperLog;
 import com.rg.common.util.Result;
 import com.rg.common.web.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -57,7 +58,7 @@ public class SysPermissionController {
     @Operation(summary = "权限点详情")
     @SaCheckPermission("system:permission:list")
     @GetMapping("/{id}")
-    public Result<SysPermissionVO> detail(@PathVariable Long id) {
+    public Result<SysPermissionVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(permissionService.detail(id));
     }
 
@@ -73,7 +74,7 @@ public class SysPermissionController {
     @SaCheckPermission("system:permission:edit")
     @OperLog(title = "权限点管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id,
+    public Result<Void> update(@Parameter(description = "主键 ID") @PathVariable Long id,
                                @Valid @RequestBody PermissionUpdateRequest request) {
         permissionService.updatePermission(id, request);
         return Result.success();
@@ -83,7 +84,7 @@ public class SysPermissionController {
     @SaCheckPermission("system:permission:delete")
     @OperLog(title = "权限点管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
         permissionService.deletePermission(id);
         return Result.success();
     }
@@ -92,7 +93,7 @@ public class SysPermissionController {
     @SaCheckPermission("system:permission:status")
     @OperLog(title = "权限点管理", type = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
-    public Result<Void> updateStatus(@PathVariable Long id, @RequestParam Byte status) {
+    public Result<Void> updateStatus(@Parameter(description = "主键 ID") @PathVariable Long id, @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {
         permissionService.updateStatus(id, status);
         return Result.success();
     }

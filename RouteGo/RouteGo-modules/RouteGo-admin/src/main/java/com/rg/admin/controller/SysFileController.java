@@ -9,6 +9,7 @@ import com.rg.common.annotation.OperLog;
 import com.rg.common.util.Result;
 import com.rg.common.web.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
@@ -50,14 +51,14 @@ public class SysFileController {
     @Operation(summary = "文件详情")
     @SaCheckPermission("system:file:list")
     @GetMapping("/{id}")
-    public Result<SysFileVO> detail(@PathVariable Long id) {
+    public Result<SysFileVO> detail(@Parameter(description = "主键 ID") @PathVariable Long id) {
         return Result.success(fileService.detail(id));
     }
 
     @Operation(summary = "下载文件")
     @SaCheckPermission("system:file:list")
     @GetMapping("/{id}/download")
-    public ResponseEntity<Resource> download(@PathVariable Long id) {
+    public ResponseEntity<Resource> download(@Parameter(description = "主键 ID") @PathVariable Long id) {
         SysFileVO file = fileService.detail(id);
         Resource resource = fileService.download(id);
         ContentDisposition disposition = ContentDisposition.attachment()
@@ -73,7 +74,7 @@ public class SysFileController {
     @SaCheckPermission("system:file:delete")
     @OperLog(title = "文件管理", type = BusinessType.DELETE)
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@Parameter(description = "主键 ID") @PathVariable Long id) {
         fileService.deleteFile(id);
         return Result.success();
     }
