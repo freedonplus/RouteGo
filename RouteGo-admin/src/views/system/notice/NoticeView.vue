@@ -39,7 +39,7 @@ async function load() {
       pageSize: page.pageSize,
     })
     rows.value = result.records || []
-    page.total = result.total || 0
+    page.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '公告加载失败')
     rows.value = []
@@ -129,7 +129,7 @@ onMounted(load)
     <PageHeader title="公告管理" description="系统通知与公告，发布后写入发布时间">
       <template #actions>
         <el-button size="small" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
-        <el-button v-perm="'system:notice:add'" size="small" type="primary" :icon="Plus" @click="openCreate">
+        <el-button v-perm="'admin:SysNotice:create'" size="small" type="primary" :icon="Plus" @click="openCreate">
           新增公告
         </el-button>
       </template>
@@ -205,10 +205,10 @@ onMounted(load)
             <el-table-column label="操作" width="230" fixed="right">
               <template #default="{ row }">
                 <div class="flex items-center gap-0.5">
-                  <el-button v-perm="'system:notice:edit'" link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
+                  <el-button v-perm="'admin:SysNotice:update'" link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
                   <el-button
                     v-if="row.status !== 1"
-                    v-perm="'system:notice:edit'"
+                    v-perm="'admin:SysNotice:publish'"
                     link
                     type="primary"
                     size="small"
@@ -218,17 +218,17 @@ onMounted(load)
                   </el-button>
                   <el-button
                     v-else
-                    v-perm="'system:notice:edit'"
+                    v-perm="'admin:SysNotice:unpublish'"
                     link
                     size="small"
                     @click="unpublish(row)"
                   >
                     下架
                   </el-button>
-                  <el-button v-perm="'system:notice:edit'" link size="small" @click="toggleTop(row)">
+                  <el-button v-perm="'admin:SysNotice:setTop'" link size="small" @click="toggleTop(row)">
                     {{ row.isTop === 1 ? '取消置顶' : '置顶' }}
                   </el-button>
-                  <el-button v-perm="'system:notice:delete'" link type="danger" size="small" @click="remove(row)">删除</el-button>
+                  <el-button v-perm="'admin:SysNotice:delete'" link type="danger" size="small" @click="remove(row)">删除</el-button>
                 </div>
               </template>
             </el-table-column>

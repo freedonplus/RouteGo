@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { deleteUser, pageRoles, pageUsers, setUserStatus } from '@/api/system'
-import { formatDate, formatDateTime } from '@/utils/format'
+import { formatDate, formatDateTime, resolveFileUrl } from '@/utils/format'
 import PageHeader from '@/components/PageHeader.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -42,11 +42,11 @@ const oauthUser = ref(null)
 
 const canOperate = computed(() =>
   auth.hasPerm([
-    'system:user:edit',
-    'system:user:assign-role',
-    'system:user:reset-password',
-    'system:user:status',
-    'system:user:delete',
+    'admin:SysUser:update',
+    'admin:SysUser:assignRoles',
+    'admin:SysUser:resetPassword',
+    'admin:SysUser:updateStatus',
+    'admin:SysUser:delete',
   ])
 )
 
@@ -76,7 +76,7 @@ async function load() {
     }
     const result = await pageUsers(params)
     rows.value = result.records || []
-    page.total = result.total || 0
+    page.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '用户列表加载失败')
     rows.value = []
@@ -233,7 +233,7 @@ onMounted(() => {
     <PageHeader title="用户管理" description="系统账号、角色与登录状态">
       <template #actions>
         <el-button size="small" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
-        <el-button v-perm="'system:user:add'" size="small" type="primary" :icon="Plus" @click="openCreate">
+        <el-button v-perm="'admin:SysUser:create'" size="small" type="primary" :icon="Plus" @click="openCreate">
           新增用户
         </el-button>
       </template>
@@ -325,10 +325,10 @@ onMounted(() => {
           class="flex flex-wrap items-center gap-2 border-b border-[#e2e8f0] bg-[#fdf1f5] px-3 py-1.5"
         >
           <span class="text-[11px] text-[#a8435f]">已选 {{ selection.length }} 项</span>
-          <el-button v-perm="'system:user:status'" size="small" @click="batchStatus(1)">
+          <el-button v-perm="'admin:SysUser:updateStatus'" size="small" @click="batchStatus(1)">
             批量启用
           </el-button>
-          <el-button v-perm="'system:user:status'" size="small" @click="batchStatus(0)">
+          <el-button v-perm="'admin:SysUser:updateStatus'" size="small" @click="batchStatus(0)">
             批量停用
           </el-button>
           <el-button link size="small" class="ml-auto" @click="tableRef?.clearSelection()">
@@ -359,7 +359,7 @@ onMounted(() => {
                 <div class="flex items-center gap-1.5">
                   <img
                     v-if="row.avatar"
-                    :src="row.avatar"
+                    :src="resolveFileUrl(row.avatar)"
                     alt=""
                     class="h-6 w-6 shrink-0 rounded object-cover"
                   />
@@ -430,7 +430,7 @@ onMounted(() => {
               <template #default="{ row }">
                 <div class="flex items-center gap-0.5">
                   <el-button
-                    v-perm="'system:user:edit'"
+                    v-perm="'admin:SysUser:update'"
                     link
                     type="primary"
                     size="small"
@@ -439,7 +439,7 @@ onMounted(() => {
                     编辑
                   </el-button>
                   <el-button
-                    v-perm="'system:user:assign-role'"
+                    v-perm="'admin:SysUser:assignRoles'"
                     link
                     type="primary"
                     size="small"
@@ -448,7 +448,7 @@ onMounted(() => {
                     角色
                   </el-button>
                   <el-button
-                    v-perm="'system:user:edit'"
+                    v-perm="'admin:SysUserOauth:listByUser'"
                     link
                     type="primary"
                     size="small"
@@ -457,7 +457,7 @@ onMounted(() => {
                     绑定
                   </el-button>
                   <el-button
-                    v-perm="'system:user:reset-password'"
+                    v-perm="'admin:SysUser:resetPassword'"
                     link
                     type="primary"
                     size="small"
@@ -466,7 +466,7 @@ onMounted(() => {
                     重置
                   </el-button>
                   <el-button
-                    v-perm="'system:user:status'"
+                    v-perm="'admin:SysUser:updateStatus'"
                     link
                     size="small"
                     :disabled="isProtected(row) || isSelf(row)"
@@ -476,7 +476,7 @@ onMounted(() => {
                     {{ row.status === 1 ? '停用' : '启用' }}
                   </el-button>
                   <el-button
-                    v-perm="'system:user:delete'"
+                    v-perm="'admin:SysUser:delete'"
                     link
                     type="danger"
                     size="small"

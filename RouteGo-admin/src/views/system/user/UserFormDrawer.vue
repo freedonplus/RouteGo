@@ -2,6 +2,7 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createUser, getUser, pageRoles, updateUser } from '@/api/system'
+import ImageUpload from '@/components/ImageUpload.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -197,8 +198,8 @@ async function submit() {
         <el-input v-model="form.nickname" placeholder="显示名称" />
       </el-form-item>
 
-      <el-form-item label="头像 URL" prop="avatar">
-        <el-input v-model="form.avatar" placeholder="https://..." class="font-mono" />
+      <el-form-item label="头像" prop="avatar">
+        <ImageUpload v-model="form.avatar" tip="拖拽头像到此处，或点击从本地选择" />
       </el-form-item>
 
       <div class="grid grid-cols-2 gap-2">

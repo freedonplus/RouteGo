@@ -29,7 +29,7 @@ async function load() {
     }
     const result = await pageLoginLogs(params)
     rows.value = result.records || []
-    page.total = result.total || 0
+    page.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '登录日志加载失败')
     rows.value = []
@@ -113,6 +113,11 @@ onMounted(load)
             <el-table-column label="IP" width="120">
               <template #default="{ row }">
                 <span class="font-mono text-[11px] text-[#64748b]">{{ row.ip }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="归属地" min-width="150">
+              <template #default="{ row }">
+                <span class="truncate text-[11px] text-[#64748b]">{{ row.location || '—' }}</span>
               </template>
             </el-table-column>
             <el-table-column label="浏览器" min-width="130">

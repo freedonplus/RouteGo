@@ -26,7 +26,7 @@ async function load() {
       pageSize: page.pageSize,
     })
     rows.value = result.records || []
-    page.total = result.total || 0
+    page.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '参数加载失败')
     rows.value = []
@@ -87,7 +87,7 @@ onMounted(load)
     <PageHeader title="参数配置" description="系统运行时参数，键创建后不可修改">
       <template #actions>
         <el-button size="small" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
-        <el-button v-perm="'system:config:add'" size="small" type="primary" :icon="Plus" @click="openCreate">
+        <el-button v-perm="'admin:SysConfig:create'" size="small" type="primary" :icon="Plus" @click="openCreate">
           新增参数
         </el-button>
       </template>
@@ -146,8 +146,8 @@ onMounted(load)
             </el-table-column>
             <el-table-column label="操作" width="112" fixed="right">
               <template #default="{ row }">
-                <el-button v-perm="'system:config:edit'" link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-                <el-button v-perm="'system:config:delete'" link type="danger" size="small" @click="remove(row)">删除</el-button>
+                <el-button v-perm="'admin:SysConfig:update'" link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
+                <el-button v-perm="'admin:SysConfig:delete'" link type="danger" size="small" @click="remove(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>

@@ -3,19 +3,19 @@ import { hasPermission } from './auth'
 
 describe('hasPermission', () => {
   it('wildcard allows all', () => {
-    expect(hasPermission(['*'], 'system:user:add')).toBe(true)
+    expect(hasPermission(['*'], 'admin:SysUser:create')).toBe(true)
   })
 
   it('exact match', () => {
-    expect(hasPermission(['system:user:list'], 'system:user:list')).toBe(true)
+    expect(hasPermission(['admin:SysUser:page'], 'admin:SysUser:page')).toBe(true)
   })
 
   it('missing permission denies', () => {
-    expect(hasPermission(['system:user:list'], 'system:user:add')).toBe(false)
+    expect(hasPermission(['admin:SysUser:page'], 'admin:SysUser:create')).toBe(false)
   })
 
   it('array requirement passes with any match', () => {
-    expect(hasPermission(['system:user:add'], ['system:user:edit', 'system:user:add'])).toBe(true)
+    expect(hasPermission(['admin:SysUser:create'], ['admin:SysUser:update', 'admin:SysUser:create'])).toBe(true)
   })
 
   it('empty requirement allows', () => {

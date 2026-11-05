@@ -26,10 +26,12 @@ const routes = [
         meta: { title: '仪表盘' },
       },
       {
-        path: 'system/:pathMatch(.*)*',
+        // 所有业务页面都由后端菜单驱动：/catalog/route、/trade/order ...
+        // 这里用一段受约束的动态段兜住，新增模块不用再改路由表。
+        path: ':module([a-z]+)/:pathMatch(.*)*',
         name: 'dynamic-menu',
         component: DynamicMenuView,
-        meta: { title: '系统管理' },
+        meta: { title: '业务页面' },
       },
     ],
   },

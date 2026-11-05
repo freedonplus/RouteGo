@@ -27,12 +27,11 @@ const isEdit = computed(() => props.mode === 'edit')
 
 const rules = computed(() => ({
   permissionName: [{ required: true, message: '请输入权限名称', trigger: 'blur' }],
-  permissionCode: isEdit.value
-    ? []
-    : [
+  permissionCode: [
         { required: true, message: '请输入权限码', trigger: 'blur' },
         {
-          pattern: /^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]*)+$/,
+          // 与后端保持一致：允许大小写、下划线与短横线（历史数据形如 admin:SysUser:listByUser）
+          pattern: /^[A-Za-z][A-Za-z0-9_-]*(?::[A-Za-z0-9_-]+)+$/,
           message: '格式如 system:user:list',
           trigger: 'blur',
         },
@@ -92,6 +91,7 @@ async function submit() {
       await updatePermission(props.permissionId, {
         version: form.version,
         permissionName: form.permissionName,
+        permissionCode: form.permissionCode.trim(),
         module: form.module,
         description: form.description,
         status: form.status,
@@ -140,7 +140,6 @@ async function submit() {
       <el-form-item label="权限码" prop="permissionCode">
         <el-input
           v-model="form.permissionCode"
-          :disabled="isEdit"
           placeholder="system:user:list"
           class="font-mono"
         />
@@ -175,7 +174,7 @@ async function submit() {
         />
       </el-form-item>
       <p class="text-[10px] leading-4 text-[#94a3b8]">
-        权限码创建后不可修改；被角色引用时不能删除。
+        权限码可修改，保存后立即对所有已登录用户生效；被角色引用时不能删除。
       </p>
     </el-form>
 

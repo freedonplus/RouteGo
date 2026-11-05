@@ -226,12 +226,40 @@ route('get', /^\/admin\/auth\/captcha$/, (ctx) => {
   return ok({ uuid: captcha.uuid, image: captcha.image }, ctx.config)
 })
 
-route('post', /^\/admin\/auth\/login$/, ({ body, config }) => {
-  if (!verifyCaptcha(body.captchaUuid, body.captchaCode)) {
+// 演示模式不接真实 OAuth：返回全部平台但标记不可用，保证登录页入口可见
+route('get', /^\/admin\/auth\/oauth\/providers$/, ({ config }) =>
+  ok(
+    ['github:GITHUB', 'gitee:Gitee', 'wechat:微信', 'qq:QQ', 'dingtalk:钉钉'].map((item) => {
+      const [code, label] = item.split(':')
+      return {
+        code,
+        label,
+        available: false,
+        enabled: false,
+        reason: '演示模式未接入第三方登录，请在真实后端配置 client-id / client-secret',
+      }
+    }),
+    config,
+  ),
+)
+
+// 演示模式不发送真实短信 / 邮件
+route('post', /^\/admin\/auth\/code$/, () => {
+  throw new MockError(400, '演示模式不支持发送验证码，请使用账号密码登录')
+})
+
+route('post', /^\/admin\/auth\/login\/code$/, () => {
+  throw new MockError(400, '演示模式不支持验证码登录，请使用账号密码登录')
+})
+
+route('post', /^\/admin\/auth\/login$/, ({ body, config }) => {  if (!verifyCaptcha(body.captchaUuid, body.captchaCode)) {
     throw new MockError(400, '验证码错误或已过期')
   }
-  const username = String(body.username || '').trim()
-  const user = state.users.find((item) => item.username === username)
+  // 统一账号：用户名 / 手机号 / 邮箱
+  const account = String(body.account || body.username || '').trim()
+  const user = state.users.find(
+    (item) => item.username === account || item.phone === account || item.email === account,
+  )
   if (!user || user.password !== body.password) {
     throw new MockError(401, '账号或密码错误')
   }
@@ -297,7 +325,7 @@ route('get', /^\/admin\/dashboard\/overview$/, ({ config }) => {
 
 route('get', /^\/admin\/system\/user\/page$/, ({ config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:user:list')
+  requirePerm(user, 'admin:SysUser:page')
   const q = query(config)
   let list = [...state.users]
   if (q.username) list = list.filter((item) => item.username.includes(q.username))
@@ -316,7 +344,7 @@ route('get', /^\/admin\/system\/user\/page$/, ({ config }) => {
 
 route('get', /^\/admin\/system\/user\/(\d+)$/, ({ match, config }) => {
   const current = requireUser(config)
-  requirePerm(current, 'system:user:list')
+  requirePerm(current, 'admin:SysUser:page')
   const user = userById(match[1])
   if (!user) throw new MockError(404, '用户不存在')
   return ok(userDetailVO(user), config)
@@ -324,7 +352,7 @@ route('get', /^\/admin\/system\/user\/(\d+)$/, ({ match, config }) => {
 
 route('post', /^\/admin\/system\/user$/, ({ body, config }) => {
   const current = requireUser(config)
-  requirePerm(current, 'system:user:add')
+  requirePerm(current, 'admin:SysUser:create')
   const username = String(body.username || '').trim()
   if (!/^[A-Za-z0-9_]{3,50}$/.test(username)) {
     throw new MockError(400, '账号需为 3–50 位字母、数字或下划线')
@@ -358,7 +386,7 @@ route('post', /^\/admin\/system\/user$/, ({ body, config }) => {
 
 route('put', /^\/admin\/system\/user\/(\d+)$/, ({ match, body, config }) => {
   const current = requireUser(config)
-  requirePerm(current, 'system:user:edit')
+  requirePerm(current, 'admin:SysUser:update')
   const user = userById(match[1])
   assertVersion(user, body.version)
   if (body.nickname !== undefined) user.nickname = body.nickname
@@ -372,7 +400,7 @@ route('put', /^\/admin\/system\/user\/(\d+)$/, ({ match, body, config }) => {
 
 route('put', /^\/admin\/system\/user\/(\d+)\/status$/, ({ match, config }) => {
   const current = requireUser(config)
-  requirePerm(current, 'system:user:status')
+  requirePerm(current, 'admin:SysUser:updateStatus')
   const user = userById(match[1])
   if (!user) throw new MockError(404, '用户不存在')
   if (user.id === current.id) throw new MockError(400, '不能停用自己')
@@ -383,7 +411,7 @@ route('put', /^\/admin\/system\/user\/(\d+)\/status$/, ({ match, config }) => {
 
 route('put', /^\/admin\/system\/user\/(\d+)\/password$/, ({ match, body, config }) => {
   const current = requireUser(config)
-  requirePerm(current, 'system:user:reset-password')
+  requirePerm(current, 'admin:SysUser:resetPassword')
   const user = userById(match[1])
   if (!user) throw new MockError(404, '用户不存在')
   assertPassword(body.newPassword)
@@ -393,13 +421,13 @@ route('put', /^\/admin\/system\/user\/(\d+)\/password$/, ({ match, body, config 
 
 route('get', /^\/admin\/system\/user\/(\d+)\/roles$/, ({ match, config }) => {
   const current = requireUser(config)
-  requirePerm(current, 'system:user:list')
+  requirePerm(current, 'admin:SysUser:page')
   return ok(userRoleIds(match[1]), config)
 })
 
 route('put', /^\/admin\/system\/user\/(\d+)\/roles$/, ({ match, body, config }) => {
   const current = requireUser(config)
-  requirePerm(current, 'system:user:assign-role')
+  requirePerm(current, 'admin:SysUser:assignRoles')
   const user = userById(match[1])
   if (!user) throw new MockError(404, '用户不存在')
   if (!Array.isArray(body.roleIds) || body.roleIds.length === 0) {
@@ -411,7 +439,7 @@ route('put', /^\/admin\/system\/user\/(\d+)\/roles$/, ({ match, body, config }) 
 
 route('delete', /^\/admin\/system\/user\/(\d+)$/, ({ match, config }) => {
   const current = requireUser(config)
-  requirePerm(current, 'system:user:delete')
+  requirePerm(current, 'admin:SysUser:delete')
   const user = userById(match[1])
   if (!user) throw new MockError(404, '用户不存在')
   if (user.id === current.id) throw new MockError(400, '不能删除自己')
@@ -424,7 +452,7 @@ route('delete', /^\/admin\/system\/user\/(\d+)$/, ({ match, config }) => {
 
 route('get', /^\/admin\/system\/role\/page$/, ({ config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:list')
+  requirePerm(user, 'admin:SysRole:page')
   const q = query(config)
   let list = [...state.roles]
   if (q.roleName) list = list.filter((item) => item.roleName.includes(q.roleName))
@@ -439,13 +467,13 @@ route('get', /^\/admin\/system\/role\/page$/, ({ config }) => {
 
 route('get', /^\/admin\/system\/role\/(\d+)\/menus$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:list')
+  requirePerm(user, 'admin:SysRole:page')
   return ok(state.roleMenus[match[1]] || [], config)
 })
 
 route('put', /^\/admin\/system\/role\/(\d+)\/menus$/, ({ match, body, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:assign-menu')
+  requirePerm(user, 'admin:SysRole:assignMenus')
   if (!roleById(match[1])) throw new MockError(404, '角色不存在')
   state.roleMenus[match[1]] = (body.ids || []).map(Number)
   return ok(null, config)
@@ -453,13 +481,13 @@ route('put', /^\/admin\/system\/role\/(\d+)\/menus$/, ({ match, body, config }) 
 
 route('get', /^\/admin\/system\/role\/(\d+)\/permissions$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:list')
+  requirePerm(user, 'admin:SysRole:page')
   return ok(state.rolePermissions[match[1]] || [], config)
 })
 
 route('put', /^\/admin\/system\/role\/(\d+)\/permissions$/, ({ match, body, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:assign-permission')
+  requirePerm(user, 'admin:SysRole:assignPermissions')
   if (!roleById(match[1])) throw new MockError(404, '角色不存在')
   state.rolePermissions[match[1]] = (body.ids || []).map(Number)
   return ok(null, config)
@@ -467,7 +495,7 @@ route('put', /^\/admin\/system\/role\/(\d+)\/permissions$/, ({ match, body, conf
 
 route('get', /^\/admin\/system\/role\/(\d+)\/users$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:list')
+  requirePerm(user, 'admin:SysRole:page')
   const q = query(config)
   const list = state.users.filter((item) => item.roleIds.includes(Number(match[1])))
   const page = paginate(list, q.pageNum, q.pageSize)
@@ -476,7 +504,7 @@ route('get', /^\/admin\/system\/role\/(\d+)\/users$/, ({ match, config }) => {
 
 route('get', /^\/admin\/system\/role\/(\d+)$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:list')
+  requirePerm(user, 'admin:SysRole:page')
   const role = roleById(match[1])
   if (!role) throw new MockError(404, '角色不存在')
   return ok(
@@ -491,7 +519,7 @@ route('get', /^\/admin\/system\/role\/(\d+)$/, ({ match, config }) => {
 
 route('post', /^\/admin\/system\/role$/, ({ body, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:add')
+  requirePerm(user, 'admin:SysRole:create')
   const roleCode = String(body.roleCode || '').trim()
   if (!roleCode) throw new MockError(400, '角色编码不能为空')
   if (state.roles.some((item) => item.roleCode === roleCode)) {
@@ -516,7 +544,7 @@ route('post', /^\/admin\/system\/role$/, ({ body, config }) => {
 
 route('put', /^\/admin\/system\/role\/(\d+)\/status$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:status')
+  requirePerm(user, 'admin:SysRole:updateStatus')
   const role = roleById(match[1])
   if (!role) throw new MockError(404, '角色不存在')
   if (role.builtIn) throw new MockError(400, '内置角色不能停用')
@@ -526,7 +554,7 @@ route('put', /^\/admin\/system\/role\/(\d+)\/status$/, ({ match, config }) => {
 
 route('put', /^\/admin\/system\/role\/(\d+)$/, ({ match, body, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:edit')
+  requirePerm(user, 'admin:SysRole:update')
   const role = roleById(match[1])
   assertVersion(role, body.version)
   if (body.roleName !== undefined) role.roleName = body.roleName
@@ -539,7 +567,7 @@ route('put', /^\/admin\/system\/role\/(\d+)$/, ({ match, body, config }) => {
 
 route('delete', /^\/admin\/system\/role\/(\d+)$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:role:delete')
+  requirePerm(user, 'admin:SysRole:delete')
   const role = roleById(match[1])
   if (!role) throw new MockError(404, '角色不存在')
   if (role.builtIn) throw new MockError(400, '内置角色不能删除')
@@ -554,7 +582,7 @@ route('delete', /^\/admin\/system\/role\/(\d+)$/, ({ match, config }) => {
 
 route('get', /^\/admin\/system\/menu\/tree$/, ({ config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:menu:list')
+  requirePerm(user, 'admin:SysMenu:tree')
   return ok(buildMenuTree(), config)
 })
 
@@ -565,7 +593,7 @@ route('get', /^\/admin\/system\/menu\/user-tree$/, ({ config }) => {
 
 route('get', /^\/admin\/system\/menu\/(\d+)$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:menu:list')
+  requirePerm(user, 'admin:SysMenu:tree')
   const menu = state.menus.find((item) => item.id === Number(match[1]))
   if (!menu) throw new MockError(404, '菜单不存在')
   return ok(menu, config)
@@ -573,7 +601,7 @@ route('get', /^\/admin\/system\/menu\/(\d+)$/, ({ match, config }) => {
 
 route('post', /^\/admin\/system\/menu$/, ({ body, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:menu:add')
+  requirePerm(user, 'admin:SysMenu:create')
   const id = nextId('menu')
   state.menus.push({
     id,
@@ -595,7 +623,7 @@ route('post', /^\/admin\/system\/menu$/, ({ body, config }) => {
 
 route('put', /^\/admin\/system\/menu\/(\d+)\/status$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:menu:status')
+  requirePerm(user, 'admin:SysMenu:updateStatus')
   const menu = state.menus.find((item) => item.id === Number(match[1]))
   if (!menu) throw new MockError(404, '菜单不存在')
   menu.status = toInt(query(config).status, 1) ? 1 : 0
@@ -604,7 +632,7 @@ route('put', /^\/admin\/system\/menu\/(\d+)\/status$/, ({ match, config }) => {
 
 route('put', /^\/admin\/system\/menu\/(\d+)\/visible$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:menu:edit')
+  requirePerm(user, 'admin:SysMenu:update')
   const menu = state.menus.find((item) => item.id === Number(match[1]))
   if (!menu) throw new MockError(404, '菜单不存在')
   menu.visible = toInt(query(config).visible, 1) ? 1 : 0
@@ -613,7 +641,7 @@ route('put', /^\/admin\/system\/menu\/(\d+)\/visible$/, ({ match, config }) => {
 
 route('put', /^\/admin\/system\/menu\/(\d+)$/, ({ match, body, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:menu:edit')
+  requirePerm(user, 'admin:SysMenu:update')
   const menu = state.menus.find((item) => item.id === Number(match[1]))
   assertVersion(menu, body.version)
   const parentId = toInt(body.parentId, menu.parentId)
@@ -641,7 +669,7 @@ route('put', /^\/admin\/system\/menu\/(\d+)$/, ({ match, body, config }) => {
 
 route('delete', /^\/admin\/system\/menu\/(\d+)$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:menu:delete')
+  requirePerm(user, 'admin:SysMenu:delete')
   const id = Number(match[1])
   if (!state.menus.some((item) => item.id === id)) throw new MockError(404, '菜单不存在')
   if (childCountForMenu(id) > 0) throw new MockError(409, '存在子菜单，不能删除')
@@ -655,7 +683,7 @@ route('delete', /^\/admin\/system\/menu\/(\d+)$/, ({ match, config }) => {
 
 route('get', /^\/admin\/system\/permission\/page$/, ({ config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:permission:list')
+  requirePerm(user, 'admin:SysPermission:page')
   const q = query(config)
   let list = [...state.permissions]
   if (q.permissionName) list = list.filter((item) => item.permissionName.includes(q.permissionName))
@@ -671,7 +699,7 @@ route('get', /^\/admin\/system\/permission\/page$/, ({ config }) => {
 
 route('get', /^\/admin\/system\/permission\/grouped$/, ({ config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:permission:list')
+  requirePerm(user, 'admin:SysPermission:page')
   const modules = new Map()
   state.permissions.forEach((permission) => {
     if (!modules.has(permission.module)) modules.set(permission.module, [])
@@ -685,7 +713,7 @@ route('get', /^\/admin\/system\/permission\/grouped$/, ({ config }) => {
 
 route('get', /^\/admin\/system\/permission\/(\d+)$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:permission:list')
+  requirePerm(user, 'admin:SysPermission:page')
   const permission = state.permissions.find((item) => item.id === Number(match[1]))
   if (!permission) throw new MockError(404, '权限点不存在')
   return ok(permissionVO(permission), config)
@@ -693,7 +721,7 @@ route('get', /^\/admin\/system\/permission\/(\d+)$/, ({ match, config }) => {
 
 route('post', /^\/admin\/system\/permission$/, ({ body, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:permission:add')
+  requirePerm(user, 'admin:SysPermission:create')
   const code = String(body.permissionCode || '').trim()
   if (!code) throw new MockError(400, '权限码不能为空')
   if (state.permissions.some((item) => item.permissionCode === code)) {
@@ -715,7 +743,7 @@ route('post', /^\/admin\/system\/permission$/, ({ body, config }) => {
 
 route('put', /^\/admin\/system\/permission\/(\d+)\/status$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:permission:status')
+  requirePerm(user, 'admin:SysPermission:updateStatus')
   const permission = state.permissions.find((item) => item.id === Number(match[1]))
   if (!permission) throw new MockError(404, '权限点不存在')
   permission.status = toInt(query(config).status, 1) ? 1 : 0
@@ -724,7 +752,7 @@ route('put', /^\/admin\/system\/permission\/(\d+)\/status$/, ({ match, config })
 
 route('put', /^\/admin\/system\/permission\/(\d+)$/, ({ match, body, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:permission:edit')
+  requirePerm(user, 'admin:SysPermission:update')
   const permission = state.permissions.find((item) => item.id === Number(match[1]))
   assertVersion(permission, body.version)
   if (body.permissionName !== undefined) permission.permissionName = body.permissionName
@@ -737,7 +765,7 @@ route('put', /^\/admin\/system\/permission\/(\d+)$/, ({ match, body, config }) =
 
 route('delete', /^\/admin\/system\/permission\/(\d+)$/, ({ match, config }) => {
   const user = requireUser(config)
-  requirePerm(user, 'system:permission:delete')
+  requirePerm(user, 'admin:SysPermission:delete')
   const id = Number(match[1])
   if (!state.permissions.some((item) => item.id === id)) {
     throw new MockError(404, '权限点不存在')
@@ -765,7 +793,10 @@ export async function mockAdapter(config) {
   const path = pathOf(config)
   const isPublic =
     (method === 'get' && path === '/admin/auth/captcha') ||
-    (method === 'post' && path === '/admin/auth/login')
+    (method === 'post' && path === '/admin/auth/login') ||
+    (method === 'get' && path === '/admin/auth/oauth/providers') ||
+    (method === 'post' && path === '/admin/auth/code') ||
+    (method === 'post' && path === '/admin/auth/login/code')
 
   if (!isPublic && !sessionUser(config)) {
     return fail(401, '未登录或登录已过期', config)

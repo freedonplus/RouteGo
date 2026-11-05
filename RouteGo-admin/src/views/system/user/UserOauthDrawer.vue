@@ -3,6 +3,7 @@ import { reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { bindUserOauth, getUserOauth, unbindUserOauth } from '@/api/system'
 import { formatDate } from '@/utils/format'
+import ImageUpload from '@/components/ImageUpload.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -120,7 +121,7 @@ async function unbind(row) {
           <p class="truncate font-mono text-[10px] text-[#94a3b8]">{{ row.openid }}</p>
         </div>
         <span class="shrink-0 font-mono text-[10px] text-[#94a3b8]">{{ formatDate(row.bindTime) }}</span>
-        <el-button v-perm="'system:user:edit'" link type="danger" size="small" @click="unbind(row)">
+        <el-button v-perm="'admin:SysUser:update'" link type="danger" size="small" @click="unbind(row)">
           解绑
         </el-button>
       </div>
@@ -148,12 +149,12 @@ async function unbind(row) {
         <el-form-item label="unionid">
           <el-input v-model="form.unionid" placeholder="可选" class="font-mono" />
         </el-form-item>
-        <el-form-item label="头像 URL">
-          <el-input v-model="form.avatar" placeholder="可选" class="font-mono" />
+        <el-form-item label="头像">
+          <ImageUpload v-model="form.avatar" tip="拖拽头像到此处，或点击从本地选择" />
         </el-form-item>
       </el-form>
       <div class="flex justify-end">
-        <el-button v-perm="'system:user:edit'" size="small" type="primary" :loading="saving" @click="bind">
+        <el-button v-perm="'admin:SysUser:update'" size="small" type="primary" :loading="saving" @click="bind">
           绑定
         </el-button>
       </div>

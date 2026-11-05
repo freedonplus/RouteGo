@@ -1,23 +1,64 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Key, Menu as MenuIcon, Refresh, User, UserFilled } from '@element-plus/icons-vue'
+import {
+  Key,
+  Menu as MenuIcon,
+  Monitor,
+  Refresh,
+  User,
+  UserFilled,
+  Warning,
+} from '@element-plus/icons-vue'
 import { getDashboardOverview } from '@/api/system'
 import { formatDateTime } from '@/utils/format'
 import PageHeader from '@/components/PageHeader.vue'
 import KpiCard from '@/components/KpiCard.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import TrendChart from '@/components/TrendChart.vue'
+import DonutChart from '@/components/DonutChart.vue'
 
 const router = useRouter()
 const loading = ref(true)
 const errorMessage = ref('')
 const data = ref({
   kpis: [],
+  trend: [],
+  moduleUsage: [],
   recentOperations: [],
   loginFailures: [],
   systemStatus: [],
 })
+
+/** KPI 图标与配色（按 key 匹配，未匹配则不显示图标） */
+const kpiMeta = {
+  logins: { icon: User, color: '#a8435f' },
+  members: { icon: Monitor, color: '#3b82f6' },
+  admins: { icon: UserFilled, color: '#15803d' },
+  abnormal: { icon: Warning, color: '#b45309' },
+}
+
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 6) return '夜深了'
+  if (hour < 12) return '上午好'
+  if (hour < 18) return '下午好'
+  return '晚上好'
+})
+
+const todayText = computed(() => {
+  const now = new Date()
+  const week = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()]
+  return `${now.getFullYear()} 年 ${now.getMonth() + 1} 月 ${now.getDate()} 日 · 星期${week}`
+})
+
+const trendTotal = computed(() =>
+  data.value.trend.reduce(
+    (sum, item) => ({ logins: sum.logins + (item.logins || 0), operations: sum.operations + (item.operations || 0) }),
+    { logins: 0, operations: 0 }
+  )
+)
 
 const quickActions = [
   {
@@ -25,28 +66,28 @@ const quickActions = [
     description: '账号与状态维护',
     icon: User,
     to: '/system/user',
-    perm: 'system:user:list',
+    perm: 'admin:SysUser:page',
   },
   {
     label: '角色管理',
     description: '调整角色与菜单',
     icon: UserFilled,
     to: '/system/role',
-    perm: 'system:role:list',
+    perm: 'admin:SysRole:page',
   },
   {
     label: '菜单配置',
     description: '维护路由与权限标识',
     icon: MenuIcon,
     to: '/system/menu',
-    perm: 'system:menu:list',
+    perm: 'admin:SysMenu:tree',
   },
   {
     label: '权限点',
     description: '按模块查看权限码',
     icon: Key,
     to: '/system/permission',
-    perm: 'system:permission:list',
+    perm: 'admin:SysPermission:page',
   },
 ]
 
@@ -71,7 +112,7 @@ onMounted(load)
 
 <template>
   <div class="pb-4">
-    <PageHeader title="仪表盘" description="系统运行概览 · 数据来自 mock 聚合接口">
+    <PageHeader title="仪表盘" description="系统运行概览 · 登录与操作日志实时聚合">
       <template #actions>
         <el-button size="small" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
       </template>
@@ -86,6 +127,45 @@ onMounted(load)
         show-icon
       />
 
+      <!-- 欢迎横幅 -->
+      <section
+        class="rg-card relative overflow-hidden px-4 py-3.5"
+        style="background: linear-gradient(112deg, #fdf1f5 0%, #ffffff 46%, #eff6ff 100%)"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="text-[15px] font-semibold tracking-tight text-[#121212]">
+              {{ greeting }}，欢迎回到 RouteGo 管理后台
+            </p>
+            <p class="mt-0.5 font-mono text-[11px] text-[#64748b]">{{ todayText }}</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-4">
+            <div class="text-right">
+              <p class="rg-label">30 日登录</p>
+              <p class="font-mono text-[15px] font-semibold text-[#a8435f]">
+                {{ trendTotal.logins }}
+              </p>
+            </div>
+            <div class="h-8 w-px bg-[#e2e8f0]"></div>
+            <div class="text-right">
+              <p class="rg-label">30 日操作</p>
+              <p class="font-mono text-[15px] font-semibold text-[#3b82f6]">
+                {{ trendTotal.operations }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <span
+          aria-hidden="true"
+          class="pointer-events-none absolute -right-6 -top-8 h-28 w-28 rounded-full bg-[#a8435f]/8"
+        ></span>
+        <span
+          aria-hidden="true"
+          class="pointer-events-none absolute right-24 -bottom-10 h-20 w-20 rounded-full bg-[#3b82f6]/8"
+        ></span>
+      </section>
+
+      <!-- KPI 卡片 -->
       <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           v-for="kpi in data.kpis"
@@ -96,7 +176,49 @@ onMounted(load)
           :delta="kpi.delta"
           :hint="kpi.hint"
           :invert="Boolean(kpi.invert)"
+          :icon="kpiMeta[kpi.key]?.icon"
+          :spark="kpi.spark || []"
+          :spark-color="kpi.sparkColor || kpiMeta[kpi.key]?.color || '#a8435f'"
         />
+      </div>
+
+      <!-- 趋势图 + 模块分布 -->
+      <div class="grid grid-cols-1 items-stretch gap-2 xl:grid-cols-3">
+        <section class="rg-card min-w-0 xl:col-span-2">
+          <div class="rg-card-head">
+            <span class="rg-section-title">近 30 日活跃趋势</span>
+            <div class="flex items-center gap-3 text-[10px] text-[#64748b]">
+              <span class="flex items-center gap-1">
+                <span class="h-0.5 w-4 rounded bg-[#a8435f]"></span>登录
+              </span>
+              <span class="flex items-center gap-1">
+                <span class="h-0.5 w-4 rounded bg-[#3b82f6]" style="background-image: linear-gradient(90deg, #3b82f6 60%, transparent 60%); background-size: 6px 2px"></span>后台操作
+              </span>
+            </div>
+          </div>
+          <div class="px-2 py-2">
+            <TrendChart
+              v-loading="loading"
+              :data="data.trend"
+              name-a="登录"
+              name-b="后台操作"
+              element-loading-background="rgba(255,255,255,0.7)"
+            />
+          </div>
+        </section>
+
+        <section class="rg-card min-w-0">
+          <div class="rg-card-head">
+            <span class="rg-section-title">模块访问分布</span>
+            <span class="text-[10px] text-[#94a3b8]">近 30 日 · 页面 PV</span>
+          </div>
+          <DonutChart
+            v-loading="loading"
+            :items="data.moduleUsage"
+            total-label="累计访问"
+            element-loading-background="rgba(255,255,255,0.7)"
+          />
+        </section>
       </div>
 
       <div class="grid grid-cols-1 items-start gap-2 xl:grid-cols-3">

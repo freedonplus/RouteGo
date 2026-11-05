@@ -24,6 +24,6 @@ describe('permissionCodesForUser', () => {
 
   it('returns merged role permissions for ops', () => {
     const user = state.users.find((u) => u.username === 'ops')
-    expect(permissionCodesForUser(user.id)).toContain('system:user:list')
+    expect(permissionCodesForUser(user.id)).toContain('admin:SysUser:page')
   })
 })

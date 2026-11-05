@@ -24,7 +24,7 @@ async function load() {
       pageSize: page.pageSize,
     })
     rows.value = result.records || []
-    page.total = result.total || 0
+    page.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '角色用户加载失败')
     rows.value = []

@@ -34,6 +34,26 @@ export function formatDateTime(value) {
   )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
+/**
+ * 金额格式化：默认保留两位小数、不带千分位，负数原样保留。
+ * 后端用 BigDecimal 序列化成数字，前端只做展示，不参与计算。
+ */
+export function formatMoney(value, options = {}) {
+  const { digits = 2, prefix = '¥' } = options
+  if (value === null || value === undefined || value === '') return EMPTY
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return String(value)
+  const text = amount.toFixed(digits)
+  return prefix ? `${prefix}${text}` : text
+}
+
+export function formatNumber(value) {
+  if (value === null || value === undefined || value === '') return EMPTY
+  const num = Number(value)
+  if (!Number.isFinite(num)) return String(value)
+  return num.toLocaleString('zh-CN')
+}
+
 export function formatFileSize(bytes) {
   const size = Number(bytes)
   if (!Number.isFinite(size) || size < 0) return EMPTY
@@ -61,4 +81,12 @@ export function formatRelative(value) {
   if (diff < day) return `${Math.floor(diff / hour)} 小时前`
   if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`
   return formatDateTime(date)
+}
+
+/** 后端返回的文件访问地址（相对路径）补上 API 前缀，供 <img>/el-image 直接使用 */
+export function resolveFileUrl(url) {
+  if (!url) return ''
+  if (/^(https?:)?\/\//.test(url) || url.startsWith('data:')) return url
+  const base = import.meta.env.VITE_API_BASE_URL || '/api'
+  return base + url
 }

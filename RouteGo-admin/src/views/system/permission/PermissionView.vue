@@ -38,7 +38,7 @@ async function loadList() {
       pageSize: page.pageSize,
     })
     rows.value = result.records || []
-    page.total = result.total || 0
+    page.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '权限点加载失败')
     rows.value = []
@@ -154,7 +154,7 @@ onMounted(loadList)
         </el-radio-group>
         <el-button size="small" :icon="Refresh" :loading="loading" @click="refresh">刷新</el-button>
         <el-button
-          v-perm="'system:permission:add'"
+          v-perm="'admin:SysPermission:create'"
           size="small"
           type="primary"
           :icon="Plus"
@@ -183,7 +183,7 @@ onMounted(loadList)
           <el-input
             v-model="filters.permissionCode"
             size="small"
-            placeholder="system:user:list"
+            placeholder="admin:SysUser:page"
             clearable
             style="width: 180px"
             class="font-mono"

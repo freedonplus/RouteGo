@@ -45,7 +45,7 @@ async function loadTypes() {
       pageSize: typePage.pageSize,
     })
     types.value = result.records || []
-    typePage.total = result.total || 0
+    typepage.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '字典类型加载失败')
     types.value = []
@@ -71,7 +71,7 @@ async function loadData() {
       pageSize: dataPage.pageSize,
     })
     dataRows.value = result.records || []
-    dataPage.total = result.total || 0
+    datapage.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '字典数据加载失败')
     dataRows.value = []
@@ -217,7 +217,7 @@ onMounted(loadTypes)
     <PageHeader title="字典管理" description="字典类型与字典数据维护">
       <template #actions>
         <el-button size="small" :icon="Refresh" :loading="typeLoading" @click="loadTypes">刷新</el-button>
-        <el-button v-perm="'system:dict:add'" size="small" type="primary" :icon="Plus" @click="openTypeCreate">
+        <el-button v-perm="'admin:SysDictType:create'" size="small" type="primary" :icon="Plus" @click="openTypeCreate">
           新增类型
         </el-button>
       </template>
@@ -264,7 +264,7 @@ onMounted(loadTypes)
               <el-table-column label="状态" width="58" align="center">
                 <template #default="{ row }">
                   <el-switch
-                    v-perm="'system:dict:edit'"
+                    v-perm="'admin:SysDictType:updateStatus'"
                     size="small"
                     :model-value="row.status === 1"
                     @change="(value) => toggleTypeStatus(row, value)"
@@ -273,10 +273,10 @@ onMounted(loadTypes)
               </el-table-column>
               <el-table-column label="操作" width="92" fixed="right">
                 <template #default="{ row }">
-                  <el-button v-perm="'system:dict:edit'" link type="primary" size="small" @click.stop="openTypeEdit(row)">
+                  <el-button v-perm="'admin:SysDictType:update'" link type="primary" size="small" @click.stop="openTypeEdit(row)">
                     编辑
                   </el-button>
-                  <el-button v-perm="'system:dict:delete'" link type="danger" size="small" @click.stop="removeType(row)">
+                  <el-button v-perm="'admin:SysDictType:delete'" link type="danger" size="small" @click.stop="removeType(row)">
                     删除
                   </el-button>
                 </template>
@@ -313,7 +313,7 @@ onMounted(loadTypes)
                 <el-option label="禁用" :value="0" />
               </el-select>
               <el-button size="small" @click="searchData">查询</el-button>
-              <el-button v-perm="'system:dict:add'" size="small" type="primary" :icon="Plus" @click="openDataCreate">
+              <el-button v-perm="'admin:SysDictData:create'" size="small" type="primary" :icon="Plus" @click="openDataCreate">
                 新增
               </el-button>
             </div>
@@ -349,7 +349,7 @@ onMounted(loadTypes)
                 <el-table-column label="状态" width="58" align="center">
                   <template #default="{ row }">
                     <el-switch
-                      v-perm="'system:dict:edit'"
+                      v-perm="'admin:SysDictData:updateStatus'"
                       size="small"
                       :model-value="row.status === 1"
                       @change="(value) => toggleDataStatus(row, value)"
@@ -359,9 +359,9 @@ onMounted(loadTypes)
                 <el-table-column label="操作" width="170" fixed="right">
                   <template #default="{ row }">
                     <div class="flex items-center gap-0.5">
-                      <el-button v-perm="'system:dict:edit'" link type="primary" size="small" @click="openDataEdit(row)">编辑</el-button>
-                      <el-button v-perm="'system:dict:edit'" link size="small" :disabled="row.isDefault === 1" @click="setDefault(row)">设默认</el-button>
-                      <el-button v-perm="'system:dict:delete'" link type="danger" size="small" @click="removeData(row)">删除</el-button>
+                      <el-button v-perm="'admin:SysDictData:update'" link type="primary" size="small" @click="openDataEdit(row)">编辑</el-button>
+                      <el-button v-perm="'admin:SysDictData:setDefault'" link size="small" :disabled="row.isDefault === 1" @click="setDefault(row)">设默认</el-button>
+                      <el-button v-perm="'admin:SysDictData:delete'" link type="danger" size="small" @click="removeData(row)">删除</el-button>
                     </div>
                   </template>
                 </el-table-column>

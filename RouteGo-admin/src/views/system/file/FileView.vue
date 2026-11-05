@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Download, Refresh, Search, Upload } from '@element-plus/icons-vue'
+import { Download, Refresh, Search, UploadFilled } from '@element-plus/icons-vue'
 import { deleteFile, downloadFile, pageFiles, uploadFile } from '@/api/system'
 import { formatDateTime, formatFileSize } from '@/utils/format'
 import PageHeader from '@/components/PageHeader.vue'
@@ -15,6 +15,25 @@ const page = reactive({ pageNum: 1, pageSize: 10, total: 0 })
 
 const ALLOWED = ['jpg', 'jpeg', 'png', 'webp', 'pdf']
 const MAX_SIZE = 20 * 1024 * 1024
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
+const IMAGE_TYPES = ['jpg', 'jpeg', 'png', 'webp']
+const STORAGE_LABELS = { 1: '本地', 2: 'OSS', 3: 'MinIO' }
+
+const pendingCount = ref(0)
+
+function isImage(row) {
+  return IMAGE_TYPES.includes(String(row.fileType || '').toLowerCase())
+}
+
+function previewUrl(row) {
+  if (!isImage(row) || !row.fileUrl) return ''
+  if (/^https?:\/\//.test(row.fileUrl)) return row.fileUrl
+  return API_BASE + row.fileUrl
+}
+
+function storageLabel(row) {
+  return STORAGE_LABELS[row.storageType] || '其他'
+}
 
 async function load() {
   loading.value = true
@@ -26,7 +45,7 @@ async function load() {
       pageSize: page.pageSize,
     })
     rows.value = result.records || []
-    page.total = result.total || 0
+    page.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '文件加载失败')
     rows.value = []
@@ -62,15 +81,20 @@ function beforeUpload(file) {
 }
 
 async function handleUpload({ file }) {
+  pendingCount.value += 1
   uploading.value = true
   try {
     await uploadFile(file)
-    ElMessage.success('上传成功')
+    ElMessage.success(`「${file.name}」上传成功`)
     load()
   } catch (error) {
-    ElMessage.error(error.message || '上传失败')
+    ElMessage.error(`「${file.name}」上传失败：${error.message || '未知错误'}`)
   } finally {
-    uploading.value = false
+    pendingCount.value -= 1
+    if (pendingCount.value <= 0) {
+      pendingCount.value = 0
+      uploading.value = false
+    }
   }
 }
 
@@ -112,11 +136,11 @@ onMounted(load)
 
 <template>
   <div class="pb-4">
-    <PageHeader title="文件管理" description="本地存储文件，支持 jpg / png / webp / pdf，最大 20MB">
+    <PageHeader title="文件管理" description="MinIO 对象存储 · 支持 jpg / png / webp / pdf，最大 20MB">
       <template #actions>
         <el-button size="small" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
         <el-upload
-          v-perm="'system:file:upload'"
+          v-perm="'admin:SysFile:upload'"
           :show-file-list="false"
           :http-request="handleUpload"
           :before-upload="beforeUpload"
@@ -128,6 +152,30 @@ onMounted(load)
     </PageHeader>
 
     <div class="rg-page space-y-2">
+      <!-- 拖拽 / 点击上传区 -->
+      <el-upload
+        v-perm="'admin:SysFile:upload'"
+        drag
+        multiple
+        :show-file-list="false"
+        :http-request="handleUpload"
+        :before-upload="beforeUpload"
+        accept=".jpg,.jpeg,.png,.webp,.pdf"
+        class="file-drag-upload"
+      >
+        <div v-loading="uploading" class="flex items-center justify-center gap-3 py-4">
+          <el-icon class="text-2xl text-[#a8435f]"><UploadFilled /></el-icon>
+          <div class="text-left">
+            <p class="text-[12px] font-medium text-[#1e293b]">
+              将文件拖到此处，或 <em class="not-italic text-[#a8435f] underline underline-offset-2">点击选择本地文件</em>
+            </p>
+            <p class="mt-0.5 text-[10px] text-[#94a3b8]">
+              支持 jpg / jpeg / png / webp / pdf，单个不超过 20MB，可多选 · 存储于 MinIO 对象存储
+            </p>
+          </div>
+        </div>
+      </el-upload>
+
       <FilterBar>
         <label class="flex flex-col gap-0.5">
           <span class="rg-label">文件名</span>
@@ -153,8 +201,28 @@ onMounted(load)
             </el-table-column>
             <el-table-column label="文件名" min-width="220">
               <template #default="{ row }">
-                <p class="truncate text-[11px] font-medium text-[#1e293b]">{{ row.originalName }}</p>
-                <p class="truncate font-mono text-[10px] text-[#94a3b8]">{{ row.filePath }}</p>
+                <div class="flex items-center gap-2">
+                  <el-image
+                    v-if="isImage(row) && previewUrl(row)"
+                    :src="previewUrl(row)"
+                    :preview-src-list="[previewUrl(row)]"
+                    preview-teleported
+                    fit="cover"
+                    class="h-9 w-12 shrink-0 rounded border border-[#e2e8f0]"
+                  >
+                    <template #error>
+                      <span
+                        class="flex h-9 w-12 items-center justify-center rounded border border-[#e2e8f0] bg-[#f8fafc] font-mono text-[10px] text-[#94a3b8]"
+                      >
+                        {{ row.fileType }}
+                      </span>
+                    </template>
+                  </el-image>
+                  <div class="min-w-0">
+                    <p class="truncate text-[11px] font-medium text-[#1e293b]">{{ row.originalName }}</p>
+                    <p class="truncate font-mono text-[10px] text-[#94a3b8]">{{ row.filePath }}</p>
+                  </div>
+                </div>
               </template>
             </el-table-column>
             <el-table-column label="类型" width="66">
@@ -171,7 +239,14 @@ onMounted(load)
             </el-table-column>
             <el-table-column label="存储" width="70">
               <template #default="{ row }">
-                <span class="text-[11px] text-[#64748b]">{{ row.storageType === 1 ? '本地' : '其他' }}</span>
+                <span
+                  class="rounded px-1.5 py-0.5 text-[10px]"
+                  :class="row.storageType === 3
+                    ? 'bg-[#ecfdf5] text-[#15803d]'
+                    : 'bg-[#f1f5f9] text-[#475569]'"
+                >
+                  {{ storageLabel(row) }}
+                </span>
               </template>
             </el-table-column>
             <el-table-column label="上传时间" width="134">
@@ -181,10 +256,10 @@ onMounted(load)
             </el-table-column>
             <el-table-column label="操作" width="132" fixed="right">
               <template #default="{ row }">
-                <el-button v-perm="'system:file:list'" link type="primary" size="small" :icon="Download" @click="download(row)">
+                <el-button v-perm="'admin:SysFile:page'" link type="primary" size="small" :icon="Download" @click="download(row)">
                   下载
                 </el-button>
-                <el-button v-perm="'system:file:delete'" link type="danger" size="small" @click="remove(row)">
+                <el-button v-perm="'admin:SysFile:delete'" link type="danger" size="small" @click="remove(row)">
                   删除
                 </el-button>
               </template>
@@ -208,3 +283,19 @@ onMounted(load)
     </div>
   </div>
 </template>
+
+<style scoped>
+.file-drag-upload :deep(.el-upload-dragger) {
+  padding: 0;
+  border-radius: 6px;
+}
+.file-drag-upload :deep(.el-upload-dragger:hover) {
+  border-color: #a8435f;
+}
+.file-drag-upload {
+  width: 100%;
+}
+.file-drag-upload :deep(.el-upload) {
+  width: 100%;
+}
+</style>

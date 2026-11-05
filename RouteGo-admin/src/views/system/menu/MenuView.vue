@@ -167,7 +167,7 @@ onMounted(load)
       <template #actions>
         <el-button size="small" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
         <el-button
-          v-perm="'system:menu:add'"
+          v-perm="'admin:SysMenu:create'"
           size="small"
           type="primary"
           :icon="Plus"
@@ -279,7 +279,7 @@ onMounted(load)
             <el-table-column label="显示" width="64" align="center">
               <template #default="{ row }">
                 <el-switch
-                  v-perm="'system:menu:edit'"
+                  v-perm="'admin:SysMenu:update'"
                   size="small"
                   :model-value="row.visible === 1"
                   :disabled="row.menuType === 'F'"
@@ -291,7 +291,7 @@ onMounted(load)
             <el-table-column label="状态" width="64" align="center">
               <template #default="{ row }">
                 <el-switch
-                  v-perm="'system:menu:status'"
+                  v-perm="'admin:SysMenu:updateStatus'"
                   size="small"
                   :model-value="row.status === 1"
                   @change="(value) => toggleField(row, 'status', value)"
@@ -303,7 +303,7 @@ onMounted(load)
                 <div class="flex items-center gap-0.5">
                   <el-button
                     v-if="row.menuType !== 'F'"
-                    v-perm="'system:menu:add'"
+                    v-perm="'admin:SysMenu:create'"
                     link
                     type="primary"
                     size="small"
@@ -312,7 +312,7 @@ onMounted(load)
                     新增子项
                   </el-button>
                   <el-button
-                    v-perm="'system:menu:edit'"
+                    v-perm="'admin:SysMenu:update'"
                     link
                     type="primary"
                     size="small"
@@ -321,7 +321,7 @@ onMounted(load)
                     编辑
                   </el-button>
                   <el-button
-                    v-perm="'system:menu:delete'"
+                    v-perm="'admin:SysMenu:delete'"
                     link
                     type="danger"
                     size="small"

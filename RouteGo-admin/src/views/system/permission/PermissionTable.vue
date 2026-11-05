@@ -72,7 +72,7 @@ function actionLabel(row) {
       <template #default="{ row }">
         <div class="flex items-center gap-0.5">
           <el-button
-            v-perm="'system:permission:edit'"
+            v-perm="'admin:SysPermission:update'"
             link
             type="primary"
             size="small"
@@ -81,7 +81,7 @@ function actionLabel(row) {
             编辑
           </el-button>
           <el-button
-            v-perm="'system:permission:status'"
+            v-perm="'admin:SysPermission:updateStatus'"
             link
             size="small"
             @click="emit('toggle', row)"
@@ -89,7 +89,7 @@ function actionLabel(row) {
             {{ actionLabel(row) }}
           </el-button>
           <el-button
-            v-perm="'system:permission:delete'"
+            v-perm="'admin:SysPermission:delete'"
             link
             type="danger"
             size="small"

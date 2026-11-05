@@ -29,12 +29,12 @@ const currentRole = ref(null)
 
 const canOperate = computed(() =>
   auth.hasPerm([
-    'system:role:list',
-    'system:role:edit',
-    'system:role:assign-menu',
-    'system:role:assign-permission',
-    'system:role:status',
-    'system:role:delete',
+    'admin:SysRole:pageUsers',
+    'admin:SysRole:update',
+    'admin:SysRole:assignMenus',
+    'admin:SysRole:assignPermissions',
+    'admin:SysRole:updateStatus',
+    'admin:SysRole:delete',
   ])
 )
 
@@ -49,7 +49,7 @@ async function load() {
       pageSize: page.pageSize,
     })
     rows.value = result.records || []
-    page.total = result.total || 0
+    page.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '角色列表加载失败')
     rows.value = []
@@ -160,7 +160,7 @@ onMounted(load)
       <template #actions>
         <el-button size="small" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
         <el-button
-          v-perm="'system:role:add'"
+          v-perm="'admin:SysRole:create'"
           size="small"
           type="primary"
           :icon="Plus"
@@ -272,7 +272,7 @@ onMounted(load)
               <template #default="{ row }">
                 <div class="flex items-center gap-0.5">
                   <el-button
-                    v-perm="'system:role:edit'"
+                    v-perm="'admin:SysRole:update'"
                     link
                     type="primary"
                     size="small"
@@ -281,7 +281,7 @@ onMounted(load)
                     编辑
                   </el-button>
                   <el-button
-                    v-perm="'system:role:assign-menu'"
+                    v-perm="'admin:SysRole:assignMenus'"
                     link
                     type="primary"
                     size="small"
@@ -290,7 +290,7 @@ onMounted(load)
                     菜单
                   </el-button>
                   <el-button
-                    v-perm="'system:role:assign-permission'"
+                    v-perm="'admin:SysRole:assignPermissions'"
                     link
                     type="primary"
                     size="small"
@@ -299,7 +299,7 @@ onMounted(load)
                     权限
                   </el-button>
                   <el-button
-                    v-perm="'system:role:list'"
+                    v-perm="'admin:SysRole:pageUsers'"
                     link
                     type="primary"
                     size="small"
@@ -308,7 +308,7 @@ onMounted(load)
                     用户
                   </el-button>
                   <el-button
-                    v-perm="'system:role:status'"
+                    v-perm="'admin:SysRole:updateStatus'"
                     link
                     size="small"
                     :disabled="row.builtIn"
@@ -318,7 +318,7 @@ onMounted(load)
                     {{ row.status === 1 ? '停用' : '启用' }}
                   </el-button>
                   <el-button
-                    v-perm="'system:role:delete'"
+                    v-perm="'admin:SysRole:delete'"
                     link
                     type="danger"
                     size="small"

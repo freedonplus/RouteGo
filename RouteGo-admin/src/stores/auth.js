@@ -3,6 +3,7 @@ import {
   getCaptcha as getCaptchaApi,
   getMe,
   login as loginApi,
+  loginByCode as loginByCodeApi,
   logout as logoutApi,
 } from '@/api/auth'
 import { getUserMenuTree } from '@/api/system'
@@ -42,6 +43,18 @@ export const useAuthStore = defineStore('auth', {
 
     async login(payload) {
       const result = await loginApi(payload)
+      return this.applyLogin(result)
+    },
+
+    /**
+     * 验证码登录：target 为手机号或邮箱，code 为收到的验证码。
+     */
+    async loginWithCode(payload) {
+      const result = await loginByCodeApi(payload)
+      return this.applyLogin(result)
+    },
+
+    async applyLogin(result) {
       this.token = result.tokenValue
       setAuthToken(result.tokenValue)
       if (USE_MOCK) sessionStorage.setItem(TOKEN_KEY, result.tokenValue)
