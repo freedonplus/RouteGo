@@ -24,6 +24,16 @@ public interface SysPermissionMapper extends BaseMapper<SysPermission> {
     long countByPermissionCodeIncludingDeleted(@Param("permissionCode") String permissionCode);
 
     /**
+     * 统计权限码占用情况，排除指定记录（用于「修改自身权限码」时跳过自己）。
+     */
+    @Select("""
+            SELECT COUNT(1) FROM sys_permission
+            WHERE permission_code = #{permissionCode} AND id <> #{excludeId}
+            """)
+    long countByPermissionCodeExcludingId(@Param("permissionCode") String permissionCode,
+                                          @Param("excludeId") Long excludeId);
+
+    /**
      * 查询用户通过角色获得的启用状态权限码。
      */
     @Select("""

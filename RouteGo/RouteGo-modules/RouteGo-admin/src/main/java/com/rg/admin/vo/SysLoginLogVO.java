@@ -11,6 +11,8 @@ public class SysLoginLogVO {
     private Long id;
     private String username;
     private String ip;
+    @Schema(description = "IP 归属地")
+    private String location;
     private String browser;
     private String os;
     private Byte status;

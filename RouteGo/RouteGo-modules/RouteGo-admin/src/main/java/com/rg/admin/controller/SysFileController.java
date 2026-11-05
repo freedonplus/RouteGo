@@ -3,6 +3,7 @@ package com.rg.admin.controller;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.rg.admin.dto.FileQuery;
 import com.rg.admin.service.SysFileService;
+import com.rg.admin.service.impl.SysFileServiceImpl;
 import com.rg.admin.vo.SysFileVO;
 import com.rg.common.annotation.BusinessType;
 import com.rg.common.annotation.OperLog;
@@ -61,11 +62,18 @@ public class SysFileController {
     public ResponseEntity<Resource> download(@Parameter(description = "主键 ID") @PathVariable Long id) {
         SysFileVO file = fileService.detail(id);
         Resource resource = fileService.download(id);
-        ContentDisposition disposition = ContentDisposition.attachment()
+        // 图片等可预览类型按真实 MIME 内联返回，方便 <img> 直接引用；其余走附件下载
+        boolean previewable = SysFileServiceImpl.isPreviewable(file.getFileType());
+        MediaType mediaType = previewable
+                ? MediaType.parseMediaType(SysFileServiceImpl.contentTypeOf(file.getFileType()))
+                : MediaType.APPLICATION_OCTET_STREAM;
+        ContentDisposition disposition = (previewable
+                ? ContentDisposition.inline()
+                : ContentDisposition.attachment())
                 .filename(file.getOriginalName(), StandardCharsets.UTF_8)
                 .build();
         return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentType(mediaType)
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(resource);
     }

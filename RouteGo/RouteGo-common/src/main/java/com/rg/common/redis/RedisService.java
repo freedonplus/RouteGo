@@ -1,7 +1,10 @@
 package com.rg.common.redis;
 
+import lombok.Data;
+import lombok.Getter;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -34,8 +37,11 @@ public class RedisService {
         redisTemplate.opsForValue().set(key, value, ttl);
     }
 
-    public void setIfAbsent(String key, Object value, Duration ttl) {
-        redisTemplate.opsForValue().setIfAbsent(key, value, ttl);
+    /**
+     * key 不存在时写入，返回是否写入成功。用于分布式互斥标记（重发冷却、幂等键）。
+     */
+    public Boolean setIfAbsent(String key, Object value, Duration ttl) {
+        return redisTemplate.opsForValue().setIfAbsent(key, value, ttl);
     }
 
     public <T> T get(String key) {
@@ -72,6 +78,21 @@ public class RedisService {
     /** 原子自增，返回自增后的值 */
     public Long increment(String key, long delta) {
         return stringRedisTemplate.opsForValue().increment(key, delta);
+    }
+
+    /**
+     * 原子自增并保证 TTL（Lua 脚本）：首次自增或 key 缺失过期时间时补设 TTL，
+     * 避免 INCR 与 EXPIRE 分两步执行、进程中断后产生永不过期的计数 key。
+     */
+    public Long incrementWithTtl(String key, long delta, Duration ttl) {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>(
+                "local c = redis.call('INCRBY', KEYS[1], ARGV[1]) "
+                        + "if c == 1 or redis.call('TTL', KEYS[1]) < 0 then "
+                        + "redis.call('EXPIRE', KEYS[1], ARGV[2]) end "
+                        + "return c",
+                Long.class);
+        return stringRedisTemplate.execute(script, List.of(key),
+                String.valueOf(delta), String.valueOf(ttl.toSeconds()));
     }
 
     public void hSet(String key, String field, Object value) {

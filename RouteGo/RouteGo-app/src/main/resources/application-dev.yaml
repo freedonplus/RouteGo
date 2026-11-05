@@ -6,6 +6,9 @@ spring:
     password: ${MYSQL_PASSWORD:1234}
     hikari:
       pool-name: routego-dev-pool
+      # 容器里的 MySQL 默认走 UTC，而 Java 侧写入的是东八区 LocalDateTime；
+      # 不统一时区会出现「create_time 由数据库默认值写入 → 早 8 小时」这类脏数据
+      connection-init-sql: SET time_zone = '+08:00'
       minimum-idle: 2
       maximum-pool-size: 10
       connection-timeout: 30000
@@ -19,12 +22,14 @@ spring:
       database: ${REDIS_DATABASE:0}
       timeout: 3s
 
-rocketmq:
-  name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
-  producer:
-    group: RouteGo-app-producer
-    send-message-timeout: 3000
-    retry-times-when-send-failed: 3
+# RocketMQ 已下线（消息域无调用方，routego.mq.enabled=false 且不配置 name-server）。
+# 需要重新启用时：取消注释并设置 routego.mq.enabled=true
+# rocketmq:
+#   name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
+#   producer:
+#     group: RouteGo-app-producer
+#     send-message-timeout: 3000
+#     retry-times-when-send-failed: 3
 
 logging:
   level:

@@ -6,3 +6,6 @@ com.rg.common.autoconfigure.RouteGoRedisAutoConfiguration
 com.rg.common.autoconfigure.RouteGoRedissonAutoConfiguration
 com.rg.common.autoconfigure.RouteGoCacheAutoConfiguration
 com.rg.common.autoconfigure.RouteGoRocketMqAutoConfiguration
+com.rg.common.autoconfigure.RouteGoSmsAutoConfiguration
+com.rg.common.autoconfigure.RouteGoIpLocationAutoConfiguration
+com.rg.common.autoconfigure.RouteGoCryptoAutoConfiguration

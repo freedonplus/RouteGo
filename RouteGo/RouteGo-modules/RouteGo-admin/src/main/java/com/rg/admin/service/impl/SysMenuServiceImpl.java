@@ -107,7 +107,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long createMenu(MenuCreateRequest request) {
         Long parentId = request.getParentId() == null ? 0L : request.getParentId();
         validateParent(null, parentId);
@@ -128,7 +128,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateMenu(Long id, MenuUpdateRequest request) {
         SysMenu existing = menuMapper.selectById(id);
         if (existing == null) {
@@ -156,7 +156,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteMenu(Long id) {
         SysMenu menu = menuMapper.selectById(id);
         if (menu == null) {
@@ -174,7 +174,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, Byte status) {
         requireMenu(id);
         menuMapper.update(null, Wrappers.<SysMenu>lambdaUpdate()
@@ -184,7 +184,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateVisible(Long id, Byte visible) {
         requireMenu(id);
         menuMapper.update(null, Wrappers.<SysMenu>lambdaUpdate()

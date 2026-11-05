@@ -36,6 +36,16 @@ class CacheKeyConstantsTest {
         EXPECTED_ADMIN_KEYS.put("NOTICE_PUBLISHED", "admin:SysNotice:listPublished");
         EXPECTED_ADMIN_KEYS.put("OAUTH_BY_USER", "admin:SysUserOauth:listByUserId:%s");
         EXPECTED_ADMIN_KEYS.put("FILE_BY_ID", "admin:SysFile:getById:%s");
+        EXPECTED_ADMIN_KEYS.put("PERM_LIST", "admin:config:SaToken:getPerm:%s:%s");
+        EXPECTED_ADMIN_KEYS.put("PERM_VERSION", "admin:config:SaToken:getPermVer");
+        EXPECTED_ADMIN_KEYS.put("PERM_USER_VERSION", "admin:config:SaToken:getPermVer:%s");
+        EXPECTED_ADMIN_KEYS.put("VERIFY_CODE", "admin:Auth:code:%s:%s");
+        EXPECTED_ADMIN_KEYS.put("VERIFY_CODE_COOLDOWN", "admin:Auth:code:cd:%s:%s");
+        EXPECTED_ADMIN_KEYS.put("VERIFY_CODE_ATTEMPT", "admin:Auth:code:try:%s:%s");
+        EXPECTED_ADMIN_KEYS.put("VERIFY_CODE_DAILY", "admin:Auth:code:daily:%s");
+        EXPECTED_ADMIN_KEYS.put("VERIFY_CODE_IP", "admin:Auth:code:ip:%s");
+        EXPECTED_ADMIN_KEYS.put("OAUTH_STATE", "admin:Auth:oauth:state:%s");
+        EXPECTED_ADMIN_KEYS.put("IP_LOCATION", "admin:Ip:location:%s");
     }
 
     @Test

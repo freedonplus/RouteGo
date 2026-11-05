@@ -21,12 +21,35 @@ public final class CacheKeyConstants {
         private Admin() {
         }
 
+        /** 预检权限获取。参数依次为：userId、版本号（全局版本:用户版本）。 */
+        public static final String PERM_LIST="admin:config:SaToken:getPerm:%s:%s";
+
+        /** 全局权限版本号。**只能自增**：删除会让版本回退，旧权限缓存重新命中。 */
+        public static final String PERM_VERSION="admin:config:SaToken:getPermVer";
+
+        /** 单用户权限版本号。参数为 userId，用于只失效某个用户的权限缓存。 */
+        public static final String PERM_USER_VERSION = "admin:config:SaToken:getPermVer:%s";
+
         /** 图形验证码答案。 */
         public static final String CAPTCHA = "admin:Auth:captcha:%s";
         /** 登录失败计数。 */
         public static final String LOGIN_FAIL = "admin:Auth:loginFail:%s";
         /** 登录锁定标记。 */
         public static final String LOGIN_LOCK = "admin:Auth:loginLock:%s";
+
+        /** 验证码答案。参数依次为：场景、接收方（手机号 / 邮箱）。 */
+        public static final String VERIFY_CODE = "admin:Auth:code:%s:%s";
+        /** 验证码重发冷却标记。参数依次为：场景、接收方。 */
+        public static final String VERIFY_CODE_COOLDOWN = "admin:Auth:code:cd:%s:%s";
+        /** 验证码校验失败次数。参数依次为：场景、接收方。 */
+        public static final String VERIFY_CODE_ATTEMPT = "admin:Auth:code:try:%s:%s";
+        /** 单个接收方每日发送计数。参数为接收方。 */
+        public static final String VERIFY_CODE_DAILY = "admin:Auth:code:daily:%s";
+        /** 单个 IP 每小时发送计数。参数为客户端 IP。 */
+        public static final String VERIFY_CODE_IP = "admin:Auth:code:ip:%s";
+
+        /** 第三方登录 state，防 CSRF。参数为 state 值。 */
+        public static final String OAUTH_STATE = "admin:Auth:oauth:state:%s";
 
         /** 用户详情缓存。 */
         public static final String USER_BY_ID = "admin:SysUser:getById:%s";
@@ -67,6 +90,8 @@ public final class CacheKeyConstants {
         public static final String OAUTH_BY_USER = "admin:SysUserOauth:listByUserId:%s";
         /** 文件元数据缓存。 */
         public static final String FILE_BY_ID = "admin:SysFile:getById:%s";
+        /** IP 归属地查询结果。参数为 IP。 */
+        public static final String IP_LOCATION = "admin:Ip:location:%s";
     }
 
     /**

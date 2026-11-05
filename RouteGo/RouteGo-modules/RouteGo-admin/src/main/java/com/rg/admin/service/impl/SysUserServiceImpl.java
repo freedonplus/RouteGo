@@ -29,6 +29,8 @@ import com.rg.common.web.PageResult;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
@@ -131,7 +133,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long create(UserCreateRequest request) {
         AuthServiceImpl.validatePasswordStrength(request.getPassword());
         if (userMapper.countByUsernameIncludingDeleted(request.getUsername()) > 0) {
@@ -154,7 +156,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, UserUpdateRequest request) {
         SysUser existing = userMapper.selectById(id);
         if (existing == null) {
@@ -182,7 +184,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, Byte status) {
         if (status == null || (status != 0 && status != 1)) {
             throw new AdminException("状态只能是 0 或 1");
@@ -200,14 +202,14 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         userMapper.update(null, Wrappers.<SysUser>lambdaUpdate()
                 .set(SysUser::getStatus, status)
                 .eq(SysUser::getId, id));
-        cacheHelper.evictAfterCommit(userCacheKeys(id));
+        evictUserCache(id);
         if (status == 0) {
-            StpUtil.logout(id);
+            logoutUserAfterCommit(id);
         }
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void resetPassword(Long id, ResetPasswordRequest request) {
         AuthServiceImpl.validatePasswordStrength(request.getNewPassword());
         SysUser existing = userMapper.selectById(id);
@@ -225,11 +227,11 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new AdminException(ErrorCode.CONFLICT, "数据已被修改，请刷新后重试");
         }
         cacheHelper.evictAfterCommit(String.format(CacheKeyConstants.Admin.USER_BY_ID, id));
-        StpUtil.logout(id);
+        logoutUserAfterCommit(id);
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void assignRoles(Long id, AssignRolesRequest request) {
         if (userMapper.selectById(id) == null) {
             throw new AdminException(ErrorCode.NOT_FOUND, "用户不存在");
@@ -239,12 +241,12 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
         List<Long> roleIds = validateRoleIds(request.getRoleIds());
         replaceRoles(id, roleIds);
-        cacheHelper.evictAfterCommit(userCacheKeys(id));
-        StpUtil.logout(id);
+        evictUserCache(id);
+        logoutUserAfterCommit(id);
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteUser(Long id) {
         if (StpUtil.getLoginIdAsLong() == id) {
             throw new AdminException("不能删除当前登录账号");
@@ -258,8 +260,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
         userMapper.deleteById(id);
         userRoleMapper.delete(Wrappers.<SysUserRole>lambdaQuery().eq(SysUserRole::getUserId, id));
-        cacheHelper.evictAfterCommit(userCacheKeys(id));
-        StpUtil.logout(id);
+        evictUserCache(id);
+        logoutUserAfterCommit(id);
     }
 
     @Override
@@ -297,14 +299,39 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
     }
 
+    /**
+     * 登出操作涉及 Redis 写入，必须在事务提交后执行，避免事务回滚后踢人无法撤销。
+     */
+    private void logoutUserAfterCommit(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        Runnable action = () -> StpUtil.logout(userId);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
+    }
+
     private void replaceRoles(Long userId, List<Long> roleIds) {
         userRoleMapper.delete(Wrappers.<SysUserRole>lambdaQuery().eq(SysUserRole::getUserId, userId));
-        for (Long roleId : roleIds) {
+        if (roleIds.isEmpty()) {
+            return;
+        }
+        List<SysUserRole> relations = roleIds.stream().map(roleId -> {
             SysUserRole relation = new SysUserRole();
             relation.setUserId(userId);
             relation.setRoleId(roleId);
-            userRoleMapper.insert(relation);
-        }
+            return relation;
+        }).toList();
+        // 批量插入，替代循环单条 insert
+        userRoleMapper.insertBatch(relations);
     }
 
     private boolean hasProtectedRole(Long userId) {
@@ -328,6 +355,18 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
                 String.format(CacheKeyConstants.Admin.USER_ROLES, id),
                 String.format(CacheKeyConstants.Admin.USER_MENU_TREE, id)
         };
+    }
+
+    /**
+     * 失效单个用户的业务缓存与 Sa-Token 权限缓存。
+     * <p>
+     * 权限缓存 key 带版本号，必须把「用户版本号」自增才能让旧 key 不可达；
+     * 直接删除全局版本号会让版本回退到初始值，旧权限缓存反而继续命中。
+     */
+    private void evictUserCache(Long id) {
+        cacheHelper.evictAfterCommit(userCacheKeys(id));
+        cacheHelper.incrementAfterCommit(
+                String.format(CacheKeyConstants.Admin.PERM_USER_VERSION, id), 1L);
     }
 
     private SysUserCache toCache(SysUser user) {

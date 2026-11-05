@@ -4,12 +4,18 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import com.rg.admin.config.AdminSecurityProperties;
 import com.rg.admin.dto.ChangePasswordRequest;
+import com.rg.admin.dto.CodeLoginRequest;
 import com.rg.admin.dto.LoginRequest;
+import com.rg.admin.dto.RegisterRequest;
+import com.rg.admin.dto.SendCodeRequest;
 import com.rg.admin.service.AuthService;
 import com.rg.admin.service.CaptchaService;
+import com.rg.admin.service.VerificationCodeService;
 import com.rg.admin.vo.CaptchaResponse;
 import com.rg.admin.vo.CurrentUserInfo;
 import com.rg.admin.vo.LoginResult;
+import com.rg.admin.vo.SendCodeResult;
+import com.rg.common.sms.SmsProperties;
 import com.rg.common.util.IpUtils;
 import com.rg.common.util.Result;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,13 +43,19 @@ public class AuthController {
 
     private final AuthService authService;
     private final CaptchaService captchaService;
+    private final VerificationCodeService verificationCodeService;
+    private final SmsProperties smsProperties;
     private final AdminSecurityProperties securityProperties;
 
     public AuthController(AuthService authService,
                           CaptchaService captchaService,
+                          VerificationCodeService verificationCodeService,
+                          SmsProperties smsProperties,
                           AdminSecurityProperties securityProperties) {
         this.authService = authService;
         this.captchaService = captchaService;
+        this.verificationCodeService = verificationCodeService;
+        this.smsProperties = smsProperties;
         this.securityProperties = securityProperties;
     }
 
@@ -79,6 +91,74 @@ public class AuthController {
     public Result<LoginResult> login(@Valid @RequestBody LoginRequest request,
                                      HttpServletRequest servletRequest) {
         return Result.success(authService.login(request, resolveClientIp(servletRequest)));
+    }
+
+    /**
+     * 发送登录 / 绑定 / 重置密码验证码。
+     * <p>
+     * 接收方支持手机号（走短信网关）与邮箱（走 SMTP）。同接收方 60 秒冷却、
+     * 每日限 20 条，同 IP 每小时限 20 条。
+     */
+    @Operation(summary = "发送验证码", description = "向手机号或邮箱发送 6 位验证码，返回脱敏后的接收方。",
+            security = {},
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "发送成功"),
+                    @ApiResponse(responseCode = "400", description = "接收方格式不正确"),
+                    @ApiResponse(responseCode = "429", description = "发送过于频繁"),
+                    @ApiResponse(responseCode = "503", description = "短信 / 邮件服务未启用或发送失败")
+            })
+    @PostMapping("/code")
+    public Result<SendCodeResult> sendCode(@Valid @RequestBody SendCodeRequest request,
+                                           HttpServletRequest servletRequest) {
+        String masked = verificationCodeService.send(
+                request.getTarget(), parseScene(request.getScene()), resolveClientIp(servletRequest));
+        return Result.success(new SendCodeResult(masked, smsProperties.getResendInterval().toSeconds()));
+    }
+
+    /**
+     * 验证码登录（短信 / 邮箱），账号必须已绑定对应手机号或邮箱。
+     */
+    @Operation(summary = "验证码登录", description = "用手机号或邮箱收到的验证码登录，成功后签发 Sa-Token。",
+            security = {},
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "登录成功"),
+                    @ApiResponse(responseCode = "400", description = "验证码错误或已失效"),
+                    @ApiResponse(responseCode = "401", description = "该手机号 / 邮箱未绑定账号"),
+                    @ApiResponse(responseCode = "403", description = "账号已被禁用")
+            })
+    @PostMapping("/login/code")
+    public Result<LoginResult> loginByCode(@Valid @RequestBody CodeLoginRequest request,
+                                           HttpServletRequest servletRequest) {
+        return Result.success(authService.loginByCode(
+                request.getTarget(), request.getCode(), resolveClientIp(servletRequest)));
+    }
+
+    /**
+     * 手机号验证码注册：创建账号并默认绑定「普通用户」角色，成功后直接登录。
+     */
+    @Operation(summary = "注册", description = "手机号 + 短信验证码注册新账号，默认绑定普通用户角色并直接签发登录态。",
+            security = {},
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "注册成功并已登录"),
+                    @ApiResponse(responseCode = "400", description = "验证码错误或已失效"),
+                    @ApiResponse(responseCode = "409", description = "手机号已注册"),
+                    @ApiResponse(responseCode = "503", description = "默认角色未初始化")
+            })
+    @PostMapping("/register")
+    public Result<LoginResult> register(@Valid @RequestBody RegisterRequest request,
+                                        HttpServletRequest servletRequest) {
+        return Result.success(authService.register(request, resolveClientIp(servletRequest)));
+    }
+
+    private VerificationCodeService.Scene parseScene(String scene) {
+        if (scene == null || scene.isBlank()) {
+            return VerificationCodeService.Scene.LOGIN;
+        }
+        try {
+            return VerificationCodeService.Scene.valueOf(scene.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return VerificationCodeService.Scene.LOGIN;
+        }
     }
 
     /**

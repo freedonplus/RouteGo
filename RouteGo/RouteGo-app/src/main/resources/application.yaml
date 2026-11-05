@@ -54,25 +54,105 @@ mybatis-plus:
 routego:
   redis:
     enabled: true
-  mq:
+  # 敏感字段加密（手机号、证件号）。库里只存密文，等值查询走 HMAC 盲索引。
+  # 生产环境必须用环境变量覆盖下面两个密钥，且两把密钥不能相同。
+  crypto:
     enabled: true
+    aes-key: ${ROUTEGO_CRYPTO_AES_KEY:cba2tV+2lEON482NJelomUy4xwTrSj63D8441XIawp0=}
+    hmac-key: ${ROUTEGO_CRYPTO_HMAC_KEY:routego-hmac-index-key-change-me-in-prod}
+  # 消息域尚未投入使用（EventPublisher 无调用方），默认关闭；
+  # 交易域接入 MQ 时改为 true 并配置 rocketmq.name-server
+  mq:
+    enabled: false
   openapi:
     enabled: true
   web:
     request-logging-enabled: true
     max-log-text-length: 1000
   storage:
+    # minio：对象存储（默认）；local：本地磁盘兜底
+    type: ${ROUTEGO_STORAGE_TYPE:minio}
     local-path: ./uploads
     max-size: 20971520
     allowed-extensions: [jpg, jpeg, png, webp, pdf]
+    minio:
+      endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+      access-key: ${MINIO_ACCESS_KEY:minio}
+      secret-key: ${MINIO_SECRET_KEY:12345678}
+      bucket: ${MINIO_BUCKET:routego}
   security:
     # 生产环境请改为实际前端域名，可用 ROUTEGO_SECURITY_ALLOWED_ORIGINS 覆盖
     allowed-origins:
       - http://localhost:5173
       - http://127.0.0.1:5173
       - http://localhost:3000
-    # 只有直接对端命中这些代理地址时，才信任 X-Forwarded-For
-    trusted-proxies: []
+      # App H5 调试端口（manifest.json 的 web.devServer 配的就是 5180）
+      # localhost 与 127.0.0.1 在浏览器里是两个不同 Origin，必须都放行
+      - http://localhost:5180
+      - http://127.0.0.1:5180
+    # 只有直接对端命中这些代理地址时，才信任 X-Forwarded-For / X-Real-IP。
+    # 支持精确 IP、CIDR 网段；反向代理（nginx / SLB）部署时必须配置，
+    # 否则拿到的永远是网关地址，登录日志里的 IP 全是 127.0.0.1。
+    trusted-proxies:
+      - 127.0.0.1
+      - ::1
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+
+  # 短信验证码（接口盒子 apihz 短信代发送）
+  # 密钥请用环境变量覆盖，不要提交到仓库：ROUTEGO_SMS_ID / ROUTEGO_SMS_KEY
+  sms:
+    enabled: true
+    endpoint: https://cn.apihz.cn/api/sms/dfapi.php
+    id: ${ROUTEGO_SMS_ID:10023179}
+    key: ${ROUTEGO_SMS_KEY:d67b1fc736ae3e27effcbb79faa83212}
+    code-length: 6
+    code-ttl: 5m
+    resend-interval: 60s
+    daily-limit: 20
+    hourly-limit-per-ip: 20
+
+  # IP 归属地（与短信共用 apihz 账号）
+  ip-location:
+    enabled: true
+    endpoint: https://cn.apihz.cn/api/ip/chaapi.php
+    id: ${ROUTEGO_SMS_ID:10023179}
+    key: ${ROUTEGO_SMS_KEY:d67b1fc736ae3e27effcbb79faa83212}
+    td: "0"
+    cache-ttl: 7d
+
+  # 第三方登录（JustAuth）。未填 client-id/secret 的平台 enabled 保持 false，
+  # 前端只会渲染已启用的平台按钮。
+  oauth:
+    success-redirect: ${ROUTEGO_OAUTH_SUCCESS_REDIRECT:http://localhost:5173/login?oauth=success}
+    failure-redirect: ${ROUTEGO_OAUTH_FAILURE_REDIRECT:http://localhost:5173/login?oauth=failed}
+    providers:
+      github:
+        enabled: false
+        client-id: ${GITHUB_CLIENT_ID:}
+        client-secret: ${GITHUB_CLIENT_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:http://localhost:8080/api}/admin/auth/oauth/github/callback
+      gitee:
+        enabled: false
+        client-id: ${GITEE_CLIENT_ID:}
+        client-secret: ${GITEE_CLIENT_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:http://localhost:8080/api}/admin/auth/oauth/gitee/callback
+      wechat:
+        enabled: false
+        client-id: ${WECHAT_OPEN_APP_ID:}
+        client-secret: ${WECHAT_OPEN_APP_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:http://localhost:8080/api}/admin/auth/oauth/wechat/callback
+      qq:
+        enabled: false
+        client-id: ${QQ_APP_ID:}
+        client-secret: ${QQ_APP_KEY:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:http://localhost:8080/api}/admin/auth/oauth/qq/callback
+      dingtalk:
+        enabled: false
+        client-id: ${DINGTALK_APP_KEY:}
+        client-secret: ${DINGTALK_APP_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:http://localhost:8080/api}/admin/auth/oauth/dingtalk/callback
 
 management:
   endpoints:

@@ -1,18 +1,89 @@
 package com.rg.catalog.controller;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.rg.catalog.dto.RouteTagQuery;
+import com.rg.catalog.dto.RouteTagSaveRequest;
+import com.rg.catalog.service.RouteTagService;
+import com.rg.catalog.vo.RouteTagVO;
+import com.rg.common.annotation.BusinessType;
+import com.rg.common.annotation.OperLog;
+import com.rg.common.util.Result;
+import com.rg.common.web.PageResult;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * <p>
- * 标签表 前端控制器
- * </p>
- *
- * @author RouteGo
- * @since 2026-11-03
- */
+import java.util.List;
+
+@Tag(name = "线路标签", description = "标签字典维护")
 @RestController
-@RequestMapping("/catalog/routeTag")
+@RequestMapping("/catalog/route-tag")
 public class RouteTagController {
 
+    private final RouteTagService tagService;
+
+    public RouteTagController(RouteTagService tagService) {
+        this.tagService = tagService;
+    }
+
+    @Operation(summary = "标签分页")
+    @SaCheckPermission("catalog:RouteTag:page")
+    @GetMapping("/page")
+    public Result<PageResult<RouteTagVO>> page(@Valid RouteTagQuery query) {
+        return Result.success(tagService.page(query));
+    }
+
+    @Operation(summary = "启用标签列表", description = "供线路编辑页选择标签")
+    @SaCheckPermission("catalog:RouteTag:list")
+    @GetMapping("/list")
+    public Result<List<RouteTagVO>> list() {
+        return Result.success(tagService.listEnabled());
+    }
+
+    @Operation(summary = "新增标签")
+    @SaCheckPermission("catalog:RouteTag:create")
+    @OperLog(title = "线路标签", type = BusinessType.INSERT)
+    @PostMapping
+    public Result<Long> create(@Valid @RequestBody RouteTagSaveRequest request) {
+        return Result.success(tagService.create(request));
+    }
+
+    @Operation(summary = "编辑标签")
+    @SaCheckPermission("catalog:RouteTag:update")
+    @OperLog(title = "线路标签", type = BusinessType.UPDATE)
+    @PutMapping("/{id}")
+    public Result<Void> update(@Parameter(description = "标签 ID") @PathVariable Long id,
+                               @Valid @RequestBody RouteTagSaveRequest request) {
+        tagService.update(id, request);
+        return Result.success();
+    }
+
+    @Operation(summary = "启用/禁用标签")
+    @SaCheckPermission("catalog:RouteTag:updateStatus")
+    @OperLog(title = "线路标签", type = BusinessType.UPDATE)
+    @PutMapping("/{id}/status")
+    public Result<Void> updateStatus(@Parameter(description = "标签 ID") @PathVariable Long id,
+                                     @Parameter(description = "状态：0 禁用，1 启用") @RequestParam Byte status) {
+        tagService.updateStatus(id, status);
+        return Result.success();
+    }
+
+    @Operation(summary = "删除标签", description = "同时清理该标签与线路的绑定关系")
+    @SaCheckPermission("catalog:RouteTag:delete")
+    @OperLog(title = "线路标签", type = BusinessType.DELETE)
+    @DeleteMapping("/{id}")
+    public Result<Void> delete(@Parameter(description = "标签 ID") @PathVariable Long id) {
+        tagService.deleteTag(id);
+        return Result.success();
+    }
 }

@@ -1,16 +1,20 @@
 package com.rg.catalog.service;
 
-import com.rg.catalog.entity.RouteImage;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.rg.catalog.dto.RouteImageSaveRequest;
+import com.rg.catalog.entity.RouteImage;
+import com.rg.catalog.vo.RouteImageVO;
+
+import java.util.List;
 
 /**
- * <p>
- * 线路图片表 服务类
- * </p>
- *
- * @author RouteGo
- * @since 2026-11-03
+ * 线路图片服务。
  */
 public interface RouteImageService extends IService<RouteImage> {
 
+    List<RouteImageVO> listByRoute(Long routeId);
+
+    Long create(RouteImageSaveRequest request);
+
+    void deleteImage(Long id);
 }

@@ -34,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -163,12 +164,15 @@ class SysUserServiceImplTest {
         }
 
         verify(userRoleMapper).delete(any());
-        verify(userRoleMapper, org.mockito.Mockito.times(2)).insert(any(SysUserRole.class));
+        verify(userRoleMapper).insertBatch(argThat(relations -> relations.size() == 2));
+        verify(userRoleMapper, org.mockito.Mockito.never()).insert(any(SysUserRole.class));
         verify(cacheHelper).evictAfterCommit(
                 "admin:SysUser:getById:9",
                 "admin:SysUser:getPermissions:9",
                 "admin:SysUser:getRoles:9",
                 "admin:SysMenu:getUserTree:9");
+        // 单用户变更只自增该用户的权限版本号，不冲掉全站权限缓存
+        verify(cacheHelper).incrementAfterCommit("admin:config:SaToken:getPermVer:9", 1L);
     }
 
     @Test

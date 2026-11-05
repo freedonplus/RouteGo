@@ -19,12 +19,13 @@ spring:
       database: ${REDIS_DATABASE:1}
       timeout: 3s
 
-rocketmq:
-  name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
-  producer:
-    group: RouteGo-app-producer
-    send-message-timeout: 3000
-    retry-times-when-send-failed: 3
+# RocketMQ 已下线，同 dev 环境；启用方式见 application-dev.yaml 注释
+# rocketmq:
+#   name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
+#   producer:
+#     group: RouteGo-app-producer
+#     send-message-timeout: 3000
+#     retry-times-when-send-failed: 3
 
 logging:
   level:

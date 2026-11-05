@@ -54,10 +54,18 @@ RouteGo
 | `RouteGoMybatisPlusAutoConfiguration` | 分页、乐观锁、create/updateTime 自动填充 |
 | `RouteGoRedisAutoConfiguration` | `RedisTemplate<String,Object>` JSON 序列化 + `RedisService` |
 | `RouteGoRedissonAutoConfiguration` | `DistributedLock` 分布式锁封装 |
-| `RouteGoRocketMqAutoConfiguration` | `EventPublisher` + 消息信封/消费基类 |
+| `RouteGoCacheAutoConfiguration` | `CacheHelper` + 空值哨兵（`__RG_CACHE_NULL__`） |
+| `RouteGoRocketMqAutoConfiguration` | `EventPublisher` + 消息信封/消费基类（**一期不启用**） |
+| `RouteGoSmsAutoConfiguration` | 短信通道，默认日志实现，可换云厂商 |
+| `RouteGoIpLocationAutoConfiguration` | ip2region IP 归属地解析 |
+| `RouteGoCryptoAutoConfiguration` | AES-GCM 字段加密 + HMAC 盲索引 |
 
-Useful classes: `RedisService`、`DistributedLock`、`EventPublisher`、
-`AbstractRouteGoListener`、`PageQuery`、`PageResult`、`Result`。
+Useful classes: `RedisService`、`DistributedLock`、`CacheHelper`、`EventPublisher`、
+`PageQuery`、`PageResult`、`Result`。
+
+> RocketMQ：一期**运行时不启用**。`routego.mq.enabled=false`（默认），
+> `application-dev/test.yaml` 中的 `rocketmq:` 配置块已注释；`EventPublisher`
+> 与监听基类保留，供二期恢复使用。订单超时、统计汇总等异步需求由定时任务承担。
 
 ### API documentation
 
@@ -84,11 +92,20 @@ Useful classes: `RedisService`、`DistributedLock`、`EventPublisher`、
 - 注解鉴权：`@SaCheckLogin`、`@SaCheckPermission("admin:SysConfig:getByKey")`、
   `@SaCheckRole("admin")`。**只有标注注解的接口会校验**，未标注接口默认放行。
 - 角色/权限来源：`sys_user_role` / `sys_role` /
-  `sys_role_permission` / `sys_permission`；`admin` / `super_admin`
-  角色自动拥有通配权限 `*`。
+  `sys_role_permission` / `sys_permission`；**只有 `super_admin` 拥有通配权限 `*`**，
+  其余角色（含 `admin`）按权限点逐条授权。权限码格式 `模块:Controller:method`。
+- 权限缓存：按用户缓存到 Redis，key 带全局版本号；角色/权限变更只需删版本号 key
+  即可一次性失效，避免脏读。
+- 内置 5 个角色：`super_admin`(1)、`admin`(2)、`support`(3)、`normal_user`(4)、
+  `member_user`(5)。C 端注册用户默认绑定 `normal_user`。
 - Token 存储在 Redis（`sa-token-redis-jackson`），key 形如
   `Authorization:login:token:<token>`。
-- 不预置默认账号。使用前需要在 `sys_user` 插入一个 BCrypt 密码的用户：
+- 账号由初始化脚本预置（见 `sql/README.md`）：
+  - 超级管理员 `taishangxue520` / `12345678Ss`
+  - 演示账号 `13912340002` ~ `13912340016` / `Abcd1234`
+- 全新环境执行 `mysql -u root -p < sql/routego-init-all.sql` 即可获得账号、角色、
+  角色绑定、195 个权限点、30 条菜单与演示业务数据。
+- 也可以手工建号（BCrypt 密文需自行生成）：
 
 ```sql
 INSERT INTO sys_user (username, password, nickname, status, deleted)
@@ -120,15 +137,32 @@ Set a password with `SPRING_DATA_REDIS_PASSWORD`. Do not put an empty
 
 ### RocketMQ
 
+**已下线**（消息域无调用方）：`routego.mq.enabled=false` 且 dev/test profile 不再
+配置 `rocketmq.name-server`，本地无需启动 RocketMQ。需要重新启用时：
+
+1. 恢复 `application-dev.yaml` 中被注释的 `rocketmq:` 配置块；
+2. 设置 `routego.mq.enabled=true`。
+
+Topics/consumer groups follow `RocketMqConstants`.
+
+### 文件存储（MinIO）
+
+上传的图片/文件默认存 **MinIO 对象存储**（`routego.storage.type=minio`），
+bucket 首次上传时自动创建；`type=local` 时回落到本地磁盘 `./uploads`。
+下载统一走后端 `/admin/system/file/{id}/download`，图片按真实 MIME 内联返回。
+
 ```yaml
-rocketmq:
-  name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
-  producer:
-    group: RouteGo-app-producer
+routego:
+  storage:
+    type: minio
+    minio:
+      endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+      access-key: ${MINIO_ACCESS_KEY:minio}
+      secret-key: ${MINIO_SECRET_KEY:12345678}
+      bucket: ${MINIO_BUCKET:routego}
 ```
 
-If no NameServer is reachable, the app still starts; sending events fails until
-RocketMQ is available. Topics/consumer groups follow `RocketMqConstants`.
+App 启动不依赖 MinIO 存活；MinIO 不可用只影响上传/下载动作本身。
 
 ### CORS
 
@@ -139,20 +173,30 @@ Origin + `allowCredentials`，不能再用 `*`。生产环境通过
 
 ## Database
 
-单体使用一个数据库 `routego`。**首次启动应用前**先导入表结构：
+单体使用一个数据库 `routego`。**首次启动应用前**先导入初始化脚本，
+`sql/routego-init-all.sql` 一个文件搞定建表 + 后台账号/角色/权限 + 演示业务数据：
 
 ```bash
-mysql -u root -p < sql/routego.sql
+mysql -u root -p < sql/routego-init-all.sql
 ```
 
-Windows PowerShell:
+Windows 下用管道导入：
 
-```powershell
-Get-Content .\sql\routego.sql -Raw | mysql -u root -p
+```bat
+type sql\routego-init-all.sql | mysql -u root -p
 ```
 
-`sql/routego.sql` 创建 36 张业务表 + 1 张 `undo_log`。原来的
-`sql/routego_*.sql` 与 `sql/schema.sql` 保留为微服务版历史脚本。
+只需要空库时，可按顺序只跑前两步：
+
+```bash
+mysql -u root -p < sql/routego.sql              # 建库 + 36 张业务表 + undo_log
+mysql -u root -p routego < sql/admin-init.sql   # 账号 / 角色 / 菜单 / 权限点 / 字典 / 参数 / 公告
+mysql -u root -p routego < sql/demo-data.sql    # 可选：演示业务数据（幂等）
+```
+
+`routego-init-all.sql` 是上面三个文件按顺序拼接的产物，改完源文件后执行
+`cd sql && sh build-init-all.sh` 重新生成。原来的 `sql/routego_*.sql` 与
+`sql/schema.sql` 保留为微服务版历史脚本。
 
 ## Configuration
 
@@ -173,8 +217,7 @@ $env:SPRING_PROFILES_ACTIVE = "test"
 ```
 
 生产环境必须提供 `MYSQL_HOST`、`MYSQL_USERNAME`、`MYSQL_PASSWORD`、
-`REDIS_HOST`、`ROCKETMQ_NAME_SERVER`；Redis 密码用
-`SPRING_DATA_REDIS_PASSWORD`。
+`REDIS_HOST`；Redis 密码用 `SPRING_DATA_REDIS_PASSWORD`。
 
 常用环境变量：
 
@@ -191,7 +234,10 @@ REDIS_PORT=6379
 REDIS_DATABASE=0
 SPRING_DATA_REDIS_PASSWORD=
 
-ROCKETMQ_NAME_SERVER=127.0.0.1:9876
+MINIO_ENDPOINT=http://127.0.0.1:9000
+MINIO_ACCESS_KEY=minio
+MINIO_SECRET_KEY=12345678
+MINIO_BUCKET=routego
 ```
 
 ## Code Generator
@@ -280,7 +326,10 @@ TTL ±10% 抖动（防雪崩）。写操作在事务提交后删除相关 key。
 ### 初始化
 
 ```bash
-# 仅更新权限码：直接重跑 init（会清理 system:* 旧权限并重建）
+# 一键：建表 + 后台数据 + 演示业务数据（幂等，可重复执行）
+mysql -u root -p < sql/routego-init-all.sql
+
+# 只更新权限码：直接重跑 init（会清理旧权限点并重建）
 mysql -u root -p routego < sql/admin-init.sql
 
 # 想彻底清空旧菜单/权限目录时，先 reset 再 init
@@ -288,9 +337,14 @@ mysql -u root -p routego < sql/admin-reset.sql
 mysql -u root -p routego < sql/admin-init.sql
 ```
 
-脚本只创建内置角色、权限点、菜单与授权，不预置用户。管理员密码用 BCrypt 生成后手工插入，
-再把用户加入 `super_admin` 角色。`admin-reset.sql` 会清空 `sys_role_menu` 和
-`sys_role_permission`，执行后需要重新给角色勾选权限。
+`admin-init.sql` 创建 5 个内置角色、195 个权限点、30 个菜单与授权，并写入内置管理员
+`taishangxue520 / 12345678Ss`（超级管理员）；`demo-data.sql` 另外补 15 个演示注册账号
+（`13912340002` ~ `13912340016`，密码 `Abcd1234`，绑定普通用户 / 会员用户角色），
+与演示会员同手机号对应，可直接在后台和 App 两个入口登录。`admin-reset.sql` 会清空
+`sys_role_menu` 和 `sys_role_permission`，执行后需要重新给角色勾选权限。
+
+用户体系说明（后台账号 `sys_user` 与 App 会员 `customer` 的关系、订单归属）见
+`sql/README.md` 的「用户体系与订单归属」一节。
 
 ### 测试
 

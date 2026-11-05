@@ -23,7 +23,9 @@ public class SecurityProperties {
     private List<String> allowedOrigins = new ArrayList<>(Arrays.asList(
             "http://localhost:5173",
             "http://127.0.0.1:5173",
-            "http://localhost:3000"));
+            "http://localhost:3000",
+            "http://localhost:5180",
+            "http://127.0.0.1:5180"));
 
     @PostConstruct
     void logAllowedOrigins() {

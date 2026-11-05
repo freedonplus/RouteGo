@@ -50,13 +50,20 @@ class RedisCacheHelperTest {
 
     @Test
     void nullSentinelIsReturnedAsNullWithoutLoading() {
-        when(redis.get("k")).thenReturn(CacheNullValue.INSTANCE);
+        when(redis.get("k")).thenReturn(CacheNullValue.MARKER);
         AtomicInteger calls = new AtomicInteger();
         assertThat(helper.getOrLoad("k", Duration.ofMinutes(1), () -> {
             calls.incrementAndGet();
             return "db";
         })).isNull();
         assertThat(calls.get()).isZero();
+        verifyNoInteractions(redisson);
+    }
+
+    @Test
+    void legacySentinelObjectStillRecognized() {
+        when(redis.get("k")).thenReturn(CacheNullValue.INSTANCE);
+        assertThat(helper.getOrLoad("k", Duration.ofMinutes(1), () -> "db")).isNull();
         verifyNoInteractions(redisson);
     }
 
@@ -69,7 +76,7 @@ class RedisCacheHelperTest {
         String loaded = helper.getOrLoad("k", Duration.ofMinutes(1), () -> null);
         assertThat(loaded).isNull();
 
-        verify(redis).set("k", CacheNullValue.INSTANCE, Duration.ofSeconds(60));
+        verify(redis).set("k", CacheNullValue.MARKER, Duration.ofSeconds(60));
         verify(lock).unlock();
     }
 

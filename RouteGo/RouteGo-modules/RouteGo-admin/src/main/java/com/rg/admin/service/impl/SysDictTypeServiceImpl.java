@@ -70,7 +70,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long create(DictTypeCreateRequest request) {
         if (typeMapper.countByDictTypeIncludingDeleted(request.getDictType()) > 0) {
             throw new AdminException(ErrorCode.CONFLICT, "字典类型编码已被使用（可能已删除）");
@@ -85,7 +85,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, DictTypeUpdateRequest request) {
         SysDictType existing = typeMapper.selectById(id);
         if (existing == null) {
@@ -102,7 +102,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteType(Long id) {
         SysDictType type = typeMapper.selectById(id);
         if (type == null) {
@@ -120,7 +120,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, Byte status) {
         SysDictType type = typeMapper.selectById(id);
         if (type == null) {

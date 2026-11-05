@@ -33,7 +33,8 @@ public class SysUserOauthServiceImpl extends ServiceImpl<SysUserOauthMapper, Sys
         implements SysUserOauthService {
 
     private static final Duration TTL = Duration.ofMinutes(10);
-    private static final Set<String> PROVIDERS = Set.of("wechat", "qq", "apple", "dingtalk");
+    private static final Set<String> PROVIDERS =
+            Set.of("wechat", "qq", "apple", "dingtalk", "github", "gitee");
     private static final Set<String> PROTECTED_ROLE_CODES = Set.of("admin", "super_admin");
 
     private final SysUserOauthMapper oauthMapper;
@@ -64,7 +65,7 @@ public class SysUserOauthServiceImpl extends ServiceImpl<SysUserOauthMapper, Sys
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long bind(UserOauthBindRequest request) {
         if (!PROVIDERS.contains(request.getProvider())) {
             throw new AdminException("不支持的第三方平台");
@@ -89,7 +90,7 @@ public class SysUserOauthServiceImpl extends ServiceImpl<SysUserOauthMapper, Sys
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void unbind(Long id) {
         SysUserOauth oauth = oauthMapper.selectById(id);
         if (oauth == null) {

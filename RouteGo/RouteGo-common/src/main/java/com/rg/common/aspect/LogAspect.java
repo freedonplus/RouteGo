@@ -27,12 +27,12 @@ public class LogAspect {
         long start = System.currentTimeMillis();
         String className = joinPoint.getTarget().getClass().getSimpleName();
         String methodName = joinPoint.getSignature().getName();
-        log.info(">> {}.{} 参数: {}", className, methodName,
+        log.debug(">> {}.{} 参数: {}", className, methodName,
                 LogSanitizer.toJson(joinPoint.getArgs(), MAX_TEXT_LENGTH));
 
         try {
             Object result = joinPoint.proceed();
-            log.info("<< {}.{} 返回, 耗时: {}ms, 结果: {}", className, methodName,
+            log.debug("<< {}.{} 返回, 耗时: {}ms, 结果: {}", className, methodName,
                     System.currentTimeMillis() - start,
                     LogSanitizer.toJson(result, MAX_TEXT_LENGTH));
             return result;

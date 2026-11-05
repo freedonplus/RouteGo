@@ -39,6 +39,12 @@ public class SysLoginLog implements Serializable {
     private String ip;
 
     /**
+     * IP 归属地（省 市 · 运营商）
+     */
+    @TableField("location")
+    private String location;
+
+    /**
      * 浏览器
      */
     @TableField("browser")
@@ -92,6 +98,14 @@ public class SysLoginLog implements Serializable {
         this.ip = ip;
     }
 
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
     public String getBrowser() {
         return browser;
     }
@@ -138,6 +152,7 @@ public class SysLoginLog implements Serializable {
             "id = " + id +
             ", username = " + username +
             ", ip = " + ip +
+            ", location = " + location +
             ", browser = " + browser +
             ", os = " + os +
             ", status = " + status +

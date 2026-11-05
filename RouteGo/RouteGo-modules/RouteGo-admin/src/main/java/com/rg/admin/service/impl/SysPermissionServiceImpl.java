@@ -111,14 +111,15 @@ public class SysPermissionServiceImpl extends ServiceImpl<SysPermissionMapper, S
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long createPermission(PermissionCreateRequest request) {
-        if (permissionMapper.countByPermissionCodeIncludingDeleted(request.getPermissionCode()) > 0) {
+        String code = request.getPermissionCode().trim();
+        if (permissionMapper.countByPermissionCodeIncludingDeleted(code) > 0) {
             throw new AdminException(ErrorCode.CONFLICT, "权限码已被使用（可能已删除）");
         }
         SysPermission permission = new SysPermission();
         permission.setPermissionName(request.getPermissionName());
-        permission.setPermissionCode(request.getPermissionCode());
+        permission.setPermissionCode(code);
         permission.setModule(request.getModule());
         permission.setDescription(request.getDescription());
         permission.setStatus(request.getStatus() == null ? (byte) 1 : request.getStatus());
@@ -128,22 +129,36 @@ public class SysPermissionServiceImpl extends ServiceImpl<SysPermissionMapper, S
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updatePermission(Long id, PermissionUpdateRequest request) {
-        requirePermission(id);
+        SysPermission existing = permissionMapper.selectById(id);
+        if (existing == null) {
+            throw new AdminException(ErrorCode.NOT_FOUND, "权限点不存在");
+        }
         SysPermission update = new SysPermission();
         update.setId(id);
         update.setPermissionName(request.getPermissionName());
         update.setModule(request.getModule());
         update.setDescription(request.getDescription());
+        // 权限码可修改：唯一性校验必须排除自身，否则「不改权限码只改名称」也会 409
+        if (StringUtils.hasText(request.getPermissionCode())) {
+            String code = request.getPermissionCode().trim();
+            if (!code.equals(existing.getPermissionCode())) {
+                if (permissionMapper.countByPermissionCodeExcludingId(code, id) > 0) {
+                    throw new AdminException(ErrorCode.CONFLICT, "权限码已被使用（可能已删除）");
+                }
+                update.setPermissionCode(code);
+            }
+        }
         if (permissionMapper.updateById(update) == 0) {
             throw new AdminException(ErrorCode.CONFLICT, "数据已被修改，请刷新后重试");
         }
         cacheHelper.evictAfterCommit(invalidationKeys(id));
+        bumpPermVersion();
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deletePermission(Long id) {
         requirePermission(id);
         if (relationMapper.countRolesByPermissionId(id) > 0) {
@@ -152,16 +167,29 @@ public class SysPermissionServiceImpl extends ServiceImpl<SysPermissionMapper, S
         String[] keys = invalidationKeys(id);
         permissionMapper.deleteById(id);
         cacheHelper.evictAfterCommit(keys);
+        bumpPermVersion();
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, Byte status) {
         requirePermission(id);
         permissionMapper.update(null, Wrappers.<SysPermission>lambdaUpdate()
                 .set(SysPermission::getStatus, status)
                 .eq(SysPermission::getId, id));
         cacheHelper.evictAfterCommit(invalidationKeys(id));
+        bumpPermVersion();
+    }
+
+    /**
+     * 权限版本号必须「自增」而不是「删除」。
+     * <p>
+     * Sa-Token 权限缓存 key 为 {@code PERM_LIST(userId, version)}，version 读不到时会回退到
+     * {@code "0"}；如果写操作只是 delete 版本号，key 立刻还原成写之前的那个，旧缓存继续命中，
+     * 表现为「改了角色权限但对方仍能访问」。自增后旧 key 永久不可达，新请求必然回源重建。
+     */
+    private void bumpPermVersion() {
+        cacheHelper.incrementAfterCommit(CacheKeyConstants.Admin.PERM_VERSION, 1L);
     }
 
     private void requirePermission(Long id) {

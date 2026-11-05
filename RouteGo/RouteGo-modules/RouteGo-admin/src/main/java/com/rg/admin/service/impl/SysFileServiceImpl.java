@@ -8,7 +8,9 @@ import com.rg.admin.config.StorageProperties;
 import com.rg.admin.dto.FileQuery;
 import com.rg.admin.entity.SysFile;
 import com.rg.admin.mapper.SysFileMapper;
+import com.rg.admin.model.SysFileCache;
 import com.rg.admin.service.SysFileService;
+import com.rg.admin.storage.FileStorage;
 import com.rg.admin.vo.SysFileVO;
 import com.rg.common.cache.CacheHelper;
 import com.rg.common.constant.CacheKeyConstants;
@@ -16,21 +18,22 @@ import com.rg.common.exception.ErrorCode;
 import com.rg.common.exception.serviceException.AdminException;
 import com.rg.common.web.PageResult;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.InputStream;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -39,16 +42,24 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
 
     private static final Duration TTL = Duration.ofMinutes(10);
     private static final DateTimeFormatter DATE_PATH = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+    private static final Map<String, String> CONTENT_TYPES = Map.of(
+            "jpg", "image/jpeg",
+            "jpeg", "image/jpeg",
+            "png", "image/png",
+            "webp", "image/webp",
+            "pdf", "application/pdf");
 
     private final SysFileMapper fileMapper;
     private final StorageProperties properties;
     private final CacheHelper cacheHelper;
+    private final FileStorage storage;
 
     public SysFileServiceImpl(SysFileMapper fileMapper, StorageProperties properties,
-                              CacheHelper cacheHelper) {
+                              CacheHelper cacheHelper, FileStorage storage) {
         this.fileMapper = fileMapper;
         this.properties = properties;
         this.cacheHelper = cacheHelper;
+        this.storage = storage;
     }
 
     @Override
@@ -72,7 +83,7 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public SysFileVO upload(MultipartFile file) {
         String originalName = sanitizeName(file.getOriginalFilename());
         String extension = extensionOf(originalName);
@@ -85,22 +96,24 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
 
         String datePath = LocalDate.now().format(DATE_PATH);
         String storedName = UUID.randomUUID().toString().replace("-", "") + "." + extension;
-        String relativePath = datePath + "/" + storedName;
-        Path base = Path.of(properties.getLocalPath());
+        String objectKey = datePath + "/" + storedName;
         try {
-            Files.createDirectories(base.resolve(datePath));
-            Files.copy(file.getInputStream(), base.resolve(relativePath));
-        } catch (IOException e) {
-            throw new AdminException("文件保存失败");
+            storage.store(file.getInputStream(), file.getSize(), contentTypeOf(extension), objectKey);
+        } catch (AdminException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AdminException("文件保存失败", e);
         }
+        // 事务回滚时清理已写入的对象，避免产生无 DB 记录的孤儿文件
+        registerRollbackCleanup(objectKey);
 
         SysFile record = new SysFile();
         record.setFileName(storedName);
         record.setOriginalName(originalName);
-        record.setFilePath(relativePath);
+        record.setFilePath(objectKey);
         record.setFileType(extension);
         record.setFileSize(file.getSize());
-        record.setStorageType((byte) 1);
+        record.setStorageType(storage.storageType());
         fileMapper.insert(record);
 
         record.setFileUrl("/admin/system/file/" + record.getId() + "/download");
@@ -110,30 +123,85 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
 
     @Override
     public Resource download(Long id) {
-        SysFile record = requireFile(id);
-        Path path = Path.of(properties.getLocalPath()).resolve(record.getFilePath());
-        if (!Files.exists(path)) {
-            throw new AdminException(ErrorCode.NOT_FOUND, "文件不存在");
+        SysFileCache record = requireFile(id);
+        // 读成字节数组：InputStreamResource 只能读一次，HTTP 层会多次访问流导致 500；
+        // 文件上限 20MB，内存可控，且 ByteArrayResource 自带 content-length
+        try (InputStream in = storage.open(record.getFilePath())) {
+            byte[] bytes = in.readAllBytes();
+            return new ByteArrayResource(bytes) {
+                @Override
+                public String getFilename() {
+                    return record.getFileName();
+                }
+            };
+        } catch (AdminException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AdminException("文件读取失败", e);
         }
-        return new FileSystemResource(path);
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteFile(Long id) {
-        SysFile record = requireFile(id);
+        SysFileCache record = requireFile(id);
         fileMapper.deleteById(id);
-        try {
-            Files.deleteIfExists(Path.of(properties.getLocalPath()).resolve(record.getFilePath()));
-        } catch (IOException e) {
-            log.warn("物理文件删除失败: {}", record.getFilePath());
-        }
         cacheHelper.evictAfterCommit(String.format(CacheKeyConstants.Admin.FILE_BY_ID, id));
+        // 对象删除必须等事务提交后再执行，提交失败时 DB 记录仍在而对象已丢
+        Runnable cleanup = () -> {
+            try {
+                storage.delete(record.getFilePath());
+            } catch (Exception e) {
+                log.warn("存储对象删除失败: {}", record.getFilePath(), e);
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    cleanup.run();
+                }
+            });
+        } else {
+            cleanup.run();
+        }
     }
 
-    private SysFile requireFile(Long id) {
-        SysFile file = cacheHelper.getOrLoad(String.format(CacheKeyConstants.Admin.FILE_BY_ID, id),
-                TTL, () -> fileMapper.selectById(id));
+    /** 图片/PDF 直接内联展示时使用的 MIME 类型 */
+    public static String contentTypeOf(String extension) {
+        return CONTENT_TYPES.getOrDefault(extension, "application/octet-stream");
+    }
+
+    public static boolean isPreviewable(String extension) {
+        return CONTENT_TYPES.containsKey(extension);
+    }
+
+    private void registerRollbackCleanup(String objectKey) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) {
+                    try {
+                        storage.delete(objectKey);
+                    } catch (Exception e) {
+                        log.warn("事务回滚后存储对象清理失败: {}", objectKey, e);
+                    }
+                }
+            }
+        });
+    }
+
+    private SysFileCache requireFile(Long id) {
+        SysFileCache file = cacheHelper.getOrLoad(
+                String.format(CacheKeyConstants.Admin.FILE_BY_ID, id),
+                TTL,
+                () -> {
+                    SysFile entity = fileMapper.selectById(id);
+                    return entity == null ? null : toCache(entity);
+                });
         if (file == null) {
             throw new AdminException(ErrorCode.NOT_FOUND, "文件不存在");
         }
@@ -166,5 +234,33 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
         vo.setStorageType(file.getStorageType());
         vo.setCreateTime(file.getCreateTime());
         return vo;
+    }
+
+    private SysFileVO toVO(SysFileCache file) {
+        SysFileVO vo = new SysFileVO();
+        vo.setId(file.getId());
+        vo.setFileName(file.getFileName());
+        vo.setOriginalName(file.getOriginalName());
+        vo.setFilePath(file.getFilePath());
+        vo.setFileUrl(file.getFileUrl());
+        vo.setFileType(file.getFileType());
+        vo.setFileSize(file.getFileSize());
+        vo.setStorageType(file.getStorageType());
+        vo.setCreateTime(file.getCreateTime());
+        return vo;
+    }
+
+    private SysFileCache toCache(SysFile file) {
+        SysFileCache cache = new SysFileCache();
+        cache.setId(file.getId());
+        cache.setFileName(file.getFileName());
+        cache.setOriginalName(file.getOriginalName());
+        cache.setFilePath(file.getFilePath());
+        cache.setFileUrl(file.getFileUrl());
+        cache.setFileType(file.getFileType());
+        cache.setFileSize(file.getFileSize());
+        cache.setStorageType(file.getStorageType());
+        cache.setCreateTime(file.getCreateTime());
+        return cache;
     }
 }

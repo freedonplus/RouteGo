@@ -1,16 +1,17 @@
 package com.rg.operations.mapper;
 
-import com.rg.operations.entity.CustomRequirement;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.rg.operations.entity.CustomRequirement;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 /**
+ * 定制需求 Mapper。
  * <p>
- * 定制需求表 Mapper 接口
- * </p>
- *
- * @author RouteGo
- * @since 2026-11-03
+ * 需求单号唯一索引不含逻辑删除条件，占用校验同样要带上已删除记录。
  */
 public interface CustomRequirementMapper extends BaseMapper<CustomRequirement> {
 
+    @Select("SELECT COUNT(*) FROM custom_requirement WHERE requirement_no = #{requirementNo}")
+    int countByRequirementNoIncludingDeleted(@Param("requirementNo") String requirementNo);
 }

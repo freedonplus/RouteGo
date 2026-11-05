@@ -6,6 +6,8 @@ import com.rg.admin.config.StorageProperties;
 import com.rg.admin.entity.SysFile;
 import com.rg.admin.mapper.SysFileMapper;
 import com.rg.admin.service.impl.SysFileServiceImpl;
+import com.rg.admin.storage.FileStorage;
+import com.rg.admin.storage.LocalFileStorage;
 import com.rg.admin.vo.SysFileVO;
 import com.rg.common.cache.CacheHelper;
 import com.rg.common.exception.serviceException.AdminException;
@@ -52,7 +54,7 @@ class SysFileServiceImplTest {
         StorageProperties props = new StorageProperties();
         props.setLocalPath(tmp.toString());
         props.setMaxSize(10);
-        SysFileServiceImpl smallLimit = new SysFileServiceImpl(fileMapper, props, cacheHelper);
+        SysFileServiceImpl smallLimit = service(props);
         assertThatThrownBy(() -> smallLimit.upload(big)).hasMessageContaining("大小");
     }
 
@@ -69,6 +71,7 @@ class SysFileServiceImplTest {
         SysFileVO vo = service.upload(file);
 
         assertThat(vo.getFileName()).endsWith(".png").doesNotContain("照片");
+        assertThat(vo.getStorageType()).isEqualTo((byte) 1);
         assertThat(Files.exists(tmp.resolve(vo.getFilePath()))).isTrue();
         verify(fileMapper).updateById(any(SysFile.class));
     }
@@ -93,9 +96,37 @@ class SysFileServiceImplTest {
         verify(fileMapper).deleteById(3L);
     }
 
+    @Test
+    void downloadReturnsReadableResourceWithBytes(@TempDir Path tmp) throws Exception {
+        SysFileServiceImpl service = service(tmp);
+        Path file = tmp.resolve("2026/11/05/a.png");
+        Files.createDirectories(file.getParent());
+        byte[] content = {1, 2, 3, 4, 5};
+        Files.write(file, content);
+        SysFile record = new SysFile();
+        record.setId(9L);
+        record.setFilePath("2026/11/05/a.png");
+        when(fileMapper.selectById(9L)).thenReturn(record);
+        org.mockito.Mockito.lenient()
+                .when(cacheHelper.getOrLoad(any(), any(), any()))
+                .thenAnswer(invocation -> ((java.util.function.Supplier<?>) invocation.getArgument(2)).get());
+
+        org.springframework.core.io.Resource resource = service.download(9L);
+
+        try (var in = resource.getInputStream()) {
+            assertThat(in.readAllBytes()).isEqualTo(content);
+        }
+        assertThat(resource.getInputStream().readAllBytes()).isEqualTo(content);
+    }
+
     private SysFileServiceImpl service(Path tmp) {
         StorageProperties props = new StorageProperties();
         props.setLocalPath(tmp.toString());
-        return new SysFileServiceImpl(fileMapper, props, cacheHelper);
+        return service(props);
+    }
+
+    private SysFileServiceImpl service(StorageProperties props) {
+        FileStorage storage = new LocalFileStorage(props);
+        return new SysFileServiceImpl(fileMapper, props, cacheHelper, storage);
     }
 }

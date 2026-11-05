@@ -36,7 +36,7 @@ public class RedisCacheHelper implements CacheHelper {
     @SuppressWarnings("unchecked")
     public <T> T getOrLoad(String key, Duration ttl, Supplier<T> loader) {
         Object cached = redisService.get(key);
-        if (cached instanceof CacheNullValue) {
+        if (CacheNullValue.isNullMarker(cached)) {
             return null;
         }
         if (cached != null) {
@@ -49,11 +49,20 @@ public class RedisCacheHelper implements CacheHelper {
             locked = lock.tryLock(LOCK_WAIT.toSeconds(), LOCK_LEASE.toSeconds(), TimeUnit.SECONDS);
             if (!locked) {
                 T rechecked = readWithinWindow(key);
-                return rechecked != null ? rechecked : loader.get();
+                if (rechecked != null) {
+                    return rechecked;
+                }
+                T value = loader.get();
+                if (value != null) {
+                    // 兜底查库后回写缓存，避免击穿窗口内每次请求都直打 DB；
+                    // 用 setIfAbsent 降低与持锁方的覆盖竞争
+                    redisService.setIfAbsent(key, value, jitter(ttl));
+                }
+                return value;
             }
 
             cached = redisService.get(key);
-            if (cached instanceof CacheNullValue) {
+            if (CacheNullValue.isNullMarker(cached)) {
                 return null;
             }
             if (cached != null) {
@@ -62,7 +71,7 @@ public class RedisCacheHelper implements CacheHelper {
 
             T value = loader.get();
             if (value == null) {
-                redisService.set(key, CacheNullValue.INSTANCE, NULL_TTL);
+                redisService.set(key, CacheNullValue.MARKER, NULL_TTL);
             } else {
                 redisService.set(key, value, jitter(ttl));
             }
@@ -92,7 +101,7 @@ public class RedisCacheHelper implements CacheHelper {
                 return null;
             }
             Object value = redisService.get(key);
-            if (value instanceof CacheNullValue) {
+            if (CacheNullValue.isNullMarker(value)) {
                 return null;
             }
             if (value != null) {
@@ -125,6 +134,21 @@ public class RedisCacheHelper implements CacheHelper {
             });
         } else {
             evict(keys);
+        }
+    }
+
+    @Override
+    public void incrementAfterCommit(String key, long delta) {
+        Runnable action = () -> redisService.increment(key, delta);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
         }
     }
 

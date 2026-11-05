@@ -16,10 +16,11 @@ public class PermissionCreateRequest {
     @NotBlank(message = "请输入权限名称")
     private String permissionName;
 
-    @Schema(description = "权限码，创建后不可修改", example = "system:user:list",
+    @Schema(description = "权限码，如 system:user:list", example = "system:user:list",
             requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "请输入权限码")
-    @Pattern(regexp = "^[a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+$", message = "权限码格式应为 模块:动作")
+    @Pattern(regexp = "^[A-Za-z][A-Za-z0-9_-]*(?::[A-Za-z0-9_-]+)+$",
+            message = "权限码格式应为 模块:动作（如 system:user:list）")
     private String permissionCode;
 
     @Schema(description = "所属模块", example = "system")

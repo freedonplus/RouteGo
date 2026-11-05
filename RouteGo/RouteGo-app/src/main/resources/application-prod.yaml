@@ -6,6 +6,8 @@ spring:
     password: ${MYSQL_PASSWORD}
     hikari:
       pool-name: routego-prod-pool
+      # 与业务时区保持一致，避免数据库默认值写入的时间与 Java 写入的时间差 8 小时
+      connection-init-sql: SET time_zone = '+08:00'
       minimum-idle: 5
       maximum-pool-size: 30
       connection-timeout: 30000
@@ -20,22 +22,39 @@ spring:
       timeout: 3s
     # Redis 密码通过标准环境变量 SPRING_DATA_REDIS_PASSWORD 注入
 
+routego:
+  crypto:
+    # 生产环境必须显式注入，缺一个都启动失败，避免误用仓库里的示例密钥
+    aes-key: ${ROUTEGO_CRYPTO_AES_KEY}
+    hmac-key: ${ROUTEGO_CRYPTO_HMAC_KEY}
+
 rocketmq:
-  name-server: ${ROCKETMQ_NAME_SERVER}
-  producer:
-    group: RouteGo-app-producer
-    send-message-timeout: 3000
-    retry-times-when-send-failed: 3
+  # 交易域接入 MQ 时放开本段，并在主配置将 routego.mq.enabled 置 true；
+  # 当前消息域未投入使用，不强制要求 ROCKETMQ_NAME_SERVER 环境变量
+  # name-server: ${ROCKETMQ_NAME_SERVER}
+  # producer:
+  #   group: RouteGo-app-producer
+  #   send-message-timeout: 3000
+  #   retry-times-when-send-failed: 3
 
 logging:
   level:
     root: info
     com.rg: info
 
+# 管理端点与业务流量隔离端口，仅供内网/监控采集访问
 management:
+  server:
+    port: 9090
   endpoint:
     health:
       show-details: never
+
+# 生产环境 CORS 白名单必须显式注入（逗号分隔），
+# 缺少 ROUTEGO_SECURITY_ALLOWED_ORIGINS 环境变量时直接启动失败，禁止静默回退到 localhost
+routego:
+  security:
+    allowed-origins: ${ROUTEGO_SECURITY_ALLOWED_ORIGINS}
 
 sa-token:
   cookie:

@@ -74,7 +74,7 @@ public class SysNoticeServiceImpl extends ServiceImpl<SysNoticeMapper, SysNotice
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long create(NoticeCreateRequest request) {
         SysNotice notice = new SysNotice();
         notice.setTitle(request.getTitle());
@@ -91,7 +91,7 @@ public class SysNoticeServiceImpl extends ServiceImpl<SysNoticeMapper, SysNotice
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, NoticeUpdateRequest request) {
         requireNotice(id);
         SysNotice update = new SysNotice();
@@ -107,7 +107,7 @@ public class SysNoticeServiceImpl extends ServiceImpl<SysNoticeMapper, SysNotice
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteNotice(Long id) {
         requireNotice(id);
         noticeMapper.deleteById(id);
@@ -115,7 +115,7 @@ public class SysNoticeServiceImpl extends ServiceImpl<SysNoticeMapper, SysNotice
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void publish(Long id) {
         requireNotice(id);
         SysNotice update = new SysNotice();
@@ -127,7 +127,7 @@ public class SysNoticeServiceImpl extends ServiceImpl<SysNoticeMapper, SysNotice
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void unpublish(Long id) {
         requireNotice(id);
         SysNotice update = new SysNotice();
@@ -138,7 +138,7 @@ public class SysNoticeServiceImpl extends ServiceImpl<SysNoticeMapper, SysNotice
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void setTop(Long id, boolean top) {
         requireNotice(id);
         SysNotice update = new SysNotice();

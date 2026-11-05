@@ -25,4 +25,12 @@ public interface CacheHelper {
      * 事务提交后删除缓存；不在事务中时立即删除。
      */
     void evictAfterCommit(String... keys);
+
+    /**
+     * 事务提交后对计数器自增；不在事务中时立即自增。
+     * <p>
+     * 用于「版本号失效」模式：把版本号自增而不是删除，旧版本 key 自然不可达，
+     * 避免删除后版本号回退到初始值、重新命中旧缓存。
+     */
+    void incrementAfterCommit(String key, long delta);
 }

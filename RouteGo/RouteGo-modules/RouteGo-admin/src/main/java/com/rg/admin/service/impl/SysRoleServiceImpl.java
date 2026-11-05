@@ -22,6 +22,7 @@ import com.rg.admin.mapper.SysRoleMapper;
 import com.rg.admin.mapper.SysRoleMenuMapper;
 import com.rg.admin.mapper.SysRolePermissionMapper;
 import com.rg.admin.mapper.SysUserRoleMapper;
+import com.rg.admin.model.SysRoleCache;
 import com.rg.admin.service.SysRoleService;
 import com.rg.admin.service.SysUserService;
 import com.rg.admin.vo.SysRoleDetailVO;
@@ -42,7 +43,9 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 角色业务实现：编码不可改、内置角色保护、授权全量替换与按用户精确失效。
@@ -98,16 +101,22 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         wrapper.orderByAsc(SysRole::getSort).orderByAsc(SysRole::getId);
 
         Page<SysRole> page = roleMapper.selectPage(query.toPage(), wrapper);
-        List<SysRoleVO> records = page.getRecords().stream().map(this::toVO).toList();
+        Map<Long, Long> userCounts = loadUserCounts(page.getRecords());
+        List<SysRoleVO> records = page.getRecords().stream()
+                .map(role -> toVO(role, userCounts.getOrDefault(role.getId(), 0L)))
+                .toList();
         return new PageResult<>(records, page.getTotal(), page.getCurrent(), page.getSize(), page.getPages());
     }
 
     @Override
     public SysRoleDetailVO detail(Long id) {
-        SysRole role = cacheHelper.getOrLoad(
+        SysRoleCache role = cacheHelper.getOrLoad(
                 String.format(CacheKeyConstants.Admin.ROLE_BY_ID, id),
                 ROLE_CACHE_TTL,
-                () -> roleMapper.selectById(id));
+                () -> {
+                    SysRole entity = roleMapper.selectById(id);
+                    return entity == null ? null : toCache(entity);
+                });
         if (role == null) {
             throw new AdminException(ErrorCode.NOT_FOUND, "角色不存在");
         }
@@ -119,7 +128,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long create(RoleCreateRequest request) {
         if (roleMapper.countByRoleCodeIncludingDeleted(request.getRoleCode()) > 0) {
             throw new AdminException(ErrorCode.CONFLICT, "角色编码已被使用（可能已删除）");
@@ -135,7 +144,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, RoleUpdateRequest request) {
         SysRole existing = roleMapper.selectById(id);
         if (existing == null) {
@@ -154,7 +163,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, Byte status) {
         if (status == null || (status != 0 && status != 1)) {
             throw new AdminException("状态只能是 0 或 1");
@@ -186,13 +195,14 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
             }
         }
         cacheHelper.evictAfterCommit(keys.toArray(String[]::new));
+        bumpPermVersion();
         if (status == 0) {
-            userIds.forEach(StpUtil::logout);
+            logoutUsersAfterCommit(userIds);
         }
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteRole(Long id) {
         SysRole role = roleMapper.selectById(id);
         if (role == null) {
@@ -216,11 +226,12 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         keys.add(String.format(CacheKeyConstants.Admin.ROLE_PERMISSIONS, id));
         userIds.forEach(userId -> addUserKeys(keys, userId));
         cacheHelper.evictAfterCommit(keys.toArray(String[]::new));
-        userIds.forEach(StpUtil::logout);
+        bumpPermVersion();
+        logoutUsersAfterCommit(userIds);
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void assignMenus(Long id, AssignIdsRequest request) {
         assertCanModifyProtectedRole(requireRole(id));
         List<Long> menuIds = request.getIds().stream().distinct().toList();
@@ -228,11 +239,15 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
             throw new AdminException("菜单不存在");
         }
         roleMenuMapper.delete(Wrappers.<SysRoleMenu>lambdaQuery().eq(SysRoleMenu::getRoleId, id));
-        for (Long menuId : menuIds) {
-            SysRoleMenu relation = new SysRoleMenu();
-            relation.setRoleId(id);
-            relation.setMenuId(menuId);
-            roleMenuMapper.insert(relation);
+        if (!menuIds.isEmpty()) {
+            List<SysRoleMenu> relations = menuIds.stream().map(menuId -> {
+                SysRoleMenu relation = new SysRoleMenu();
+                relation.setRoleId(id);
+                relation.setMenuId(menuId);
+                return relation;
+            }).toList();
+            // 批量插入，替代循环单条 insert
+            roleMenuMapper.insertBatch(relations);
         }
 
         List<String> keys = new ArrayList<>();
@@ -245,7 +260,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void assignPermissions(Long id, AssignIdsRequest request) {
         assertCanModifyProtectedRole(requireRole(id));
         List<Long> permissionIds = request.getIds().stream().distinct().toList();
@@ -260,11 +275,15 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         }
         rolePermissionMapper.delete(Wrappers.<SysRolePermission>lambdaQuery()
                 .eq(SysRolePermission::getRoleId, id));
-        for (Long permissionId : permissionIds) {
-            SysRolePermission relation = new SysRolePermission();
-            relation.setRoleId(id);
-            relation.setPermissionId(permissionId);
-            rolePermissionMapper.insert(relation);
+        if (!permissionIds.isEmpty()) {
+            List<SysRolePermission> relations = permissionIds.stream().map(permissionId -> {
+                SysRolePermission relation = new SysRolePermission();
+                relation.setRoleId(id);
+                relation.setPermissionId(permissionId);
+                return relation;
+            }).toList();
+            // 批量插入，替代循环单条 insert
+            rolePermissionMapper.insertBatch(relations);
         }
 
         List<String> keys = new ArrayList<>();
@@ -273,6 +292,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         affectedUserIds.forEach(userId ->
                 keys.add(String.format(CacheKeyConstants.Admin.USER_PERMISSIONS, userId)));
         cacheHelper.evictAfterCommit(keys.toArray(String[]::new));
+        bumpPermVersion();
         logoutUsersAfterCommit(affectedUserIds);
     }
 
@@ -362,14 +382,62 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         keys.add(String.format(CacheKeyConstants.Admin.USER_MENU_TREE, userId));
     }
 
-    private SysRoleVO toVO(SysRole role) {
+    /**
+     * 权限版本号自增，使所有用户的 Sa-Token 权限缓存 key 立即失效。
+     * <p>
+     * 不能用 delete：版本号删除后 {@code SaTokenStpInterface} 会回退到 "0"，
+     * 与变更前的 key 完全相同，旧权限缓存继续命中。
+     */
+    private void bumpPermVersion() {
+        cacheHelper.incrementAfterCommit(CacheKeyConstants.Admin.PERM_VERSION, 1L);
+    }
+
+    private SysRoleVO toVO(SysRole role, long userCount) {
         SysRoleVO vo = new SysRoleVO();
         copy(role, vo);
-        vo.setUserCount(relationMapper.countUsersByRoleId(role.getId()));
+        vo.setUserCount(userCount);
         return vo;
     }
 
+    /**
+     * 一条 GROUP BY 聚合回填各角色用户数，替代每行一次 COUNT 的 N+1 查询。
+     */
+    private Map<Long, Long> loadUserCounts(List<SysRole> roles) {
+        if (roles.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> roleIds = roles.stream().map(SysRole::getId).toList();
+        return relationMapper.countUsersByRoleIds(roleIds).stream()
+                .collect(Collectors.toMap(
+                        row -> ((Number) row.get("roleId")).longValue(),
+                        row -> ((Number) row.get("userCount")).longValue()));
+    }
+
     private void copy(SysRole role, SysRoleVO vo) {
+        vo.setId(role.getId());
+        vo.setRoleName(role.getRoleName());
+        vo.setRoleCode(role.getRoleCode());
+        vo.setSort(role.getSort());
+        vo.setStatus(role.getStatus());
+        vo.setRemark(role.getRemark());
+        vo.setVersion(role.getVersion());
+        vo.setCreateTime(role.getCreateTime());
+    }
+
+    private SysRoleCache toCache(SysRole role) {
+        SysRoleCache cache = new SysRoleCache();
+        cache.setId(role.getId());
+        cache.setRoleName(role.getRoleName());
+        cache.setRoleCode(role.getRoleCode());
+        cache.setSort(role.getSort());
+        cache.setStatus(role.getStatus());
+        cache.setRemark(role.getRemark());
+        cache.setVersion(role.getVersion());
+        cache.setCreateTime(role.getCreateTime());
+        return cache;
+    }
+
+    private void copy(SysRoleCache role, SysRoleDetailVO vo) {
         vo.setId(role.getId());
         vo.setRoleName(role.getRoleName());
         vo.setRoleCode(role.getRoleCode());

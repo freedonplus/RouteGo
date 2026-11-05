@@ -14,6 +14,11 @@ public class AdminException extends BusinessException {
         super(message);
     }
 
+    public AdminException(String message, Throwable cause) {
+        super(message);
+        initCause(cause);
+    }
+
     public AdminException(int code, String message) {
         super(code, message);
     }

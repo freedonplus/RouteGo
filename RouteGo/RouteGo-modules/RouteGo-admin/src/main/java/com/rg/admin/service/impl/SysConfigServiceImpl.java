@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.rg.admin.dto.ConfigBatchRequest;
 import com.rg.admin.dto.ConfigCreateRequest;
 import com.rg.admin.dto.ConfigQuery;
@@ -24,6 +25,8 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig>
@@ -70,9 +73,8 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
         if (config == null) {
             throw new AdminException(ErrorCode.NOT_FOUND, "参数不存在");
         }
-        SysConfigVO vo = toVO(config);
-        vo.setConfigValue(getConfigValue(configKey));
-        return vo;
+        // 实体刚查出来即为最新值，无需再走一次 getConfigValue 的缓存加载
+        return toVO(config);
     }
 
     @Override
@@ -86,7 +88,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long create(ConfigCreateRequest request) {
         if (configMapper.countByConfigKeyIncludingDeleted(request.getConfigKey()) > 0) {
             throw new AdminException(ErrorCode.CONFLICT, "参数键已被使用（可能已删除）");
@@ -101,7 +103,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, ConfigUpdateRequest request) {
         SysConfig existing = configMapper.selectById(id);
         if (existing == null) {
@@ -118,7 +120,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteConfig(Long id) {
         SysConfig existing = configMapper.selectById(id);
         if (existing == null) {
@@ -130,20 +132,36 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void batchUpdate(ConfigBatchRequest request) {
+        List<String> requestKeys = request.getItems().stream()
+                .map(ConfigBatchRequest.Item::getConfigKey)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .toList();
+        if (requestKeys.isEmpty()) {
+            return;
+        }
+        // 一次 IN 批查替代循环内逐条 selectOne（N+1）
+        Map<String, SysConfig> existingByKey = configMapper.selectList(Wrappers.<SysConfig>lambdaQuery()
+                        .in(SysConfig::getConfigKey, requestKeys)).stream()
+                .collect(Collectors.toMap(SysConfig::getConfigKey, c -> c));
+
+        List<SysConfig> updates = new ArrayList<>();
         List<String> keys = new ArrayList<>();
         for (ConfigBatchRequest.Item item : request.getItems()) {
-            SysConfig existing = configMapper.selectOne(Wrappers.<SysConfig>lambdaQuery()
-                    .eq(SysConfig::getConfigKey, item.getConfigKey()).last("LIMIT 1"));
+            SysConfig existing = existingByKey.get(item.getConfigKey());
             if (existing == null) {
                 continue;
             }
             SysConfig update = new SysConfig();
             update.setId(existing.getId());
             update.setConfigValue(item.getConfigValue());
-            configMapper.updateById(update);
+            updates.add(update);
             keys.add(String.format(CacheKeyConstants.Admin.CONFIG_BY_KEY, existing.getConfigKey()));
+        }
+        if (!updates.isEmpty()) {
+            Db.updateBatchById(updates);
         }
         cacheHelper.evictAfterCommit(keys.toArray(String[]::new));
     }

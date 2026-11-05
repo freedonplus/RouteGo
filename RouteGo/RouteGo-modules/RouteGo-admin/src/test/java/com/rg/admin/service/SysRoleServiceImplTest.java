@@ -34,7 +34,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -125,11 +127,14 @@ class SysRoleServiceImplTest {
         }
 
         verify(rolePermissionMapper).delete(any());
-        verify(rolePermissionMapper, times(2)).insert(any(SysRolePermission.class));
+        verify(rolePermissionMapper).insertBatch(argThat(relations -> relations.size() == 2));
+        verify(rolePermissionMapper, never()).insert(any(SysRolePermission.class));
         verify(cacheHelper).evictAfterCommit(
                 "admin:SysRole:getPermissions:2",
                 "admin:SysUser:getPermissions:7",
                 "admin:SysUser:getPermissions:8");
+        // 权限版本号只能自增：删除会让版本回退，旧权限缓存继续命中
+        verify(cacheHelper).incrementAfterCommit("admin:config:SaToken:getPermVer", 1L);
     }
 
     @Test
@@ -153,6 +158,7 @@ class SysRoleServiceImplTest {
                 "admin:SysUser:getRoles:8",
                 "admin:SysUser:getPermissions:8",
                 "admin:SysMenu:getUserTree:8");
+        verify(cacheHelper).incrementAfterCommit("admin:config:SaToken:getPermVer", 1L);
     }
 
     @Test

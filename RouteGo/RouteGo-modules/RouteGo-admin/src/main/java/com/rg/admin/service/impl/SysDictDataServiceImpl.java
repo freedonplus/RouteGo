@@ -77,7 +77,7 @@ public class SysDictDataServiceImpl extends ServiceImpl<SysDictDataMapper, SysDi
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long create(DictDataCreateRequest request) {
         requireEnabledType(request.getDictType());
         if (dataMapper.countByTypeAndValueIncludingDeleted(request.getDictType(), request.getDictValue()) > 0) {
@@ -98,7 +98,7 @@ public class SysDictDataServiceImpl extends ServiceImpl<SysDictDataMapper, SysDi
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, DictDataUpdateRequest request) {
         SysDictData existing = requireData(id);
         if (StringUtils.hasText(request.getDictValue())
@@ -121,7 +121,7 @@ public class SysDictDataServiceImpl extends ServiceImpl<SysDictDataMapper, SysDi
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteData(Long id) {
         SysDictData data = requireData(id);
         dataMapper.deleteById(id);
@@ -129,7 +129,7 @@ public class SysDictDataServiceImpl extends ServiceImpl<SysDictDataMapper, SysDi
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, Byte status) {
         SysDictData data = requireData(id);
         dataMapper.update(null, Wrappers.<SysDictData>lambdaUpdate()
@@ -138,7 +138,7 @@ public class SysDictDataServiceImpl extends ServiceImpl<SysDictDataMapper, SysDi
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void setDefault(Long id) {
         SysDictData data = requireData(id);
         dataMapper.update(null, Wrappers.<SysDictData>lambdaUpdate()

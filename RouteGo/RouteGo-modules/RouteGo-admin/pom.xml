@@ -15,4 +15,19 @@
   <name>RouteGo-admin</name>
   <description>Back-office identity, RBAC and platform configuration</description>
 
+  <dependencies>
+    <!-- 第三方登录统一封装：一套 AuthRequest 适配微信/GitHub/Gitee/QQ/钉钉 -->
+    <dependency>
+      <groupId>me.zhyd.oauth</groupId>
+      <artifactId>JustAuth</artifactId>
+      <version>1.16.7</version>
+    </dependency>
+    <!-- MinIO 对象存储客户端：图片等静态文件统一存 MinIO，本地实现仅作兜底 -->
+    <dependency>
+      <groupId>io.minio</groupId>
+      <artifactId>minio</artifactId>
+      <version>8.5.17</version>
+    </dependency>
+  </dependencies>
+
 </project>
