@@ -1,0 +1,220 @@
+<template>
+	<view class="page-root">
+		<scroll-view class="page-scroll" style="flex:1">
+			<view class="page" style="padding-bottom:96px">
+				<!-- 状态 -->
+				<view class="section" style="padding-top:20px">
+					<text class="h1" style="font-size:26px">{{ order.statusDesc }}</text>
+					<text class="muted" style="margin-top:8px">{{ statusHint }}</text>
+				</view>
+
+				<!-- 行程 -->
+				<view class="section" style="margin-top:20px">
+					<view class="card">
+						<view class="row" style="align-items:flex-start">
+							<view class="cover" style="width:80px;height:80px">
+								<text class="cover-text" style="font-size:11px;letter-spacing:1px">行程</text>
+							</view>
+							<view class="col" style="flex:1;margin-left:14px">
+								<text class="h3" style="font-size:16px">{{ order.routeTitle }}</text>
+								<text class="faint" style="margin-top:6px">{{ order.departDate }} 出发 · {{ order.travelerCount }} 人</text>
+								<text class="faint" style="margin-top:4px">{{ order.destination }}</text>
+							</view>
+						</view>
+					</view>
+				</view>
+
+				<!-- 出行人 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">出行人</text>
+					<view class="card" style="margin-top:10px">
+						<view class="row-between">
+							<text class="body">张小满</text>
+							<text class="faint">身份证 510***********1234</text>
+						</view>
+						<view class="row-between" style="margin-top:14px">
+							<text class="body">李予安</text>
+							<text class="faint">身份证 510***********5678</text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 联系人 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">联系人</text>
+					<view class="card" style="margin-top:10px">
+						<view class="row-between">
+							<text class="body">张小满</text>
+							<text class="faint">138****8000</text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 金额 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">费用</text>
+					<view class="card" style="margin-top:10px">
+						<view class="row-between">
+							<text class="muted">订单总额</text>
+							<text class="body">¥{{ order.totalAmount }}</text>
+						</view>
+						<view class="row-between" style="margin-top:12px">
+							<text class="muted">优惠</text>
+							<text class="body" style="color:#34c759">−¥{{ order.discountAmount }}</text>
+						</view>
+						<view class="divider" style="margin-top:16px;margin-bottom:16px"></view>
+						<view class="row-between">
+							<text class="h3">实付</text>
+							<text class="price-value" style="font-size:22px">¥{{ order.payAmount }}</text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 订单信息 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">订单信息</text>
+					<view class="card" style="margin-top:10px">
+						<view class="row-between">
+							<text class="muted">订单号</text>
+							<text class="faint">{{ order.orderNo }}</text>
+						</view>
+						<view class="row-between" style="margin-top:12px">
+							<text class="muted">下单时间</text>
+							<text class="faint">{{ order.createTime }}</text>
+						</view>
+					</view>
+				</view>
+
+				<view class="section" style="margin-top:16px">
+					<view class="btn btn-secondary" @click="contactService">
+						<text class="btn-secondary-text">联系客服</text>
+					</view>
+				</view>
+
+			</view>
+		</scroll-view>
+		<!-- 底部操作 -->
+		<view v-if="order.status === 0" class="footer">
+			<view class="btn btn-secondary" style="flex:1;margin-right:12px" @click="doCancel">
+				<text class="btn-secondary-text">取消订单</text>
+			</view>
+			<view class="btn btn-primary" style="flex:1" @click="doPay">
+				<text class="btn-primary-text">去支付 ¥{{ order.payAmount }}</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { computed, ref } from 'vue'
+	import { cancelOrder as apiCancelOrder, fetchOrderDetail, payOrder as apiPayOrder } from '../../data/api.uts'
+	import type { OrderItem } from '../../data/types.uts'
+
+	const orderId = ref<number>(0)
+	const order = ref<OrderItem>(emptyOrder())
+	const errorText = ref<string>('')
+	const loading = ref<boolean>(true)
+
+	const statusHint = computed((): string => {
+		const s = order.value.status
+		if (s === 0) {
+			return '请在 30 分钟内完成支付，超时名额将自动释放'
+		}
+		if (s === 1) {
+			return '已确认，出发前一天会短信通知集合时间与领队电话'
+		}
+		return '行程已完成，期待你的评价'
+	})
+
+	onLoad((options) => {
+		const raw = options['id']
+		if (raw != null) {
+			const parsed = parseInt(raw.toString())
+			if (parsed > 0) {
+				orderId.value = parsed
+			}
+		}
+		loadData()
+	})
+
+	function loadData() {
+		if (orderId.value <= 0) {
+			errorText.value = '缺少订单参数'
+			loading.value = false
+			return
+		}
+		loading.value = true
+		errorText.value = ''
+		fetchOrderDetail(orderId.value).then((detail) => {
+			order.value = detail
+			loading.value = false
+		}).catch((e: Error) => {
+			errorText.value = e.message
+			loading.value = false
+		})
+	}
+
+	function emptyOrder(): OrderItem {
+		const o: OrderItem = {
+			id: 0,
+			orderNo: '',
+			routeTitle: '',
+			destination: '',
+			departDate: '',
+			travelerCount: 0,
+			totalAmount: 0,
+			discountAmount: 0,
+			payAmount: 0,
+			status: -1,
+			statusDesc: '',
+			createTime: ''
+		}
+		return o
+	}
+
+	function doPay() {
+		apiPayOrder(orderId.value).then(() => {
+			uni.showToast({ title: '支付成功', icon: 'success' })
+			loadData()
+		}).catch((e: Error) => {
+			uni.showToast({ title: e.message, icon: 'none' })
+		})
+	}
+
+	function doCancel() {
+		uni.showModal({
+			title: '取消订单',
+			content: '取消后名额将释放，确定取消吗？',
+			success: (res) => {
+				if (res.confirm) {
+					apiCancelOrder(orderId.value, '用户主动取消').then(() => {
+						uni.showToast({ title: '订单已取消', icon: 'none' })
+						loadData()
+					}).catch((e: Error) => {
+						uni.showToast({ title: e.message, icon: 'none' })
+					})
+				}
+			}
+		})
+	}
+
+	function contactService() {
+		uni.showToast({ title: '客服会话（待接入）', icon: 'none' })
+	}
+</script>
+
+<style>
+	.footer {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		flex-direction: row;
+		align-items: center;
+		background-color: #ffffff;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #e5e5ea;
+		padding: 12px 20px;
+	}
+</style>

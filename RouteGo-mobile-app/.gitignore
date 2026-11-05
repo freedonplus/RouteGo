@@ -1,0 +1,8 @@
+node_modules/
+unpackage/
+.hbuilderx/
+.DS_Store
+
+# 本地环境覆盖：放个人调试地址或密钥，不入库
+.env.local
+.env.*.local

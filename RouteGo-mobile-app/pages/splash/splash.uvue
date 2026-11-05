@@ -1,0 +1,125 @@
+<template>
+	<view class="splash">
+		<view class="center">
+			<image class="logo" src="/static/logo.png" mode="aspectFit"></image>
+			<text class="title">{{ brand }}</text>
+			<text class="slogan">{{ tagline }}</text>
+		</view>
+		<view class="footer">
+			<text class="footer-text">全国风景线路 · 精选小团</text>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	/**
+	 * 启动页。
+	 *
+	 * 动效说明：logo 900ms 淡入 + 轻微放大（0.92 → 1），文字延迟 260ms 上浮淡入，
+	 * 全部使用 cubic-bezier(0.25, 0.1, 0.25, 1) 减速曲线，没有回弹与位移抖动。
+	 * 系统开启「减弱动效」时，uni-app x 会自动把 CSS 动画降级为直接呈现最终状态。
+	 */
+	import { APP_NAME, APP_SLOGAN } from '../../config/env.uts'
+
+	const STAY_MS = 1500
+
+	onLoad(() => {
+		setTimeout(() => {
+			uni.switchTab({
+				url: '/pages/index/index'
+			})
+		}, STAY_MS)
+	})
+
+	// 品牌信息来自 config/env.uts，改一处即全局生效
+	const brand = APP_NAME
+	const tagline = APP_SLOGAN
+</script>
+
+<style>
+	.splash {
+		flex: 1;
+		background-color: #f5f5f7;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.center {
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.logo {
+		width: 96px;
+		height: 96px;
+		margin-bottom: 24px;
+		animation-name: logo-in;
+		animation-duration: 900ms;
+		animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+		animation-fill-mode: both;
+	}
+
+	@keyframes logo-in {
+		0% {
+			opacity: 0;
+			transform: scale(0.92);
+		}
+
+		100% {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	.title {
+		font-size: 30px;
+		font-weight: 600;
+		color: #1d1d1f;
+		letter-spacing: -0.6px;
+		animation-name: text-in;
+		animation-duration: 700ms;
+		animation-delay: 260ms;
+		animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+		animation-fill-mode: both;
+	}
+
+	.slogan {
+		margin-top: 10px;
+		font-size: 15px;
+		color: #6e6e73;
+		animation-name: text-in;
+		animation-duration: 700ms;
+		animation-delay: 380ms;
+		animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+		animation-fill-mode: both;
+	}
+
+	@keyframes text-in {
+		0% {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+
+		100% {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.footer {
+		position: absolute;
+		bottom: 44px;
+		align-items: center;
+	}
+
+	.footer-text {
+		font-size: 12px;
+		color: #a1a1a6;
+		animation-name: text-in;
+		animation-duration: 700ms;
+		animation-delay: 620ms;
+		animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+		animation-fill-mode: both;
+	}
+</style>

@@ -1,0 +1,760 @@
+/**
+ * 接口层：统一封装请求、登录态与字段映射。
+ *
+ * 对接后端已有的 REST 接口（context-path = /api）：
+ * - 认证：POST /admin/auth/code、POST /admin/auth/login/code、GET /admin/auth/me
+ * - 线路：GET /catalog/route/page、GET /catalog/route/{id}、GET /catalog/route-departure/list/{routeId}
+ * - 分类：GET /catalog/route-category/tree
+ * - 订单：GET /trade/orders/page、POST /trade/orders、POST /trade/orders/{id}/cancel|pay
+ * - 优惠券：GET /customer/coupon/list/{customerId}
+ * - 定制：POST /operations/custom-requirement
+ *
+ * 约定：后端统一返回 { code, msg, data }，这里只把 code 2xx 视作成功。
+ */
+import { getApiBaseUrl, KEY_CUSTOMER, KEY_TOKEN } from '../config/env.uts'
+import type { Category, Departure, Itinerary, OrderItem, RouteItem } from './types.uts'
+
+/** 登录态 */
+export type Session = {
+	token: string
+	userId: number
+	nickname: string
+	phone: string
+	avatar: string
+	/** 是否已设置登录密码；false 表示只能验证码登录，需引导补设 */
+	hasPassword: boolean
+}
+
+/* ------------------------------------------------------------------ */
+/* 登录态                                                              */
+/* ------------------------------------------------------------------ */
+
+/** 读取本地登录态；未登录返回 null */
+export function getSession(): Session | null {
+	const token = uni.getStorageSync(KEY_TOKEN)
+	if (token == null) {
+		return null
+	}
+	const tokenText = token.toString()
+	if (tokenText.length == 0) {
+		return null
+	}
+	const session: Session = {
+		token: tokenText,
+		userId: 0,
+		nickname: '',
+		phone: '',
+		avatar: '',
+		hasPassword: true
+	}
+	const raw = uni.getStorageSync(KEY_CUSTOMER)
+	if (raw != null) {
+		const obj = raw as UTSJSONObject
+		const id = obj.getNumber('userId')
+		if (id != null) {
+			session.userId = id!
+		}
+		const nickname = obj.getString('nickname')
+		if (nickname != null) {
+			session.nickname = nickname!
+		}
+		const phone = obj.getString('phone')
+		if (phone != null) {
+			session.phone = phone!
+		}
+		const avatar = obj.getString('avatar')
+		if (avatar != null) {
+			session.avatar = avatar!
+		}
+	}
+	return session
+}
+
+function saveSession(session: Session): void {
+	uni.setStorageSync(KEY_TOKEN, session.token)
+	const obj: UTSJSONObject = {}
+	obj['userId'] = session.userId
+	obj['nickname'] = session.nickname
+	obj['phone'] = session.phone
+	obj['avatar'] = session.avatar
+	uni.setStorageSync(KEY_CUSTOMER, obj)
+}
+
+/** 清除登录态 */
+export function clearSession(): void {
+	uni.removeStorageSync(KEY_TOKEN)
+	uni.removeStorageSync(KEY_CUSTOMER)
+}
+
+/** 是否已登录 */
+export function isLoggedIn(): boolean {
+	return getSession() != null
+}
+
+/* ------------------------------------------------------------------ */
+/* 请求底座                                                            */
+/* ------------------------------------------------------------------ */
+
+function buildHeader(): UTSJSONObject {
+	const header: UTSJSONObject = {}
+	header['Content-Type'] = 'application/json'
+	const session = getSession()
+	if (session != null) {
+		// Sa-Token 两套账号体系共用 Authorization 头，Redis key 里带 loginType，不会串号
+		header['Authorization'] = 'Bearer ' + session!.token
+	}
+	return header
+}
+
+/**
+ * 统一处理响应：2xx 返回整个响应体，401 清登录态，其余抛业务错误。
+ */
+function handleResponse(res: any, resolve: (body: UTSJSONObject) => void, reject: (err: Error) => void): void {
+	let body: UTSJSONObject | null = null
+	try {
+		body = res.data as UTSJSONObject
+	} catch (e) {
+		body = null
+	}
+	if (body == null) {
+		reject(new Error('响应解析失败'))
+		return
+	}
+	const rawCode = body!.getNumber('code')
+	const code = rawCode == null ? -1 : rawCode!
+	if (code >= 200 && code < 300) {
+		resolve(body!)
+		return
+	}
+	if (code == 401) {
+		clearSession()
+		reject(new Error('登录已过期，请重新登录'))
+		return
+	}
+	const msg = body!.getString('msg')
+	const text = msg == null ? '' : msg!
+	reject(new Error(text.length > 0 ? text : '请求失败(' + code + ')'))
+}
+
+function handleFail(err: any, reject: (e: Error) => void): void {
+	const msg = err.errMsg
+	const text = msg == null ? '' : msg!.toString()
+	reject(new Error('网络异常，请检查后端是否已启动：' + text))
+}
+
+/** GET 请求，返回完整响应体 */
+function requestGet(path: string, query: string): Promise<UTSJSONObject> {
+	return new Promise<UTSJSONObject>((resolve, reject) => {
+		const url = getApiBaseUrl() + path + (query.length > 0 ? '?' + query : '')
+		uni.request({
+			url: url,
+			method: 'GET',
+			header: buildHeader(),
+			timeout: 15000,
+			success: (res) => {
+				handleResponse(res, resolve, reject)
+			},
+			fail: (err) => {
+				handleFail(err, reject)
+			}
+		})
+	})
+}
+
+/** POST 请求，返回完整响应体 */
+function requestPost(path: string, payload: UTSJSONObject | null): Promise<UTSJSONObject> {
+	return new Promise<UTSJSONObject>((resolve, reject) => {
+		uni.request({
+			url: getApiBaseUrl() + path,
+			method: 'POST',
+			header: buildHeader(),
+			data: payload,
+			timeout: 15000,
+			success: (res) => {
+				handleResponse(res, resolve, reject)
+			},
+			fail: (err) => {
+				handleFail(err, reject)
+			}
+		})
+	})
+}
+
+/** 取 data 为对象时的内容 */
+function dataObject(body: UTSJSONObject): UTSJSONObject | null {
+	const data = body.getJSON('data')
+	return data
+}
+
+/** 取 data 为数组时的内容 */
+function dataArray(body: UTSJSONObject): Array<UTSJSONObject> | null {
+	const arr = body.getArray<UTSJSONObject>('data')
+	return arr
+}
+
+/** 取 data 为数字时的内容（同样兼容后端把 Long 序列化成字符串的情况） */
+function dataNumber(body: UTSJSONObject): number {
+	const n = body.getNumber('data')
+	if (n != null) {
+		return n!
+	}
+	const s = body.getString('data')
+	if (s != null && s!.length > 0) {
+		const parsed = parseFloat(s!)
+		// NaN 不自等，用它兜住非数字字符串，避免依赖平台 isNaN
+		return parsed == parsed ? parsed : 0
+	}
+	return 0
+}
+
+/* ------------------------------------------------------------------ */
+/* 字段映射                                                            */
+/* ------------------------------------------------------------------ */
+
+function boolValue(o: UTSJSONObject, key: string): boolean {
+	const v = o.getBoolean(key)
+	return v == null ? true : v!
+}
+
+function str(o: UTSJSONObject, key: string): string {
+	const v = o.getString(key)
+	return v == null ? '' : v!
+}
+
+/**
+ * 取数字字段。
+ * 后端把 Long 型主键统一序列化成字符串（避免 JS 精度丢失），例如 "id":"10"，
+ * 此时 getNumber 会返回 null，必须回退到字符串解析，否则 id 全变 0。
+ */
+function num(o: UTSJSONObject, key: string): number {
+	const v = o.getNumber(key)
+	if (v != null) {
+		return v!
+	}
+	const s = o.getString(key)
+	if (s != null && s!.length > 0) {
+		const parsed = parseFloat(s!)
+		// NaN 不自等，用它兜住非数字字符串，避免依赖平台 isNaN
+		return parsed == parsed ? parsed : 0
+	}
+	return 0
+}
+
+function toDeparture(o: UTSJSONObject): Departure {
+	const d: Departure = {
+		id: num(o, 'id'),
+		departDate: str(o, 'departDate'),
+		adultPrice: num(o, 'adultPrice'),
+		childPrice: num(o, 'childPrice'),
+		remaining: num(o, 'remaining')
+	}
+	return d
+}
+
+function toItinerary(o: UTSJSONObject): Itinerary {
+	const it: Itinerary = {
+		day: num(o, 'dayNo'),
+		title: str(o, 'title'),
+		detail: str(o, 'description')
+	}
+	return it
+}
+
+/**
+ * 外网图源（picsum.photos）在国内网络基本不可达，封面会一直灰底。
+ * 数据库里存的是 seed 规则 URL（picsum.photos/seed/rgN/...），
+ * 这里把命中的 seed 换成打包进 App 的本地插画 static/covers/rgN.png；
+ * 其它 URL（以后换 MinIO 等）原样返回。
+ */
+function toLocalCover(url: string): string {
+	if (url.length == 0) {
+		return url
+	}
+	const mark = 'picsum.photos/seed/'
+	const i = url.indexOf(mark)
+	if (i < 0) {
+		return url
+	}
+	let seed = url.substring(i + mark.length)
+	const j = seed.indexOf('/')
+	if (j > 0) {
+		seed = seed.substring(0, j)
+	}
+	if (seed.length == 0) {
+		return url
+	}
+	return '/static/covers/' + seed + '.png'
+}
+
+function toRoute(o: UTSJSONObject): RouteItem {
+	const tags: string[] = []
+	const tagArray = o.getArray<UTSJSONObject>('tags')
+	if (tagArray != null) {
+		for (let i = 0; i < tagArray!.length; i++) {
+			const name = tagArray![i].getString('tagName')
+			if (name != null) {
+				tags.push(name!)
+			}
+		}
+	}
+	// 图集：后端返回 [{imageUrl}]
+	const images: string[] = []
+	const imgArray = o.getArray<UTSJSONObject>('images')
+	if (imgArray != null) {
+		for (let i = 0; i < imgArray!.length; i++) {
+			const url = imgArray![i].getString('imageUrl')
+			if (url != null && url!.length > 0) {
+				images.push(toLocalCover(url!))
+			}
+		}
+	}
+	const itineraries: Itinerary[] = []
+	const itArray = o.getArray<UTSJSONObject>('itineraries')
+	if (itArray != null) {
+		for (let i = 0; i < itArray!.length; i++) {
+			itineraries.push(toItinerary(itArray![i]))
+		}
+	}
+	const route: RouteItem = {
+		id: num(o, 'id'),
+		title: str(o, 'title'),
+		subtitle: str(o, 'subtitle'),
+		destination: str(o, 'destination'),
+		departureCity: str(o, 'departureCity'),
+		days: num(o, 'days'),
+		nights: num(o, 'nights'),
+		minPrice: num(o, 'minPrice'),
+		originalPrice: num(o, 'originalPrice'),
+		rating: num(o, 'rating'),
+		sales: num(o, 'sales'),
+		categoryName: str(o, 'categoryName'),
+		coverImage: toLocalCover(str(o, 'coverImage')),
+		images: images,
+		highlights: str(o, 'highlights'),
+		includeItems: str(o, 'includeItems'),
+		excludeItems: str(o, 'excludeItems'),
+		bookingNotice: str(o, 'bookingNotice'),
+		tags: tags,
+		itineraries: itineraries,
+		departures: [] as Departure[]
+	}
+	return route
+}
+
+function toOrder(o: UTSJSONObject): OrderItem {
+	const order: OrderItem = {
+		id: num(o, 'id'),
+		orderNo: str(o, 'orderNo'),
+		routeTitle: str(o, 'routeTitle'),
+		destination: '',
+		departDate: str(o, 'departDate'),
+		travelerCount: num(o, 'travelerCount'),
+		totalAmount: num(o, 'totalAmount'),
+		discountAmount: num(o, 'discountAmount'),
+		payAmount: num(o, 'payAmount'),
+		status: num(o, 'status'),
+		statusDesc: str(o, 'statusDesc'),
+		createTime: str(o, 'createTime')
+	}
+	return order
+}
+
+/* ------------------------------------------------------------------ */
+/* 认证                                                                */
+/* ------------------------------------------------------------------ */
+
+/** 手机号 + 密码登录 */
+export function loginByPassword(phone: string, password: string): Promise<Session> {
+	const payload: UTSJSONObject = {}
+	payload['phone'] = phone
+	payload['password'] = password
+	return new Promise<Session>((resolve, reject) => {
+		requestPost('/app/auth/login/password', payload).then((body) => {
+			resolve(parseLoginResponse(body, phone))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/**
+ * 账号密码登录（二合一）：账号填手机号或用户名都行，服务端自动分流。
+ */
+export function loginByAccount(account: string, password: string): Promise<Session> {
+	const payload: UTSJSONObject = {}
+	payload['account'] = account
+	payload['password'] = password
+	return new Promise<Session>((resolve, reject) => {
+		requestPost('/app/auth/login/account', payload).then((body) => {
+			resolve(parseLoginResponse(body, account))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 登录态下设置/修改密码（验证码登录后补设密码用） */
+export function setLoginPassword(password: string): Promise<boolean> {
+	const payload: UTSJSONObject = {}
+	payload['password'] = password
+	return new Promise<boolean>((resolve, reject) => {
+		requestPost('/app/auth/password', payload).then((body) => {
+			const session = getSession()
+			if (session != null) {
+				session.hasPassword = true
+				saveSession(session!)
+			}
+			resolve(true)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 注册并设置密码（验证码确认身份），成功即登录；nickname 为空时自动生成 */
+export function registerAccount(phone: string, code: string, password: string, nickname: string): Promise<Session> {
+	const payload: UTSJSONObject = {}
+	payload['phone'] = phone
+	payload['code'] = code
+	payload['password'] = password
+	if (nickname.length > 0) {
+		payload['nickname'] = nickname
+	}
+	return new Promise<Session>((resolve, reject) => {
+		requestPost('/app/auth/register', payload).then((body) => {
+			resolve(parseLoginResponse(body, phone))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 解析 /app/auth 登录类接口返回，落登录态 */
+function parseLoginResponse(body: UTSJSONObject | null, fallbackPhone: string): Session {
+	const data = dataObject(body)
+	const token = data == null ? null : data!.getString('token')
+	if (token == null || token!.length == 0) {
+		throw new Error('登录失败：未返回令牌')
+	}
+	const customer = data!.getJSON('customer')
+	const session: Session = {
+		token: token!,
+		userId: customer == null ? 0 : num(customer!, 'id'),
+		nickname: customer == null ? '' : str(customer!, 'nickname'),
+		phone: customer == null ? fallbackPhone : str(customer!, 'phone'),
+		avatar: customer == null ? '' : str(customer!, 'avatar'),
+		hasPassword: boolValue(data!, 'hasPassword')
+	}
+	saveSession(session)
+	return session
+}
+
+/** 发送登录验证码，返回脱敏手机号 */
+export function sendLoginCode(phone: string): Promise<string> {
+	const payload: UTSJSONObject = {}
+	payload['phone'] = phone
+	return new Promise<string>((resolve, reject) => {
+		requestPost('/app/auth/code', payload).then((body) => {
+			const data = dataObject(body)
+			let masked = phone
+			if (data != null) {
+				const m = data!.getString('maskedPhone')
+				if (m != null && m!.length > 0) {
+					masked = m!
+				}
+			}
+			resolve(masked)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 手机号 + 验证码登录；手机号未注册时后端自动建号 */
+export function loginByCode(phone: string, code: string): Promise<Session> {
+	const payload: UTSJSONObject = {}
+	payload['phone'] = phone
+	payload['code'] = code
+	return new Promise<Session>((resolve, reject) => {
+		requestPost('/app/auth/login', payload).then((body) => {
+			const data = dataObject(body)
+			const token = data == null ? null : data!.getString('token')
+			if (token == null || token!.length == 0) {
+				reject(new Error('登录失败：未返回令牌'))
+				return
+			}
+			const customer = data!.getJSON('customer')
+			const session: Session = {
+				token: token!,
+				userId: customer == null ? 0 : num(customer!, 'id'),
+				nickname: customer == null ? '' : str(customer!, 'nickname'),
+				phone: customer == null ? phone : str(customer!, 'phone'),
+				avatar: customer == null ? '' : str(customer!, 'avatar'),
+				hasPassword: boolValue(data!, 'hasPassword')
+			}
+			saveSession(session)
+			resolve(session)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 拉取当前登录用户信息 */
+export function fetchMe(): Promise<Session> {
+	return new Promise<Session>((resolve, reject) => {
+		requestGet('/app/auth/me', '').then((body) => {
+			const data = dataObject(body)
+			if (data == null) {
+				reject(new Error('用户信息为空'))
+				return
+			}
+			const current = getSession()
+			const session: Session = {
+				token: current == null ? '' : current!.token,
+				userId: num(data!, 'id'),
+				nickname: str(data!, 'nickname'),
+				phone: str(data!, 'phone'),
+				avatar: str(data!, 'avatar'),
+				hasPassword: true
+			}
+			saveSession(session)
+			resolve(session)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 退出登录：先尝试注销服务端会话，再清本地 */
+export function logout(): void {
+	requestPost('/app/auth/logout', null).catch((e: Error) => {
+		// 服务端失败也要清本地，避免卡在已登录状态
+	})
+	clearSession()
+}
+
+/* ------------------------------------------------------------------ */
+/* 线路                                                                */
+/* ------------------------------------------------------------------ */
+
+/** 线路分页；keyword 匹配标题，destination 匹配目的地 */
+export function fetchRoutes(keyword: string, destination: string, categoryId: number, pageNum: number, pageSize: number): Promise<RouteItem[]> {
+	const parts: string[] = []
+	parts.push('pageNum=' + pageNum)
+	parts.push('pageSize=' + pageSize)
+	parts.push('status=1')
+	if (keyword.length > 0) {
+		parts.push('title=' + encodeURIComponent(keyword))
+	}
+	if (destination.length > 0) {
+		parts.push('destination=' + encodeURIComponent(destination))
+	}
+	if (categoryId > 0) {
+		parts.push('categoryId=' + categoryId)
+	}
+	return new Promise<RouteItem[]>((resolve, reject) => {
+		requestGet('/app/routes', parts.join('&')).then((body) => {
+			const list: RouteItem[] = []
+			const page = dataObject(body)
+			if (page != null) {
+				const records = page!.getArray<UTSJSONObject>('records')
+				if (records != null) {
+					for (let i = 0; i < records!.length; i++) {
+						list.push(toRoute(records![i]))
+					}
+				}
+			}
+			resolve(list)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 线路详情（含行程、标签） */
+export function fetchRouteDetail(id: number): Promise<RouteItem> {
+	return new Promise<RouteItem>((resolve, reject) => {
+		requestGet('/app/routes/' + id, '').then((body) => {
+			const data = dataObject(body)
+			if (data == null) {
+				reject(new Error('线路不存在'))
+				return
+			}
+			resolve(toRoute(data!))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 线路可售班期 */
+export function fetchDepartures(routeId: number): Promise<Departure[]> {
+	return new Promise<Departure[]>((resolve, reject) => {
+		requestGet('/app/routes/' + routeId + '/departures', '').then((body) => {
+			const list: Departure[] = []
+			const arr = dataArray(body)
+			if (arr != null) {
+				for (let i = 0; i < arr!.length; i++) {
+					list.push(toDeparture(arr![i]))
+				}
+			}
+			resolve(list)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 分类树，取一级分类 */
+export function fetchCategories(): Promise<Category[]> {
+	return new Promise<Category[]>((resolve, reject) => {
+		requestGet('/app/categories', '').then((body) => {
+			const list: Category[] = []
+			const arr = dataArray(body)
+			if (arr != null) {
+				for (let i = 0; i < arr!.length; i++) {
+					const item = arr![i]
+					const c: Category = {
+						id: num(item, 'id'),
+						name: str(item, 'name'),
+						count: 0
+					}
+					list.push(c)
+				}
+			}
+			resolve(list)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/* ------------------------------------------------------------------ */
+/* 订单                                                                */
+/* ------------------------------------------------------------------ */
+
+/** 我的订单；status 传 -1 表示全部 */
+export function fetchOrders(status: number, pageNum: number, pageSize: number): Promise<OrderItem[]> {
+	const session = getSession()
+	if (session == null) {
+		return new Promise<OrderItem[]>((resolve, reject) => {
+			reject(new Error('请先登录'))
+		})
+	}
+	const parts: string[] = []
+	parts.push('pageNum=' + pageNum)
+	parts.push('pageSize=' + pageSize)
+	if (status >= 0) {
+		parts.push('status=' + status)
+	}
+	return new Promise<OrderItem[]>((resolve, reject) => {
+		requestGet('/app/orders', parts.join('&')).then((body) => {
+			const list: OrderItem[] = []
+			const page = dataObject(body)
+			if (page != null) {
+				const records = page!.getArray<UTSJSONObject>('records')
+				if (records != null) {
+					for (let i = 0; i < records!.length; i++) {
+						list.push(toOrder(records![i]))
+					}
+				}
+			}
+			resolve(list)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 订单详情 */
+export function fetchOrderDetail(id: number): Promise<OrderItem> {
+	return new Promise<OrderItem>((resolve, reject) => {
+		requestGet('/app/orders/' + id, '').then((body) => {
+			const data = dataObject(body)
+			if (data == null) {
+				reject(new Error('订单不存在'))
+				return
+			}
+			resolve(toOrder(data!))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 下单：返回订单 ID */
+export function createOrder(routeId: number, departureId: number, travelerCount: number, contactName: string, contactPhone: string, remark: string): Promise<number> {
+	const session = getSession()
+	if (session == null) {
+		return new Promise<number>((resolve, reject) => {
+			reject(new Error('请先登录'))
+		})
+	}
+	const payload: UTSJSONObject = {}
+	payload['routeId'] = routeId
+	if (departureId > 0) {
+		payload['departureId'] = departureId
+	}
+	payload['travelerCount'] = travelerCount
+	payload['contactName'] = contactName
+	payload['contactPhone'] = contactPhone
+	if (remark.length > 0) {
+		payload['remark'] = remark
+	}
+	return new Promise<number>((resolve, reject) => {
+		requestPost('/app/orders', payload).then((body) => {
+			const id = dataNumber(body)
+			if (id > 0) {
+				resolve(id)
+				return
+			}
+			reject(new Error('下单失败：未返回订单 ID'))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 取消订单 */
+export function cancelOrder(id: number, reason: string): Promise<void> {
+	const payload: UTSJSONObject = {}
+	payload['reason'] = reason
+	return new Promise<void>((resolve, reject) => {
+		requestPost('/app/orders/' + id + '/cancel', payload).then((body) => {
+			resolve()
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 支付订单（演示环境的站内支付，接微信支付后改为预下单 + 回调） */
+export function payOrder(id: number): Promise<void> {
+	const payload: UTSJSONObject = {}
+	payload['payType'] = 1
+	payload['remark'] = 'App 站内支付'
+	return new Promise<void>((resolve, reject) => {
+		requestPost('/app/orders/' + id + '/pay', payload).then((body) => {
+			resolve()
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/**
+ * 我的券包：后端暂无 C 端券接口（现有 /customer/coupon/list/{id} 属后台权限），
+ * 接入时在后端补 /app/coupons 后在此添加实现，页面调用处再做空态处理。
+ */
+
+/** 提交定制需求，返回需求单 ID */
+export function submitCustom(payload: UTSJSONObject): Promise<number> {
+	return new Promise<number>((resolve, reject) => {
+		requestPost('/app/custom', payload).then((body) => {
+			resolve(dataNumber(body))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}

@@ -1,0 +1,225 @@
+<template>
+	<view class="page-root">
+		<scroll-view class="page-scroll" style="flex:1">
+			<view class="page" style="padding-bottom:96px">
+				<view class="section" style="padding-top:20px">
+					<text class="h1" style="font-size:26px">定制行程</text>
+					<text class="muted" style="margin-top:10px">告诉我们想去哪里、几天、预算，24 小时内给出可执行的方案</text>
+				</view>
+
+				<!-- 目的地 -->
+				<view class="section" style="margin-top:24px">
+					<text class="h3">目的地</text>
+					<view class="card" style="margin-top:10px">
+						<input class="input" v-model="destination" placeholder="例如：川西、青海、伊犁" placeholder-class="ph" />
+					</view>
+				</view>
+
+				<!-- 天数 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">计划天数</text>
+					<view class="chips-wrap">
+						<view
+							v-for="(d, index) in dayOptions"
+							:key="d"
+							:class="index === dayIndex ? 'chip chip-active' : 'chip'"
+							style="margin-right:8px;margin-bottom:8px"
+							@click="dayIndex = index"
+						>
+							<text :class="index === dayIndex ? 'chip-text chip-text-active' : 'chip-text'">{{ d }}</text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 预算 -->
+				<view class="section" style="margin-top:12px">
+					<text class="h3">人均预算</text>
+					<view class="chips-wrap">
+						<view
+							v-for="(b, index) in budgetOptions"
+							:key="b"
+							:class="index === budgetIndex ? 'chip chip-active' : 'chip'"
+							style="margin-right:8px;margin-bottom:8px"
+							@click="budgetIndex = index"
+						>
+							<text :class="index === budgetIndex ? 'chip-text chip-text-active' : 'chip-text'">{{ b }}</text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 人数 -->
+				<view class="section" style="margin-top:12px">
+					<text class="h3">出行人数</text>
+					<view class="card" style="margin-top:10px">
+						<view class="row-between">
+							<text class="body">成人</text>
+							<view class="row">
+								<view class="step-btn" @click="changePeople(-1)">
+									<text class="step-text">−</text>
+								</view>
+								<text class="step-value">{{ people }}</text>
+								<view class="step-btn" @click="changePeople(1)">
+									<text class="step-text">+</text>
+								</view>
+							</view>
+						</view>
+					</view>
+				</view>
+
+				<!-- 需求 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">补充说明</text>
+					<view class="card" style="margin-top:10px">
+						<textarea
+							class="textarea"
+							v-model="remark"
+							placeholder="出行时间、想看的风景、住宿要求、是否有老人小孩…"
+							placeholder-class="ph"
+						/>
+					</view>
+				</view>
+
+				<!-- 联系方式 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">联系方式</text>
+					<view class="card" style="margin-top:10px">
+						<input class="input" v-model="phone" type="tel" maxlength="11" placeholder="手机号" placeholder-class="ph" />
+					</view>
+				</view>
+
+			</view>
+		</scroll-view>
+		<!-- 提交 -->
+		<view class="footer">
+			<view class="col" style="flex:1;margin-right:16px">
+				<text class="faint">提交后顾问会电话联系你</text>
+			</view>
+			<view class="btn btn-primary" style="padding-left:32px;padding-right:32px" @click="submit">
+				<text class="btn-primary-text">提交需求</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { ref } from 'vue'
+	import { getSession, isLoggedIn, submitCustom } from '../../data/api.uts'
+
+	const destination = ref<string>('')
+	const remark = ref<string>('')
+	const phone = ref<string>('')
+	const people = ref<number>(2)
+	const dayIndex = ref<number>(1)
+	const budgetIndex = ref<number>(1)
+	const submitting = ref<boolean>(false)
+
+	const dayOptions: string[] = ['3 天内', '4–5 天', '6–8 天', '8 天以上']
+	const budgetOptions: string[] = ['2000 以下', '2000–4000', '4000–6000', '6000 以上']
+	// 与上面文案一一对应的数值，提交给后端做粗略区间
+	const dayValues: number[] = [3, 5, 8, 10]
+	const budgetValues: number[] = [2000, 4000, 6000, 8000]
+
+	function changePeople(delta: number) {
+		const next = people.value + delta
+		if (next >= 1 && next <= 20) {
+			people.value = next
+		}
+	}
+
+	function submit() {
+		if (submitting.value) {
+			return
+		}
+		if (!isLoggedIn()) {
+			uni.navigateTo({ url: '/pages/user/login' })
+			return
+		}
+		if (destination.value.length === 0) {
+			uni.showToast({ title: '请填写目的地', icon: 'none' })
+			return
+		}
+		if (phone.value.length !== 11) {
+			uni.showToast({ title: '请填写正确的手机号', icon: 'none' })
+			return
+		}
+		const session = getSession()
+		const payload: UTSJSONObject = {}
+		payload['customerId'] = session == null ? 0 : session!.userId
+		payload['contactName'] = session == null || session!.nickname.length == 0 ? 'App 用户' : session!.nickname
+		payload['contactPhone'] = phone.value
+		payload['destination'] = destination.value
+		payload['days'] = dayValues[dayIndex.value]
+		payload['peopleCount'] = people.value
+		payload['budget'] = budgetValues[budgetIndex.value]
+		payload['preferences'] = remark.value
+
+		submitting.value = true
+		submitCustom(payload).then((id) => {
+			submitting.value = false
+			uni.showToast({ title: '已提交，顾问会尽快联系你', icon: 'none' })
+			setTimeout(() => {
+				uni.navigateBack()
+			}, 900)
+		}).catch((e: Error) => {
+			submitting.value = false
+			uni.showToast({ title: e.message, icon: 'none' })
+		})
+	}
+</script>
+
+<style>
+	.ph {
+		color: #86868b;
+	}
+
+	.chips-wrap {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-top: 12px;
+	}
+
+	.textarea {
+		width: 100%;
+		height: 110px;
+		font-size: 15px;
+		color: #1d1d1f;
+		line-height: 22px;
+	}
+
+	.step-btn {
+		width: 32px;
+		height: 32px;
+		border-radius: 10px;
+		background-color: #f5f5f7;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.step-text {
+		font-size: 18px;
+		color: #1d1d1f;
+	}
+
+	.step-value {
+		width: 44px;
+		text-align: center;
+		font-size: 16px;
+		color: #1d1d1f;
+		font-weight: 500;
+	}
+
+	.footer {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		background-color: #ffffff;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #e5e5ea;
+		padding: 12px 20px;
+	}
+</style>

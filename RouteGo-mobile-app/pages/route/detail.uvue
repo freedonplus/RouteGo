@@ -1,0 +1,405 @@
+<template>
+	<view class="page-root">
+		<scroll-view class="page-scroll" style="flex:1">
+			<view class="page" style="padding-bottom:104px">
+				<view v-if="errorText.length > 0" class="section" style="padding-top:14px">
+					<view class="card">
+						<text class="body">{{ errorText }}</text>
+						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" @click="loadData">
+							<text class="btn-secondary-text">重新加载</text>
+						</view>
+					</view>
+				</view>
+				<!-- 封面 -->
+				<view class="hero-cover">
+					<image v-if="current.coverImage.length > 0" class="hero-img" :src="current.coverImage" mode="aspectFill"></image>
+					<text v-else class="cover-text" style="font-size:16px;letter-spacing:3px">{{ current.destination }}</text>
+				</view>
+
+				<view class="section" style="margin-top:-24px">
+					<view class="card">
+						<text class="h2">{{ current.title }}</text>
+						<text class="muted" style="margin-top:8px">{{ current.subtitle }}</text>
+
+						<view class="row" style="margin-top:14px;flex-wrap:wrap">
+							<view class="tag" style="margin-right:8px;margin-bottom:6px">
+								<text class="tag-text">{{ current.days }}天{{ current.nights }}晚</text>
+							</view>
+							<view class="tag" style="margin-right:8px;margin-bottom:6px">
+								<text class="tag-text">{{ current.departureCity }}出发</text>
+							</view>
+							<view class="tag" style="margin-right:8px;margin-bottom:6px">
+								<text class="tag-text">★ {{ current.rating }}</text>
+							</view>
+							<view class="tag" style="margin-bottom:6px">
+								<text class="tag-text">已售 {{ current.sales }}</text>
+							</view>
+						</view>
+
+						<view class="divider" style="margin-top:14px;margin-bottom:14px"></view>
+
+						<view class="row-between">
+							<view class="row" style="align-items:flex-end">
+								<text class="price-symbol">¥</text>
+								<text class="price-value" style="margin-left:2px">{{ displayPrice }}</text>
+								<text class="price-unit" style="margin-left:6px;margin-bottom:3px">/人起</text>
+							</view>
+							<text class="price-origin">原价 ¥{{ current.originalPrice }}</text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 亮点 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">行程亮点</text>
+					<view class="card" style="margin-top:10px">
+						<text class="body">{{ current.highlights }}</text>
+						<view class="row" style="margin-top:12px;flex-wrap:wrap">
+							<view v-for="t in current.tags" :key="t" class="tag" style="margin-right:8px;margin-bottom:6px">
+								<text class="tag-text">{{ t }}</text>
+							</view>
+						</view>
+					</view>
+				</view>
+
+				<!-- 图集 -->
+				<view class="section" style="margin-top:20px" v-if="current.images.length > 0">
+					<text class="h3">实拍图集</text>
+					<scroll-view direction="horizontal" class="gallery">
+						<view
+							v-for="(img, index) in current.images"
+							:key="img"
+							class="gallery-item"
+							:style="index === current.images.length - 1 ? '' : 'margin-right:10px'"
+						>
+							<image class="gallery-img" :src="img" mode="aspectFill"></image>
+						</view>
+					</scroll-view>
+				</view>
+
+				<!-- 出发班期 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">选择出发日期</text>
+					<view class="card" style="margin-top:10px">
+						<view v-if="loading && current.departures.length === 0">
+							<text class="muted">正在加载班期…</text>
+						</view>
+						<view v-else-if="current.departures.length === 0">
+							<text class="muted">该线路暂无在售班期，可先提交定制需求</text>
+						</view>
+						<view
+							v-for="(d, index) in current.departures"
+							:key="d.id"
+							:class="d.id === selectedId ? 'depart depart-active' : 'depart'"
+							:style="index === current.departures.length - 1 ? '' : 'margin-bottom:10px'"
+							@click="selectedId = d.id"
+						>
+							<view class="col">
+								<text :class="d.id === selectedId ? 'depart-date depart-date-active' : 'depart-date'">{{ d.departDate }}</text>
+								<text :class="d.id === selectedId ? 'depart-stock depart-stock-active' : 'depart-stock'">剩余 {{ d.remaining }} 位</text>
+							</view>
+							<text :class="d.id === selectedId ? 'depart-price depart-price-active' : 'depart-price'">¥{{ d.adultPrice }}</text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 行程 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">每日行程</text>
+					<view class="card" style="margin-top:10px">
+						<view
+							v-for="(it, index) in current.itineraries"
+							:key="it.day"
+							class="row"
+							style="align-items:flex-start"
+							:style="index === current.itineraries.length - 1 ? '' : 'margin-bottom:18px'"
+						>
+							<view class="day-badge">
+								<text class="day-badge-text">D{{ it.day }}</text>
+							</view>
+							<view class="col" style="flex:1;margin-left:12px">
+								<text class="body" style="font-weight:500">{{ it.title }}</text>
+								<text class="muted" style="margin-top:4px">{{ it.detail }}</text>
+							</view>
+						</view>
+					</view>
+				</view>
+
+				<!-- 费用说明 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">费用说明</text>
+					<view class="card" style="margin-top:10px">
+						<text class="faint">包含</text>
+						<text class="body" style="margin-top:6px">{{ current.includeItems }}</text>
+						<view class="divider" style="margin-top:16px;margin-bottom:16px"></view>
+						<text class="faint">不包含</text>
+						<text class="body" style="margin-top:6px">{{ current.excludeItems }}</text>
+					</view>
+				</view>
+
+				<!-- 预订须知 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">预订须知</text>
+					<view class="card" style="margin-top:10px">
+						<text class="muted">{{ current.bookingNotice }}</text>
+					</view>
+				</view>
+
+			</view>
+		</scroll-view>
+				<!-- 底部操作栏 -->
+		<view class="footer">
+			<view class="col">
+				<view class="row" style="align-items:flex-end">
+					<text class="price-symbol">¥</text>
+					<text class="price-value" style="margin-left:2px">{{ displayPrice }}</text>
+					<text class="price-unit" style="margin-left:6px;margin-bottom:3px">/人起</text>
+				</view>
+				<text class="faint" style="margin-top:2px">{{ selectedDateText }}</text>
+			</view>
+			<view class="btn btn-primary" style="padding-left:32px;padding-right:32px" hover-class="btn-pressing" @click="goConfirm">
+				<text class="btn-primary-text">立即预订</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { computed, ref } from 'vue'
+	import { fetchDepartures, fetchRouteDetail } from '../../data/api.uts'
+	import type { Departure, RouteItem } from '../../data/types.uts'
+
+	const routeId = ref<number>(0)
+	const selectedId = ref<number>(0)
+	const loading = ref<boolean>(true)
+	const errorText = ref<string>('')
+	const route = ref<RouteItem>(emptyRoute())
+
+	/** 模板统一读 current，避免详情加载前后字段访问出错 */
+	const current = computed((): RouteItem => route.value)
+
+	const selected = computed((): Departure => {
+		const list = current.value.departures
+		if (list.length === 0) {
+			return emptyDeparture()
+		}
+		let found: Departure = list[0]
+		list.forEach((d) => {
+			if (d.id === selectedId.value) {
+				found = d
+			}
+		})
+		return found
+	})
+
+	const displayPrice = computed((): number => {
+		if (selected.value.id === 0) {
+			return current.value.minPrice
+		}
+		return selected.value.adultPrice
+	})
+
+	const selectedDateText = computed((): string => {
+		if (selected.value.id === 0) {
+			return '暂无在售班期'
+		}
+		return selected.value.departDate + ' 出发'
+	})
+
+	onLoad((options) => {
+		const raw = options['id']
+		if (raw != null) {
+			const parsed = parseInt(raw.toString())
+			if (parsed > 0) {
+				routeId.value = parsed
+			}
+		}
+		loadData()
+	})
+
+	function loadData() {
+		if (routeId.value <= 0) {
+			errorText.value = '缺少线路参数'
+			loading.value = false
+			return
+		}
+		loading.value = true
+		errorText.value = ''
+		fetchRouteDetail(routeId.value).then((detail) => {
+			fetchDepartures(routeId.value).then((list) => {
+				detail.departures = list
+				route.value = detail
+				if (list.length > 0) {
+					selectedId.value = list[0].id
+				}
+				loading.value = false
+			}).catch((e: Error) => {
+				// 班期拉取失败仍展示线路本体，只是不能下单
+				route.value = detail
+				errorText.value = e.message
+				loading.value = false
+			})
+		}).catch((e: Error) => {
+			errorText.value = e.message
+			route.value = emptyRoute()
+			loading.value = false
+		})
+	}
+
+	function emptyDeparture(): Departure {
+		const d: Departure = {
+			id: 0,
+			departDate: '',
+			adultPrice: 0,
+			childPrice: 0,
+			remaining: 0
+		}
+		return d
+	}
+
+	function emptyRoute(): RouteItem {
+		const r: RouteItem = {
+			id: 0,
+			title: '',
+			subtitle: '',
+			destination: '',
+			departureCity: '',
+			days: 0,
+			nights: 0,
+			minPrice: 0,
+			originalPrice: 0,
+			rating: 0,
+			sales: 0,
+			categoryName: '',
+			coverImage: '',
+			images: [] as string[],
+			highlights: '',
+			includeItems: '',
+			excludeItems: '',
+			bookingNotice: '',
+			tags: [] as string[],
+			itineraries: [],
+			departures: [] as Departure[]
+		}
+		return r
+	}
+
+	function goConfirm() {
+		if (selected.value.id === 0) {
+			uni.showToast({ title: '该线路暂无可预订班期', icon: 'none' })
+			return
+		}
+		uni.navigateTo({
+			url: '/pages/order/confirm?routeId=' + current.value.id + '&departureId=' + selected.value.id
+		})
+	}
+</script>
+
+<style>
+	.gallery {
+		flex-direction: row;
+		height: 130px;
+		margin-top: 10px;
+	}
+
+	.gallery-item {
+		width: 180px;
+		height: 130px;
+		border-radius: 14px;
+		background-color: #e8e8ed;
+	}
+
+	.gallery-img {
+		width: 180px;
+		height: 130px;
+	}
+
+	.hero-img {
+		width: 100%;
+		height: 100%;
+	}
+
+	.hero-cover {
+		height: 240px;
+		background-color: #e8e8ed;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.depart {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		border-radius: 14px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e5e5ea;
+		background-color: #ffffff;
+		padding: 12px 14px;
+	}
+
+	.depart-active {
+		border-color: #0071e3;
+		background-color: #f0f7ff;
+	}
+
+	.depart-date {
+		font-size: 15px;
+		color: #1d1d1f;
+		font-weight: 500;
+	}
+
+	.depart-date-active {
+		color: #0071e3;
+	}
+
+	.depart-stock {
+		font-size: 12px;
+		color: #86868b;
+		margin-top: 3px;
+	}
+
+	.depart-stock-active {
+		color: #0071e3;
+	}
+
+	.depart-price {
+		font-size: 16px;
+		color: #1d1d1f;
+		font-weight: 600;
+	}
+
+	.depart-price-active {
+		color: #0071e3;
+	}
+
+	.day-badge {
+		width: 34px;
+		height: 34px;
+		border-radius: 12px;
+		background-color: #f5f5f7;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.day-badge-text {
+		font-size: 12px;
+		color: #6e6e73;
+		font-weight: 600;
+	}
+
+	.footer {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		background-color: #ffffff;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #e5e5ea;
+		padding: 12px 20px;
+	}
+</style>

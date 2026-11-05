@@ -1,0 +1,243 @@
+import type { Category, OrderItem, RouteItem } from './types.uts'
+
+export const categories: Category[] = [
+	{ id: 1, name: '川西', count: 24 },
+	{ id: 2, name: '青海', count: 18 },
+	{ id: 3, name: '云南', count: 31 },
+	{ id: 4, name: '广西', count: 15 },
+	{ id: 5, name: '新疆', count: 22 },
+	{ id: 6, name: '湖南', count: 12 }
+]
+
+export const routes: RouteItem[] = [
+	{
+		id: 1,
+		title: '稻城亚丁 · 从你的全世界路过',
+		subtitle: '牛奶海、五色海、洛绒牛场，一次走完三座神山',
+		destination: '四川 · 稻城',
+		departureCity: '成都',
+		days: 6,
+		nights: 5,
+		minPrice: 3280,
+		originalPrice: 3880,
+		rating: 4.9,
+		sales: 1284,
+		categoryName: '川西',
+		highlights: '全程越野车 · 16 人小团 · 含亚丁门票与观光车 · 高原氧气瓶免费',
+		includeItems: '全程用车、5 晚住宿、亚丁景区门票及观光车、专业领队、旅游意外险',
+		excludeItems: '往返大交通、正餐、单房差、个人消费',
+		bookingNotice: '海拔 2900–4700 米，建议提前一周服用红景天；心血管疾病患者请谨慎报名。',
+		tags: ['16人小团', '含门票', '越野车'],
+		itineraries: [
+			{ day: 1, title: '成都 — 康定 — 新都桥', detail: '翻越折多山，傍晚抵达摄影天堂新都桥，适应海拔。' },
+			{ day: 2, title: '新都桥 — 理塘 — 稻城', detail: '经卡子拉山、海子山，傍晚入住稻城县城。' },
+			{ day: 3, title: '亚丁景区一日', detail: '冲古寺、珍珠海、洛绒牛场，可选择徒步或骑马。' },
+			{ day: 4, title: '牛奶海 · 五色海', detail: '长线徒步，海拔 4600 米，领队全程陪同。' },
+			{ day: 5, title: '稻城 — 雅江 — 新都桥', detail: '返程途中拍摄高原秋色。' },
+			{ day: 6, title: '新都桥 — 成都', detail: '午后抵达成都，行程结束。' }
+		],
+		departures: [
+			{ id: 101, departDate: '2026-11-18', adultPrice: 3280, childPrice: 2380, remaining: 6 },
+			{ id: 102, departDate: '2026-11-25', adultPrice: 3380, childPrice: 2380, remaining: 12 },
+			{ id: 103, departDate: '2026-12-02', adultPrice: 2980, childPrice: 2180, remaining: 9 }
+		]
+	},
+	{
+		id: 2,
+		title: '青海湖环湖 · 茶卡盐湖',
+		subtitle: '七月油菜花，十月天空之镜，环湖 360 公里',
+		destination: '青海 · 海南州',
+		departureCity: '西宁',
+		days: 5,
+		nights: 4,
+		minPrice: 2480,
+		originalPrice: 2980,
+		rating: 4.8,
+		sales: 986,
+		categoryName: '青海',
+		highlights: '环湖西路观日出 · 茶卡盐湖小火车 · 全程无购物',
+		includeItems: '全程用车、4 晚住宿、青海湖与茶卡门票、领队服务',
+		excludeItems: '往返大交通、正餐、景区内小交通',
+		bookingNotice: '高原昼夜温差大，请携带防风外套；茶卡盐湖建议穿浅色衣物拍照。',
+		tags: ['无购物', '日出', '摄影'],
+		itineraries: [
+			{ day: 1, title: '西宁 — 塔尔寺 — 青海湖', detail: '下午抵达湖边，住黑马河。' },
+			{ day: 2, title: '黑马河日出 — 茶卡盐湖', detail: '清晨看日出，午后前往茶卡。' },
+			{ day: 3, title: '环湖西路 — 刚察', detail: '沿湖西行，途经鸟岛。' },
+			{ day: 4, title: '刚察 — 金银滩 — 西宁', detail: '返程，傍晚自由活动。' },
+			{ day: 5, title: '西宁解散', detail: '送站，行程结束。' }
+		],
+		departures: [
+			{ id: 201, departDate: '2026-11-15', adultPrice: 2480, childPrice: 1780, remaining: 14 },
+			{ id: 202, departDate: '2026-11-22', adultPrice: 2380, childPrice: 1680, remaining: 20 }
+		]
+	},
+	{
+		id: 3,
+		title: '梅里雪山 · 雨崩徒步',
+		subtitle: '走进神山脚下的村落，看一次日照金山',
+		destination: '云南 · 德钦',
+		departureCity: '丽江',
+		days: 7,
+		nights: 6,
+		minPrice: 4680,
+		originalPrice: 5380,
+		rating: 4.9,
+		sales: 642,
+		categoryName: '云南',
+		highlights: '专业向导带队 · 雨崩上下村各住一晚 · 含飞来寺观景房',
+		includeItems: '全程用车、6 晚住宿、雨崩门票、向导、驮运行李',
+		excludeItems: '往返大交通、正餐、个人骑马费用',
+		bookingNotice: '徒步强度中等偏上，单日最长 14 公里，请评估自身体能。',
+		tags: ['徒步', '日照金山', '小团'],
+		itineraries: [
+			{ day: 1, title: '丽江 — 香格里拉', detail: '适应海拔，逛独克宗古城。' },
+			{ day: 2, title: '香格里拉 — 飞来寺', detail: '途经白马雪山，入住观景房。' },
+			{ day: 3, title: '飞来寺 — 西当 — 雨崩上村', detail: '徒步 12 公里进村。' },
+			{ day: 4, title: '冰湖', detail: '往返 14 公里，海拔 3900 米。' },
+			{ day: 5, title: '神瀑 — 雨崩下村', detail: '轻松一日，转村休整。' },
+			{ day: 6, title: '雨崩 — 尼农 — 飞来寺', detail: '出山，返回飞来寺。' },
+			{ day: 7, title: '飞来寺 — 丽江', detail: '返程，行程结束。' }
+		],
+		departures: [
+			{ id: 301, departDate: '2026-11-20', adultPrice: 4680, childPrice: 3480, remaining: 4 },
+			{ id: 302, departDate: '2026-12-05', adultPrice: 4480, childPrice: 3280, remaining: 8 }
+		]
+	},
+	{
+		id: 4,
+		title: '桂林阳朔 · 漓江竹筏',
+		subtitle: '兴坪老寨山、遇龙河骑行、二十元人民币取景地',
+		destination: '广西 · 阳朔',
+		departureCity: '桂林',
+		days: 4,
+		nights: 3,
+		minPrice: 1980,
+		originalPrice: 2380,
+		rating: 4.7,
+		sales: 1520,
+		categoryName: '广西',
+		highlights: '住西街步行可达 · 含漓江精华段竹筏 · 遇龙河骑行',
+		includeItems: '3 晚住宿、漓江竹筏、骑行装备、接送站',
+		excludeItems: '往返大交通、正餐、印象刘三姐演出票',
+		bookingNotice: '雨季漓江水位上涨时竹筏可能停航，届时改为游船。',
+		tags: ['亲子友好', '骑行', '含接送'],
+		itineraries: [
+			{ day: 1, title: '桂林 — 阳朔', detail: '入住后自由逛西街。' },
+			{ day: 2, title: '漓江精华段', detail: '兴坪竹筏，打卡二十元背景。' },
+			{ day: 3, title: '遇龙河骑行', detail: '沿河骑行 20 公里，途经旧县。' },
+			{ day: 4, title: '阳朔 — 桂林', detail: '送站，行程结束。' }
+		],
+		departures: [
+			{ id: 401, departDate: '2026-11-14', adultPrice: 1980, childPrice: 1280, remaining: 18 },
+			{ id: 402, departDate: '2026-11-21', adultPrice: 1980, childPrice: 1280, remaining: 22 },
+			{ id: 403, departDate: '2026-11-28', adultPrice: 1880, childPrice: 1180, remaining: 25 }
+		]
+	},
+	{
+		id: 5,
+		title: '新疆伊犁 · 那拉提草原',
+		subtitle: '赛里木湖、果子沟大桥、独库公路北段',
+		destination: '新疆 · 伊犁',
+		departureCity: '乌鲁木齐',
+		days: 8,
+		nights: 7,
+		minPrice: 5280,
+		originalPrice: 6180,
+		rating: 4.8,
+		sales: 438,
+		categoryName: '新疆',
+		highlights: '独库公路穿越 · 赛里木湖环湖 · 草原星空营地',
+		includeItems: '全程用车、7 晚住宿、景区门票、领队',
+		excludeItems: '往返大交通、正餐、骑马等自费项目',
+		bookingNotice: '独库公路每年 6–10 月开放，具体以当年路况公告为准。',
+		tags: ['独库公路', '星空营地', '深度'],
+		itineraries: [
+			{ day: 1, title: '乌鲁木齐集合', detail: '自由活动，行前说明会。' },
+			{ day: 2, title: '乌鲁木齐 — 赛里木湖', detail: '环湖拍摄，住湖边。' },
+			{ day: 3, title: '赛里木湖 — 果子沟 — 伊宁', detail: '过果子沟大桥。' },
+			{ day: 4, title: '伊宁 — 那拉提', detail: '空中草原，傍晚看落日。' },
+			{ day: 5, title: '那拉提一日', detail: '河谷草原徒步。' },
+			{ day: 6, title: '那拉提 — 巴音布鲁克', detail: '九曲十八弯日落。' },
+			{ day: 7, title: '独库公路北段 — 乌鲁木齐', detail: '穿越天山。' },
+			{ day: 8, title: '乌鲁木齐解散', detail: '送机，行程结束。' }
+		],
+		departures: [
+			{ id: 501, departDate: '2026-12-12', adultPrice: 5280, childPrice: 3980, remaining: 7 }
+		]
+	},
+	{
+		id: 6,
+		title: '张家界 · 天门山玻璃栈道',
+		subtitle: '袁家界、天子山、十里画廊，四天走完核心景区',
+		destination: '湖南 · 张家界',
+		departureCity: '长沙',
+		days: 4,
+		nights: 3,
+		minPrice: 1680,
+		originalPrice: 1980,
+		rating: 4.6,
+		sales: 2103,
+		categoryName: '湖南',
+		highlights: '含国家森林公园门票 · 百龙天梯 · 全程无购物',
+		includeItems: '3 晚住宿、森林公园与天门山门票、景区环保车、导游',
+		excludeItems: '往返大交通、索道自费段、正餐',
+		bookingNotice: '景区内需多次换乘环保车，建议穿舒适鞋。',
+		tags: ['无购物', '含门票', '经典'],
+		itineraries: [
+			{ day: 1, title: '长沙 — 张家界', detail: '入住武陵源。' },
+			{ day: 2, title: '袁家界 · 天子山', detail: '百龙天梯上山。' },
+			{ day: 3, title: '天门山', detail: '玻璃栈道与天门洞。' },
+			{ day: 4, title: '十里画廊 — 返程', detail: '送站，行程结束。' }
+		],
+		departures: [
+			{ id: 601, departDate: '2026-11-16', adultPrice: 1680, childPrice: 1080, remaining: 30 },
+			{ id: 602, departDate: '2026-11-23', adultPrice: 1680, childPrice: 1080, remaining: 28 }
+		]
+	}
+]
+
+export const orders: OrderItem[] = [
+	{
+		id: 1,
+		orderNo: 'RG20261105000123',
+		routeTitle: '稻城亚丁 · 从你的全世界路过',
+		destination: '四川 · 稻城',
+		departDate: '2026-11-18',
+		travelerCount: 2,
+		totalAmount: 6560,
+		discountAmount: 200,
+		payAmount: 6360,
+		status: 0,
+		statusDesc: '待支付',
+		createTime: '2026-11-05 14:22'
+	},
+	{
+		id: 2,
+		orderNo: 'RG20261103000876',
+		routeTitle: '青海湖环湖 · 茶卡盐湖',
+		destination: '青海 · 海南州',
+		departDate: '2026-11-22',
+		travelerCount: 1,
+		totalAmount: 2380,
+		discountAmount: 0,
+		payAmount: 2380,
+		status: 1,
+		statusDesc: '已支付',
+		createTime: '2026-11-03 09:41'
+	},
+	{
+		id: 3,
+		orderNo: 'RG20261028000451',
+		routeTitle: '桂林阳朔 · 漓江竹筏',
+		destination: '广西 · 阳朔',
+		departDate: '2026-10-30',
+		travelerCount: 3,
+		totalAmount: 5940,
+		discountAmount: 300,
+		payAmount: 5640,
+		status: 4,
+		statusDesc: '已完成',
+		createTime: '2026-10-28 16:08'
+	}
+]

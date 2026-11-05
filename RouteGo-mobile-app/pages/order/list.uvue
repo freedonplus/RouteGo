@@ -1,0 +1,233 @@
+<template>
+	<view class="page-root">
+		<scroll-view class="page-scroll" style="flex:1">
+			<view class="page">
+				<view class="section" style="padding-top:16px">
+					<text class="h1" style="font-size:26px">我的订单</text>
+
+					<view class="chips-wrap">
+						<view
+							v-for="(t, index) in tabs"
+							:key="t.label"
+							:class="index === activeTab ? 'chip chip-active' : 'chip'"
+							style="margin-right:8px;margin-bottom:8px"
+							@click="activeTab = index"
+						>
+							<text :class="index === activeTab ? 'chip-text chip-text-active' : 'chip-text'">{{ t.label }}</text>
+						</view>
+					</view>
+				</view>
+
+				<view class="section" style="margin-top:8px">
+					<view
+						v-for="order in visibleOrders"
+						:key="order.id"
+						class="card"
+						style="margin-bottom:12px"
+						@click="openDetail(order.id)"
+					>
+						<view class="row-between">
+							<text class="faint">{{ order.orderNo }}</text>
+							<text :class="order.status === 0 ? 'status status-warn' : 'status status-ok'">{{ order.statusDesc }}</text>
+						</view>
+
+						<view class="divider" style="margin-top:12px;margin-bottom:14px"></view>
+
+						<text class="h3" style="font-size:16px">{{ order.routeTitle }}</text>
+						<text class="faint" style="margin-top:6px">{{ order.departDate }} 出发 · {{ order.travelerCount }} 人 · {{ order.destination }}</text>
+
+						<view class="row-between" style="margin-top:14px">
+							<view class="row" style="align-items:flex-end">
+								<text class="price-symbol" style="font-size:13px">实付 ¥</text>
+								<text class="price-value" style="font-size:20px;margin-left:2px">{{ order.payAmount }}</text>
+							</view>
+
+							<view class="row">
+								<view v-if="order.status === 0" class="mini-btn mini-btn-ghost" @click.stop="doCancel(order.id)">
+									<text class="mini-text-ghost">取消</text>
+								</view>
+								<view v-if="order.status === 0" class="mini-btn mini-btn-primary" style="margin-left:8px" @click.stop="doPay(order.id)">
+									<text class="mini-text-primary">去支付</text>
+								</view>
+								<view v-if="order.status === 4" class="mini-btn mini-btn-ghost" @click.stop="rebook">
+									<text class="mini-text-ghost">再次预订</text>
+								</view>
+							</view>
+						</view>
+					</view>
+
+					<view v-if="errorText.length > 0" class="card" style="margin-bottom:12px">
+						<text class="body">{{ errorText }}</text>
+						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" @click="loadData">
+							<text class="btn-secondary-text">重新加载</text>
+						</view>
+					</view>
+
+					<view v-else-if="!loading && visibleOrders.length === 0" class="card" style="align-items:center;padding-top:44px;padding-bottom:44px">
+						<text class="h3">还没有相关订单</text>
+						<text class="muted" style="margin-top:8px">登录后可查看你的全部订单</text>
+						<view class="btn btn-primary" style="margin-top:20px;padding-left:28px;padding-right:28px" @click="goLogin">
+							<text class="btn-primary-text">去登录</text>
+						</view>
+					</view>
+				</view>
+
+				<view style="height:24px"></view>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { computed, ref } from 'vue'
+	import { cancelOrder, fetchOrders, isLoggedIn, payOrder } from '../../data/api.uts'
+	import type { OrderItem } from '../../data/types.uts'
+
+	type TabItem = {
+		label: string
+		value: number
+	}
+
+	const tabs: TabItem[] = [
+		{ label: '全部', value: -1 },
+		{ label: '待支付', value: 0 },
+		{ label: '已支付', value: 1 },
+		{ label: '已完成', value: 4 }
+	]
+	const activeTab = ref<number>(0)
+	const orders = ref<OrderItem[]>([])
+	const loading = ref<boolean>(true)
+	const errorText = ref<string>('')
+
+	const visibleOrders = computed((): OrderItem[] => {
+		const value = tabs[activeTab.value].value
+		if (value === -1) {
+			return orders.value
+		}
+		const list: OrderItem[] = []
+		orders.value.forEach((o) => {
+			if (o.status === value) {
+				list.push(o)
+			}
+		})
+		return list
+	})
+
+	// 从详情页返回时需要刷新支付/取消后的状态
+	onShow(() => {
+		loadData()
+	})
+
+	function loadData() {
+		if (!isLoggedIn()) {
+			orders.value = [] as OrderItem[]
+			errorText.value = ''
+			loading.value = false
+			return
+		}
+		loading.value = true
+		errorText.value = ''
+		fetchOrders(-1, 1, 50).then((list) => {
+			orders.value = list
+			loading.value = false
+		}).catch((e: Error) => {
+			errorText.value = e.message
+			orders.value = [] as OrderItem[]
+			loading.value = false
+		})
+	}
+
+	function openDetail(id: number) {
+		uni.navigateTo({ url: '/pages/order/detail?id=' + id })
+	}
+
+	function doPay(id: number) {
+		payOrder(id).then(() => {
+			uni.showToast({ title: '支付成功', icon: 'success' })
+			loadData()
+		}).catch((e: Error) => {
+			uni.showToast({ title: e.message, icon: 'none' })
+		})
+	}
+
+	function doCancel(id: number) {
+		uni.showModal({
+			title: '取消订单',
+			content: '取消后名额将释放，确定取消吗？',
+			success: (res) => {
+				if (res.confirm) {
+					cancelOrder(id, '用户主动取消').then(() => {
+						uni.showToast({ title: '订单已取消', icon: 'none' })
+						loadData()
+					}).catch((e: Error) => {
+						uni.showToast({ title: e.message, icon: 'none' })
+					})
+				}
+			}
+		})
+	}
+
+	function goLogin() {
+		uni.navigateTo({ url: '/pages/user/login' })
+	}
+
+	function rebook() {
+		uni.navigateTo({ url: '/pages/route/list' })
+	}
+
+	function goHome() {
+		uni.switchTab({ url: '/pages/index/index' })
+	}
+</script>
+
+<style>
+	.chips-wrap {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-top: 14px;
+	}
+
+	.status {
+		font-size: 13px;
+		font-weight: 500;
+	}
+
+	.status-warn {
+		color: #c93400;
+	}
+
+	.status-ok {
+		color: #1d7a3c;
+	}
+
+	.mini-btn {
+		height: 34px;
+		border-radius: 999px;
+		padding-left: 16px;
+		padding-right: 16px;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.mini-btn-primary {
+		background-color: #0071e3;
+	}
+
+	.mini-btn-ghost {
+		background-color: #ffffff;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #d2d2d7;
+	}
+
+	.mini-text-primary {
+		font-size: 13px;
+		color: #ffffff;
+		font-weight: 500;
+	}
+
+	.mini-text-ghost {
+		font-size: 13px;
+		color: #1d1d1f;
+	}
+</style>

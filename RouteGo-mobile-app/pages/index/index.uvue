@@ -1,0 +1,227 @@
+<template>
+	<view class="page-root">
+		<scroll-view class="page-scroll" style="flex:1">
+			<view class="page">
+				<!-- 搜索区 -->
+				<view class="section" style="padding-top:16px">
+					<view class="col">
+						<text class="h1">去哪里看看？</text>
+						<text class="muted" style="margin-top:6px">{{ subtitle }}</text>
+					</view>
+
+					<view class="search-box row" @click="goList">
+						<text class="search-icon">⌕</text>
+						<text class="search-placeholder">搜索目的地、线路名称</text>
+					</view>
+				</view>
+
+				<!-- 分类 -->
+				<view class="section" style="margin-top:24px">
+					<view class="row-between">
+						<text class="h3">按目的地</text>
+						<text class="faint" @click="goList">全部 ›</text>
+					</view>
+					<view class="chips-wrap">
+						<view
+							v-for="(cat, index) in categories"
+							:key="cat.id"
+							:class="index + 1 === activeCategory ? 'chip chip-active' : 'chip'"
+							style="margin-right:8px;margin-bottom:8px"
+							hover-class="chip-pressing"
+							@click="selectCategory(index)"
+						>
+							<text :class="index + 1 === activeCategory ? 'chip-text chip-text-active' : 'chip-text'">{{ cat.name }}</text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 精选线路 -->
+				<view class="section" style="margin-top:12px">
+					<view class="row-between" style="margin-bottom:14px">
+						<text class="h3">精选线路</text>
+						<text class="faint" @click="goList">查看全部 ›</text>
+					</view>
+
+					<view v-if="errorText.length > 0" class="card" style="margin-bottom:14px">
+						<text class="body">{{ errorText }}</text>
+						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" @click="loadData">
+							<text class="btn-secondary-text">重新加载</text>
+						</view>
+					</view>
+
+					<view v-else-if="!loading && visibleRoutes.length === 0" class="card" style="margin-bottom:14px">
+						<text class="muted">该分类下暂无线路，换个目的地看看</text>
+					</view>
+
+					<view
+						v-for="item in visibleRoutes"
+						:key="item.id"
+						class="card-tight"
+						style="margin-bottom:14px"
+						hover-class="card-pressing"
+						@click="openDetail(item.id)"
+					>
+						<view class="cover" style="height:168px">
+							<image v-if="item.coverImage.length > 0" class="cover-img" :src="item.coverImage" mode="aspectFill"></image>
+							<text v-else class="cover-text">{{ item.destination }}</text>
+						</view>
+
+						<view style="margin-top:14px">
+							<view>
+								<text class="h3">{{ item.title }}</text>
+							</view>
+							<view style="margin-top:6px">
+								<text class="muted">{{ item.subtitle }}</text>
+							</view>
+
+							<view class="row-between" style="margin-top:12px">
+								<view class="row">
+									<text class="faint">{{ item.days }}天{{ item.nights }}晚</text>
+									<text class="faint" style="margin-left:12px">{{ item.departureCity }}出发</text>
+								</view>
+								<text class="faint">★ {{ item.rating }}</text>
+							</view>
+
+							<view class="row-between" style="margin-top:14px">
+								<view class="row" style="align-items:flex-end">
+									<text class="price-symbol">¥</text>
+									<text class="price-value" style="margin-left:2px">{{ item.minPrice }}</text>
+									<text class="price-unit" style="margin-left:6px;margin-bottom:3px">起</text>
+									<text class="price-origin" style="margin-left:8px;margin-bottom:4px">¥{{ item.originalPrice }}</text>
+								</view>
+								<view class="btn btn-primary" style="height:38px;padding-left:18px;padding-right:18px" @click.stop="openDetail(item.id)">
+									<text class="btn-primary-text" style="font-size:14px">查看</text>
+								</view>
+							</view>
+						</view>
+					</view>
+				</view>
+
+				<!-- 定制入口 -->
+				<view class="section" style="margin-top:6px">
+					<view class="card" @click="goCustom">
+						<view class="row-between">
+							<view class="col" style="flex:1">
+								<text class="h3">没找到合适的？</text>
+								<text class="muted" style="margin-top:6px">告诉我们去哪、几天、预算，24 小时内给出定制方案</text>
+							</view>
+							<text class="faint" style="margin-left:12px">›</text>
+						</view>
+					</view>
+				</view>
+
+				<view style="height:24px"></view>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { computed, ref } from 'vue'
+	import { fetchCategories, fetchRoutes } from '../../data/api.uts'
+	import type { Category, RouteItem } from '../../data/types.uts'
+
+	/** 0 = 全部；n = 第 n 个分类（与 categories 下标差 1） */
+	const activeCategory = ref<number>(0)
+	const categories = ref<Category[]>([])
+	const routes = ref<RouteItem[]>([])
+	const loading = ref<boolean>(true)
+	const errorText = ref<string>('')
+
+	const subtitle = computed((): string => {
+		if (errorText.value.length > 0) {
+			return '线路加载失败，下拉可重试'
+		}
+		if (loading.value) {
+			return '正在加载线路…'
+		}
+		return '全国 ' + routes.value.length + ' 条风景线路'
+	})
+
+	const visibleRoutes = computed((): RouteItem[] => {
+		if (activeCategory.value === 0) {
+			return routes.value
+		}
+		const current = categories.value[activeCategory.value - 1]
+		if (current == null) {
+			return routes.value
+		}
+		const list: RouteItem[] = []
+		routes.value.forEach((item) => {
+			if (item.categoryName == current.name) {
+				list.push(item)
+			}
+		})
+		return list
+	})
+
+	onLoad(() => {
+		loadData()
+	})
+
+	function loadData() {
+		loading.value = true
+		errorText.value = ''
+		fetchCategories().then((list) => {
+			categories.value = list
+		}).catch((e: Error) => {
+			// 分类失败不阻塞主内容，仅保留「全部」
+			categories.value = [] as Category[]
+		})
+		fetchRoutes('', '', 0, 1, 20).then((list) => {
+			routes.value = list
+			loading.value = false
+		}).catch((e: Error) => {
+			errorText.value = e.message
+			routes.value = [] as RouteItem[]
+			loading.value = false
+		})
+	}
+
+	function selectCategory(index: number) {
+		activeCategory.value = index + 1
+	}
+
+	function goList() {
+		uni.navigateTo({ url: '/pages/route/list' })
+	}
+
+	function openDetail(id: number) {
+		uni.navigateTo({ url: '/pages/route/detail?id=' + id })
+	}
+
+	function goCustom() {
+		uni.navigateTo({ url: '/pages/custom/apply' })
+	}
+</script>
+
+<style>
+	.search-box {
+		margin-top: 18px;
+		height: 46px;
+		border-radius: 999px;
+		background-color: #ffffff;
+		padding-left: 16px;
+		padding-right: 16px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e5e5ea;
+	}
+
+	.search-icon {
+		font-size: 17px;
+		color: #86868b;
+		margin-right: 8px;
+	}
+
+	.search-placeholder {
+		font-size: 15px;
+		color: #86868b;
+	}
+
+	.chips-wrap {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-top: 12px;
+	}
+</style>

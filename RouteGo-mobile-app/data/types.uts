@@ -1,0 +1,62 @@
+/** 与后端 RouteVO / RouteDepartureVO / OrderVO 对齐的数据模型 */
+
+export type Itinerary = {
+	day: number
+	title: string
+	detail: string
+}
+
+export type Departure = {
+	id: number
+	departDate: string
+	adultPrice: number
+	childPrice: number
+	remaining: number
+}
+
+export type RouteItem = {
+	id: number
+	title: string
+	subtitle: string
+	destination: string
+	departureCity: string
+	days: number
+	nights: number
+	minPrice: number
+	originalPrice: number
+	rating: number
+	sales: number
+	categoryName: string
+	/** 封面图 URL，可能为空串 */
+	coverImage: string
+	/** 图集 URL 列表，可能为空 */
+	images: string[]
+	highlights: string
+	includeItems: string
+	excludeItems: string
+	bookingNotice: string
+	tags: string[]
+	itineraries: Itinerary[]
+	departures: Departure[]
+}
+
+export type OrderItem = {
+	id: number
+	orderNo: string
+	routeTitle: string
+	destination: string
+	departDate: string
+	travelerCount: number
+	totalAmount: number
+	discountAmount: number
+	payAmount: number
+	status: number
+	statusDesc: string
+	createTime: string
+}
+
+export type Category = {
+	id: number
+	name: string
+	count: number
+}
