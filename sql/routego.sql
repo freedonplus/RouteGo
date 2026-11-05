@@ -251,6 +251,7 @@ CREATE TABLE IF NOT EXISTS sys_login_log (
   id         bigint      NOT NULL AUTO_INCREMENT COMMENT '主键',
   username   varchar(50) DEFAULT NULL COMMENT '登录账号',
   ip         varchar(50) DEFAULT NULL COMMENT '登录 IP',
+  location   varchar(100) DEFAULT NULL COMMENT 'IP 归属地（省 市 · 运营商）',
   browser    varchar(100) DEFAULT NULL COMMENT '浏览器',
   os         varchar(100) DEFAULT NULL COMMENT '操作系统',
   status     tinyint     NOT NULL DEFAULT 1 COMMENT '状态：0 失败，1 成功',
