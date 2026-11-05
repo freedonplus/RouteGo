@@ -21,3 +21,13 @@ Thumbs.db
 
 # IDE workspace
 .vscode/
+
+### 本地数据库备份（含密码哈希，不入库） ###
+sql/backup/
+
+### 工具与本地调试产物 ###
+.workbuddy/
+.superpowers/
+.playwright-cli/
+.playwright-mcp/
+.hbuilderx/
