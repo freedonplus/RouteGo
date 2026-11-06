@@ -48,6 +48,8 @@ public class SaTokenConfigure implements WebMvcConfigurer {
                         // C 端 App 接口：使用独立的 customer 账号体系（StpKit.CUSTOMER），
                         // 不走后台 StpUtil；需要登录的接口在方法内显式 checkLogin
                         "/app/**",
+                        // 图片等静态资源：线路封面/图集由后端随包提供，本身就是公开内容
+                        "/covers/**",
                         // 运维与可观测端点（独立网关/内网访问）
                         "/actuator/**",
                         // API 文档（routego.openapi.enabled=false 时这些路径本身 404）
