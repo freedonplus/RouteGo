@@ -25,6 +25,7 @@ import com.rg.catalog.vo.RouteTagVO;
 import com.rg.catalog.vo.RouteVO;
 import com.rg.common.exception.ErrorCode;
 import com.rg.common.exception.serviceException.CatalogException;
+import com.rg.common.storage.TempUrlSigner;
 import com.rg.common.web.PageResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,19 +56,22 @@ public class RouteServiceImpl extends ServiceImpl<RouteMapper, Route> implements
     private final RouteImageMapper imageMapper;
     private final RouteTagMapper tagMapper;
     private final RouteTagRelMapper tagRelMapper;
+    private final TempUrlSigner tempUrlSigner;
 
     public RouteServiceImpl(RouteMapper routeMapper,
                             RouteCategoryMapper categoryMapper,
                             RouteItineraryMapper itineraryMapper,
                             RouteImageMapper imageMapper,
                             RouteTagMapper tagMapper,
-                            RouteTagRelMapper tagRelMapper) {
+                            RouteTagRelMapper tagRelMapper,
+                            TempUrlSigner tempUrlSigner) {
         this.routeMapper = routeMapper;
         this.categoryMapper = categoryMapper;
         this.itineraryMapper = itineraryMapper;
         this.imageMapper = imageMapper;
         this.tagMapper = tagMapper;
         this.tagRelMapper = tagRelMapper;
+        this.tempUrlSigner = tempUrlSigner;
     }
 
     @Override
@@ -251,7 +255,8 @@ public class RouteServiceImpl extends ServiceImpl<RouteMapper, Route> implements
         route.setCategoryId(request.getCategoryId());
         route.setTitle(request.getTitle());
         route.setSubtitle(request.getSubtitle());
-        route.setCoverImage(request.getCoverImage());
+        // 封面统一还原为标准下载地址：前端可能回传 C 端响应里带签名的临时链接（有过期时间，落库会导致图片失效）
+        route.setCoverImage(tempUrlSigner.canonicalize(request.getCoverImage()));
         route.setDestination(request.getDestination());
         route.setDepartureCity(request.getDepartureCity());
         route.setLongitude(request.getLongitude());

@@ -160,9 +160,22 @@ routego:
       access-key: ${MINIO_ACCESS_KEY:minio}
       secret-key: ${MINIO_SECRET_KEY:12345678}
       bucket: ${MINIO_BUCKET:routego}
+    temp-url:
+      secret: ${ROUTEGO_TEMP_URL_SECRET:routego-dev-temp-url-secret}
+      ttl: 2h
 ```
 
 App 启动不依赖 MinIO 存活；MinIO 不可用只影响上传/下载动作本身。
+
+### 文件临时预览链接（签名 URL）
+
+下载地址要求登录态，而 `<img>` 标签带不上 Authorization 头（H5/真机也无跨域
+Cookie），直接引用会 401。因此文件接口统一额外返回 `previewUrl`：
+`/app/file/preview?fid=&expires=&sign=`，由 HMAC-SHA256 签名、默认 2 小时过期
+（`routego.storage.temp-url.ttl`），无需登录即可访问，过期自动失效；
+签名不合法返回 403。C 端线路接口会把封面/图集里的下载地址自动换算成临时链接；
+写入口（线路/图片/行程保存）会把临时链接还原为标准下载地址，签名 URL 不会落库。
+生产环境必须用 `ROUTEGO_TEMP_URL_SECRET` 覆盖默认签名密钥。
 
 ### CORS
 

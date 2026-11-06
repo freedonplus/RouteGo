@@ -11,6 +11,7 @@ import com.rg.catalog.service.RouteImageService;
 import com.rg.catalog.vo.RouteImageVO;
 import com.rg.common.exception.ErrorCode;
 import com.rg.common.exception.serviceException.CatalogException;
+import com.rg.common.storage.TempUrlSigner;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,10 +26,13 @@ public class RouteImageServiceImpl extends ServiceImpl<RouteImageMapper, RouteIm
 
     private final RouteImageMapper imageMapper;
     private final RouteMapper routeMapper;
+    private final TempUrlSigner tempUrlSigner;
 
-    public RouteImageServiceImpl(RouteImageMapper imageMapper, RouteMapper routeMapper) {
+    public RouteImageServiceImpl(RouteImageMapper imageMapper, RouteMapper routeMapper,
+                                 TempUrlSigner tempUrlSigner) {
         this.imageMapper = imageMapper;
         this.routeMapper = routeMapper;
+        this.tempUrlSigner = tempUrlSigner;
     }
 
     @Override
@@ -49,7 +53,8 @@ public class RouteImageServiceImpl extends ServiceImpl<RouteImageMapper, RouteIm
         }
         RouteImage image = new RouteImage();
         image.setRouteId(request.getRouteId());
-        image.setImageUrl(request.getImageUrl().trim());
+        // 还原为标准下载地址：临时签名链接有过期时间，不能落库
+        image.setImageUrl(tempUrlSigner.canonicalize(request.getImageUrl().trim()));
         image.setSort(request.getSort() == null ? 0 : request.getSort());
         imageMapper.insert(image);
         return image.getId();

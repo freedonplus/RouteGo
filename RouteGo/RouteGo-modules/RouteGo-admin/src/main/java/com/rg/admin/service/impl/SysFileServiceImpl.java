@@ -16,6 +16,7 @@ import com.rg.common.cache.CacheHelper;
 import com.rg.common.constant.CacheKeyConstants;
 import com.rg.common.exception.ErrorCode;
 import com.rg.common.exception.serviceException.AdminException;
+import com.rg.common.storage.TempUrlSigner;
 import com.rg.common.web.PageResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
@@ -53,13 +54,15 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
     private final StorageProperties properties;
     private final CacheHelper cacheHelper;
     private final FileStorage storage;
+    private final TempUrlSigner tempUrlSigner;
 
     public SysFileServiceImpl(SysFileMapper fileMapper, StorageProperties properties,
-                              CacheHelper cacheHelper, FileStorage storage) {
+                              CacheHelper cacheHelper, FileStorage storage, TempUrlSigner tempUrlSigner) {
         this.fileMapper = fileMapper;
         this.properties = properties;
         this.cacheHelper = cacheHelper;
         this.storage = storage;
+        this.tempUrlSigner = tempUrlSigner;
     }
 
     @Override
@@ -229,6 +232,7 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
         vo.setOriginalName(file.getOriginalName());
         vo.setFilePath(file.getFilePath());
         vo.setFileUrl(file.getFileUrl());
+        vo.setPreviewUrl(tempUrlSigner.build(file.getId()));
         vo.setFileType(file.getFileType());
         vo.setFileSize(file.getFileSize());
         vo.setStorageType(file.getStorageType());
@@ -243,6 +247,7 @@ public class SysFileServiceImpl extends ServiceImpl<SysFileMapper, SysFile> impl
         vo.setOriginalName(file.getOriginalName());
         vo.setFilePath(file.getFilePath());
         vo.setFileUrl(file.getFileUrl());
+        vo.setPreviewUrl(tempUrlSigner.build(file.getId()));
         vo.setFileType(file.getFileType());
         vo.setFileSize(file.getFileSize());
         vo.setStorageType(file.getStorageType());

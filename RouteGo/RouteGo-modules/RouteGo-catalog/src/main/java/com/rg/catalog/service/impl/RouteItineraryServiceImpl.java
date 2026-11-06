@@ -12,6 +12,7 @@ import com.rg.catalog.service.RouteItineraryService;
 import com.rg.catalog.vo.RouteItineraryVO;
 import com.rg.common.exception.ErrorCode;
 import com.rg.common.exception.serviceException.CatalogException;
+import com.rg.common.storage.TempUrlSigner;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,10 +27,13 @@ public class RouteItineraryServiceImpl extends ServiceImpl<RouteItineraryMapper,
 
     private final RouteItineraryMapper itineraryMapper;
     private final RouteMapper routeMapper;
+    private final TempUrlSigner tempUrlSigner;
 
-    public RouteItineraryServiceImpl(RouteItineraryMapper itineraryMapper, RouteMapper routeMapper) {
+    public RouteItineraryServiceImpl(RouteItineraryMapper itineraryMapper, RouteMapper routeMapper,
+                                     TempUrlSigner tempUrlSigner) {
         this.itineraryMapper = itineraryMapper;
         this.routeMapper = routeMapper;
+        this.tempUrlSigner = tempUrlSigner;
     }
 
     @Override
@@ -130,7 +134,8 @@ public class RouteItineraryServiceImpl extends ServiceImpl<RouteItineraryMapper,
         itinerary.setMeals(request.getMeals());
         itinerary.setHotel(request.getHotel());
         itinerary.setTransport(request.getTransport());
-        itinerary.setImage(request.getImage());
+        // 还原为标准下载地址：临时签名链接有过期时间，不能落库
+        itinerary.setImage(tempUrlSigner.canonicalize(request.getImage()));
         itinerary.setLongitude(request.getLongitude());
         itinerary.setLatitude(request.getLatitude());
         itinerary.setAddress(request.getAddress());

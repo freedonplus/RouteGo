@@ -80,6 +80,11 @@ routego:
       access-key: ${MINIO_ACCESS_KEY:minio}
       secret-key: ${MINIO_SECRET_KEY:12345678}
       bucket: ${MINIO_BUCKET:routego}
+    temp-url:
+      # 文件临时预览链接（HMAC 签名 + 过期时间），供 <img> 等无法携带登录态的场景；
+      # 生产环境必须用 ROUTEGO_TEMP_URL_SECRET 覆盖默认密钥
+      secret: ${ROUTEGO_TEMP_URL_SECRET:routego-dev-temp-url-secret}
+      ttl: 2h
   security:
     # 生产环境请改为实际前端域名，可用 ROUTEGO_SECURITY_ALLOWED_ORIGINS 覆盖
     allowed-origins:

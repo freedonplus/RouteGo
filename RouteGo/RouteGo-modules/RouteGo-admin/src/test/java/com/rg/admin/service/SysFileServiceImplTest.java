@@ -72,6 +72,7 @@ class SysFileServiceImplTest {
 
         assertThat(vo.getFileName()).endsWith(".png").doesNotContain("照片");
         assertThat(vo.getStorageType()).isEqualTo((byte) 1);
+        assertThat(vo.getPreviewUrl()).startsWith("/app/file/preview?fid=7&").contains("sign=");
         assertThat(Files.exists(tmp.resolve(vo.getFilePath()))).isTrue();
         verify(fileMapper).updateById(any(SysFile.class));
     }
@@ -127,6 +128,6 @@ class SysFileServiceImplTest {
 
     private SysFileServiceImpl service(StorageProperties props) {
         FileStorage storage = new LocalFileStorage(props);
-        return new SysFileServiceImpl(fileMapper, props, cacheHelper, storage);
+        return new SysFileServiceImpl(fileMapper, props, cacheHelper, storage, new com.rg.common.storage.TempUrlSigner());
     }
 }
