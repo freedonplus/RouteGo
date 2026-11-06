@@ -2,12 +2,14 @@ package com.rg.customer.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.rg.customer.entity.Coupon;
+import com.rg.customer.mapper.model.CustomerCouponCount;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * 用户优惠券 Mapper。
@@ -79,6 +81,21 @@ public interface CouponMapper extends BaseMapper<Coupon> {
             WHERE deleted = 0 AND customer_id = #{customerId} AND status = #{status}
             """)
     long countByCustomerAndStatus(@Param("customerId") Long customerId, @Param("status") int status);
+
+    /**
+     * 批量统计一批会员的可用券数量，列表页一次查完，避免逐个会员 count 的 N+1。
+     */
+    @Select("""
+            <script>
+            SELECT customer_id AS customerId, COUNT(*) AS total
+            FROM coupon
+            WHERE deleted = 0 AND status = 0
+              AND customer_id IN
+            <foreach collection="customerIds" item="cid" open="(" separator="," close=")">#{cid}</foreach>
+            GROUP BY customer_id
+            </script>
+            """)
+    List<CustomerCouponCount> countAvailableByCustomers(@Param("customerIds") Collection<Long> customerIds);
 
     /**
      * 统计某模板下已发出的券数量（含已使用与已过期），用于阻止删除有发券记录的模板。

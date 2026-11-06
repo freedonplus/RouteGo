@@ -76,7 +76,7 @@ public class CustomerVO {
     @Schema(description = "最后登录时间")
     private LocalDateTime lastLoginTime;
 
-    @Schema(description = "可用优惠券数量，仅详情返回")
+    @Schema(description = "可用优惠券数量，列表与详情都会返回")
     private Long availableCouponCount;
 
     @Schema(description = "已使用优惠券数量，仅详情返回")

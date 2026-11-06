@@ -17,6 +17,7 @@ import com.rg.customer.entity.Customer;
 import com.rg.customer.enums.CustomerDict;
 import com.rg.customer.mapper.CouponMapper;
 import com.rg.customer.mapper.CustomerMapper;
+import com.rg.customer.mapper.model.CustomerCouponCount;
 import com.rg.customer.service.CustomerService;
 import com.rg.customer.vo.CustomerVO;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,6 +28,8 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 会员业务实现。
@@ -60,7 +63,15 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
         if (StringUtils.hasText(query.getKeyword())) {
             String keyword = query.getKeyword().trim();
-            wrapper.and(w -> w.like(Customer::getNickname, keyword).or().like(Customer::getRealName, keyword));
+            // 手机号是密文列，模糊匹配没有意义；关键词正好是完整手机号时额外按盲索引等值命中，
+            // 这样后台一个搜索框就能同时搜昵称、真实姓名和手机号。
+            boolean fullPhone = keyword.matches("^1\\d{10}$");
+            wrapper.and(w -> {
+                w.like(Customer::getNickname, keyword).or().like(Customer::getRealName, keyword);
+                if (fullPhone) {
+                    w.or().eq(Customer::getPhoneIndex, cipher.blindIndex(keyword));
+                }
+            });
         }
         if (query.getLevel() != null) {
             wrapper.eq(Customer::getLevel, query.getLevel());
@@ -77,7 +88,23 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         wrapper.orderByDesc(Customer::getRegisterTime).orderByDesc(Customer::getId);
         Page<Customer> page = customerMapper.selectPage(query.toPage(), wrapper);
         List<CustomerVO> records = page.getRecords().stream().map(this::toVO).toList();
+        fillAvailableCoupons(records);
         return new PageResult<>(records, page.getTotal(), page.getCurrent(), page.getSize(), page.getPages());
+    }
+
+    /**
+     * 列表页也要显示「可用券」：按当前页的会员 ID 一次 group by 查回来，没券的补 0。
+     */
+    private void fillAvailableCoupons(List<CustomerVO> records) {
+        if (records.isEmpty()) {
+            return;
+        }
+        List<Long> ids = records.stream().map(CustomerVO::getId).toList();
+        Map<Long, Long> counts = couponMapper.countAvailableByCustomers(ids).stream()
+                .collect(Collectors.toMap(CustomerCouponCount::getCustomerId,
+                        row -> row.getTotal() == null ? 0L : row.getTotal(),
+                        (a, b) -> a));
+        records.forEach(vo -> vo.setAvailableCouponCount(counts.getOrDefault(vo.getId(), 0L)));
     }
 
     @Override

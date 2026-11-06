@@ -76,4 +76,32 @@ public interface OperationsGatewayMapper {
             </script>
             """)
     List<UserSnapshot> selectEnabledUsers(@Param("ids") Collection<Long> ids);
+
+    /**
+     * 可指派的处理人候选人：拥有后台角色的账号（排除 App 端会员角色），账号需正常。
+     * <p>
+     * 直接查用户角色，而不是拿 {@code admin:SysUser:page} 的全量用户列表来筛——
+     * {@code sys_user} 里同时存着 C 端注册账号（normal_user / member_user），
+     * 直接全量拉出来会让「处理人」下拉里混进一堆会员，而且只能按用户名搜，搜昵称搜不到，
+     * 看起来就像「筛选不了客服」。客服角色的账号排在最前。
+     */
+    @Select("""
+            <script>
+            SELECT u.id, u.username, u.nickname
+            FROM sys_user u
+            JOIN sys_user_role ur ON ur.user_id = u.id
+            JOIN sys_role r ON r.id = ur.role_id
+            WHERE u.deleted = 0 AND u.status = 1
+              AND r.deleted = 0 AND r.status = 1
+              AND r.role_code NOT IN ('normal_user', 'member_user')
+            <if test="keyword != null and keyword != ''">
+              AND (u.username LIKE CONCAT('%', #{keyword}, '%')
+                   OR u.nickname LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            GROUP BY u.id, u.username, u.nickname
+            ORDER BY MAX(r.role_code = 'support') DESC, u.id
+            LIMIT 50
+            </script>
+            """)
+    List<UserSnapshot> selectSupportUsers(@Param("keyword") String keyword);
 }

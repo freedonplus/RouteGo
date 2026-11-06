@@ -10,6 +10,7 @@ import com.rg.operations.dto.CsTicketQuery;
 import com.rg.operations.dto.CsTicketUpdateRequest;
 import com.rg.operations.service.CsTicketService;
 import com.rg.operations.vo.CsTicketVO;
+import com.rg.operations.vo.HandlerWorkloadVO;
 import com.rg.operations.vo.TicketStatisticsVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 客服工单管理。
@@ -49,6 +52,14 @@ public class CsTicketController {
     @GetMapping("/page")
     public Result<PageResult<CsTicketVO>> page(@Valid CsTicketQuery query) {
         return Result.success(ticketService.page(query));
+    }
+
+    @Operation(summary = "可指派的客服列表", description = "只返回拥有「客服」角色且账号正常的用户，按在处理单量升序；支持用户名/昵称关键字")
+    @SaCheckPermission("operations:CsTicket:page")
+    @GetMapping("/handlers")
+    public Result<List<HandlerWorkloadVO>> handlers(
+            @Parameter(description = "用户名或昵称关键字") @RequestParam(required = false) String keyword) {
+        return Result.success(ticketService.handlers(keyword));
     }
 
     @Operation(summary = "工单详情", description = "附带该工单的消息条数；完整对话走消息接口")

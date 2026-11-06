@@ -21,6 +21,14 @@ export function assignTicket(id, handlerId) {
   return http.put(`/operations/cs-ticket/${id}/assign`, null, { params: { handlerId } })
 }
 
+/**
+ * 可指派的客服：后端只返回「客服」角色且账号正常的人，按在处理单量升序。
+ * 不再用系统用户列表接口，否则运营/财务账号也会混进处理人下拉，而且只能按账号搜。
+ */
+export function listTicketHandlers(keyword) {
+  return http.get('/operations/cs-ticket/handlers', { params: { keyword: keyword || undefined } })
+}
+
 export function setTicketPriority(id, priority) {
   return http.put(`/operations/cs-ticket/${id}/priority`, null, { params: { priority } })
 }

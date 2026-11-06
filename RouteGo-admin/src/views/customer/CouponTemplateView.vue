@@ -1,18 +1,18 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import {
   deleteCouponTemplate,
   grantCoupons,
   pageCouponTemplates,
-  pageCustomers,
   setCouponTemplateStatus,
 } from '@/api/customer'
 import { formatDate, formatDateTime } from '@/utils/format'
 import PageHeader from '@/components/PageHeader.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import CustomerMultiPicker from '@/components/CustomerMultiPicker.vue'
 import CouponTemplateFormDrawer from './CouponTemplateFormDrawer.vue'
 
 const loading = ref(false)
@@ -28,8 +28,11 @@ const grantOpen = ref(false)
 const granting = ref(false)
 const grantTarget = ref(null)
 const grantCustomerIds = ref([])
-const customerOptions = ref([])
-const customerLoading = ref(false)
+/** 单次最多 200 人，同时不能超过模板剩余发行量，否则整批会因「已发放完毕」回滚 */
+const grantMax = computed(() => {
+  const remain = Number(grantTarget.value?.remainCount)
+  return remain > 0 ? Math.min(remain, 200) : 200
+})
 
 async function load() {
   loading.value = true
@@ -104,27 +107,14 @@ async function remove(row) {
   }
 }
 
-async function searchCustomers(keyword) {
-  customerLoading.value = true
-  try {
-    const result = await pageCustomers({ keyword: keyword || undefined, pageNum: 1, pageSize: 20 })
-    customerOptions.value = (result.records || []).map((row) => ({
-      value: row.id,
-      label: `${row.nickname || '未命名'}（${row.phone}）`,
-    }))
-  } catch {
-    customerOptions.value = []
-  } finally {
-    customerLoading.value = false
-  }
-}
-
 function openGrant(row) {
+  if (row.remainCount !== null && row.remainCount !== undefined && Number(row.remainCount) === 0) {
+    ElMessage.warning('该券已发放完毕，请先调整发行总量')
+    return
+  }
   grantTarget.value = row
   grantCustomerIds.value = []
-  customerOptions.value = []
   grantOpen.value = true
-  searchCustomers('')
 }
 
 async function submitGrant() {
@@ -132,8 +122,8 @@ async function submitGrant() {
     ElMessage.warning('请选择要发放的会员')
     return
   }
-  if (grantCustomerIds.value.length > 200) {
-    ElMessage.warning('单次最多发放 200 人')
+  if (grantCustomerIds.value.length > grantMax.value) {
+    ElMessage.warning(`本次最多发放 ${grantMax.value} 人`)
     return
   }
   granting.value = true
@@ -268,26 +258,17 @@ onMounted(load)
 
     <CouponTemplateFormDrawer v-model="formOpen" :mode="formMode" :template-id="formTemplateId" @saved="load" />
 
-    <el-dialog v-model="grantOpen" title="批量发券" width="520px" append-to-body>
+    <el-dialog v-model="grantOpen" title="批量发券" width="700px" append-to-body>
       <div v-if="grantTarget" class="mb-2 rounded bg-[#f8fafc] p-2 text-[11px] text-[#475569]">
         <p>{{ grantTarget.name }} · {{ grantTarget.benefitDesc }}</p>
         <p class="mt-0.5 text-[10px] text-[#94a3b8]">
-          剩余可发 {{ grantTarget.remainCount }} 张，单次最多选择 200 人
+          剩余可发 {{ grantTarget.remainCount }} 张，本次最多可选 {{ grantMax }} 人
         </p>
       </div>
-      <el-select
-        v-model="grantCustomerIds"
-        multiple
-        filterable
-        remote
-        :remote-method="searchCustomers"
-        :loading="customerLoading"
-        placeholder="搜索昵称/手机号，可多选"
-        class="w-full"
-      >
-        <el-option v-for="item in customerOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-      <p class="mt-1 text-[10px] text-[#94a3b8]">已选 {{ grantCustomerIds.length }} 人。整批事务发放，任意一人失败不会产生半批券。</p>
+      <CustomerMultiPicker v-model="grantCustomerIds" :max="grantMax" />
+      <p class="mt-1 text-[10px] text-[#94a3b8]">
+        已选 {{ grantCustomerIds.length }} 人。整批事务发放，任意一人失败不会产生半批券。
+      </p>
       <template #footer>
         <div class="flex justify-end gap-1">
           <el-button size="small" @click="grantOpen = false">取消</el-button>

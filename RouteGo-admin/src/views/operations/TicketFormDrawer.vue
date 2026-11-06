@@ -1,10 +1,9 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { createTicket } from '@/api/operations'
+import { createTicket, listTicketHandlers } from '@/api/operations'
 import { pageOrders } from '@/api/trade'
 import { pageCustomers } from '@/api/customer'
-import { pageUsers } from '@/api/system'
 import RemotePicker from '@/components/RemotePicker.vue'
 
 const props = defineProps({
@@ -45,7 +44,11 @@ function fetchOrders(keyword) {
 }
 
 function fetchUsers(keyword) {
-  return pageUsers({ username: keyword || undefined, pageNum: 1, pageSize: 20 })
+  return listTicketHandlers(keyword)
+}
+
+function handlerLabel(row) {
+  return `${row.handlerName || row.username || `#${row.handlerId}`} · 处理中 ${row.processing ?? 0} 单`
 }
 
 watch(
@@ -151,7 +154,7 @@ async function submit() {
         <RemotePicker
           v-model="form.handlerId"
           :fetcher="fetchUsers"
-          :formatter="(row) => `${row.nickname || row.username}（${row.username}）`"
+          :formatter="handlerLabel"
           placeholder="不选则进入待处理池"
         />
       </el-form-item>

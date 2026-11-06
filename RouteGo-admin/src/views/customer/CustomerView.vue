@@ -180,7 +180,7 @@ onMounted(load)
       <FilterBar>
         <label class="flex flex-col gap-0.5">
           <span class="rg-label">关键字</span>
-          <el-input v-model="filters.keyword" size="small" placeholder="昵称/姓名" clearable style="width: 140px" @keyup.enter="search" />
+          <el-input v-model="filters.keyword" size="small" placeholder="昵称/姓名/手机号" clearable style="width: 150px" @keyup.enter="search" />
         </label>
         <label class="flex flex-col gap-0.5">
           <span class="rg-label">手机号</span>
@@ -259,7 +259,12 @@ onMounted(load)
             </el-table-column>
             <el-table-column label="可用券" width="70">
               <template #default="{ row }">
-                <span class="font-mono text-[11px] text-[#64748b]">{{ row.availableCouponCount }}</span>
+                <span
+                  class="font-mono text-[11px]"
+                  :class="Number(row.availableCouponCount) > 0 ? 'text-[#b45309]' : 'text-[#cbd5e1]'"
+                >
+                  {{ row.availableCouponCount ?? 0 }}
+                </span>
               </template>
             </el-table-column>
             <el-table-column label="状态" width="76">

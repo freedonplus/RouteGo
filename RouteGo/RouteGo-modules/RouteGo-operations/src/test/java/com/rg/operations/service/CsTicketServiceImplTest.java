@@ -10,12 +10,14 @@ import com.rg.operations.entity.CsTicket;
 import com.rg.operations.mapper.CsMessageMapper;
 import com.rg.operations.mapper.CsTicketMapper;
 import com.rg.operations.mapper.OperationsGatewayMapper;
+import com.rg.operations.mapper.model.HandlerLoad;
 import com.rg.operations.mapper.model.UserSnapshot;
 import com.rg.operations.service.impl.CsTicketServiceImpl;
 import com.rg.operations.support.AssignDecision;
 import com.rg.operations.support.CsAssignEngine;
 import com.rg.operations.support.CsStreamHub;
 import com.rg.operations.vo.CsTicketVO;
+import com.rg.operations.vo.HandlerWorkloadVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -184,6 +186,43 @@ class CsTicketServiceImplTest {
 
         verify(messageMapper).deleteByTicketId(1L);
         verify(ticketMapper).deleteById(1L);
+    }
+
+    // ──────────────────────────────────────────────
+    // 可指派客服列表
+    // ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("候选人按在处理单量升序，昵称为空时退回账号")
+    void handlersSortedByProcessing() {
+        UserSnapshot busy = user(2L);
+        busy.setNickname(null);
+        busy.setUsername("kefu02");
+        when(gateway.selectSupportUsers("客服")).thenReturn(List.of(busy, user(1L)));
+
+        HandlerLoad load = new HandlerLoad();
+        load.setHandlerId(2L);
+        load.setTotal(5L);
+        when(ticketMapper.countProcessingByHandlers(List.of(2L, 1L))).thenReturn(List.of(load));
+
+        List<HandlerWorkloadVO> list = service.handlers(" 客服 ");
+
+        assertEquals(List.of(1L, 2L), list.stream().map(HandlerWorkloadVO::getHandlerId).toList());
+        assertEquals(0L, list.get(0).getProcessing());
+        assertEquals(5L, list.get(1).getProcessing());
+        assertEquals("kefu02", list.get(1).getHandlerName());
+        verify(gateway).selectSupportUsers("客服");
+    }
+
+    @Test
+    @DisplayName("没有客服角色账号时返回空列表且不查在手工单")
+    void handlersEmptyWhenNoSupportUser() {
+        when(gateway.selectSupportUsers(null)).thenReturn(List.of());
+
+        List<HandlerWorkloadVO> list = service.handlers(null);
+
+        assertTrue(list.isEmpty());
+        verify(ticketMapper, never()).countProcessingByHandlers(any());
     }
 
     // ──────────────────────────────────────────────

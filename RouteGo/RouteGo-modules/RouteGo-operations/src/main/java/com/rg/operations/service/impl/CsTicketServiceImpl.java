@@ -19,6 +19,7 @@ import com.rg.operations.mapper.CsTicketMapper;
 import com.rg.operations.mapper.OperationsGatewayMapper;
 import com.rg.operations.mapper.model.CustomerSnapshot;
 import com.rg.operations.mapper.model.GroupCount;
+import com.rg.operations.mapper.model.HandlerLoad;
 import com.rg.operations.mapper.model.OrderSnapshot;
 import com.rg.operations.mapper.model.UserSnapshot;
 import com.rg.operations.service.CsTicketService;
@@ -29,12 +30,15 @@ import com.rg.operations.support.CurrentOperator;
 import com.rg.operations.support.CsStreamHub;
 import com.rg.operations.support.TicketStateMachine;
 import com.rg.operations.vo.CsTicketVO;
+import com.rg.operations.vo.HandlerWorkloadVO;
 import com.rg.operations.vo.TicketStatisticsVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -122,6 +126,38 @@ public class CsTicketServiceImpl extends ServiceImpl<CsTicketMapper, CsTicket> i
         Page<CsTicket> page = ticketMapper.selectPage(query.toPage(), wrapper);
         return new PageResult<>(toVOs(page.getRecords()), page.getTotal(), page.getCurrent(),
                 page.getSize(), page.getPages());
+    }
+
+    @Override
+    public List<HandlerWorkloadVO> handlers(String keyword) {
+        String value = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        List<UserSnapshot> users = gateway.selectSupportUsers(value);
+        if (users.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = users.stream().map(UserSnapshot::getId).toList();
+        Map<Long, Long> loads = new LinkedHashMap<>();
+        ids.forEach(id -> loads.put(id, 0L));
+        for (HandlerLoad row : ticketMapper.countProcessingByHandlers(ids)) {
+            if (row.getHandlerId() != null) {
+                loads.put(row.getHandlerId(), row.getTotal() == null ? 0L : row.getTotal());
+            }
+        }
+        List<HandlerWorkloadVO> list = new ArrayList<>(users.size());
+        for (UserSnapshot user : users) {
+            HandlerWorkloadVO vo = new HandlerWorkloadVO();
+            vo.setHandlerId(user.getId());
+            vo.setUsername(user.getUsername());
+            vo.setHandlerName(StringUtils.hasText(user.getNickname())
+                    ? user.getNickname() : user.getUsername());
+            vo.setProcessing(loads.getOrDefault(user.getId(), 0L));
+            vo.setAvailable(1);
+            list.add(vo);
+        }
+        // 在处理最少的排前面，指派时默认就能挑到最闲的人
+        list.sort(Comparator.comparing(HandlerWorkloadVO::getProcessing)
+                .thenComparing(HandlerWorkloadVO::getHandlerId));
+        return list;
     }
 
     @Override

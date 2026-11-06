@@ -6,11 +6,11 @@ import {
   assignTicket,
   deleteTicket,
   getTicketStatistics,
+  listTicketHandlers,
   pageTickets,
   setTicketPriority,
   setTicketStatus,
 } from '@/api/operations'
-import { pageUsers } from '@/api/system'
 import { formatDateTime } from '@/utils/format'
 import { isSoundOn, playNewMessageSound, setSoundOn, setTitleBadge } from '@/utils/notice'
 import { createCsStream } from '@/utils/cs-stream'
@@ -76,7 +76,11 @@ const NEXT_STATUS = {
 }
 
 function fetchUsers(keyword) {
-  return pageUsers({ username: keyword || undefined, pageNum: 1, pageSize: 20 })
+  return listTicketHandlers(keyword)
+}
+
+function handlerLabel(row) {
+  return `${row.handlerName || row.username || `#${row.handlerId}`} · 处理中 ${row.processing ?? 0} 单`
 }
 
 function typeLabel(type) {
@@ -486,8 +490,8 @@ onBeforeUnmount(() => {
             <RemotePicker
               v-model="filters.handlerId"
               :fetcher="fetchUsers"
-              :formatter="(row) => row.nickname || row.username"
-              placeholder="搜索客服"
+              :formatter="handlerLabel"
+              placeholder="搜索客服昵称/账号"
             />
           </div>
         </label>
@@ -647,14 +651,17 @@ onBeforeUnmount(() => {
     />
     <CsAssignRuleDrawer v-model="assignRuleOpen" />
 
-    <el-dialog v-model="assignOpen" title="指派处理人" width="420px" append-to-body>
+    <el-dialog v-model="assignOpen" title="指派处理人" width="440px" append-to-body>
       <p class="mb-2 text-[11px] text-[#64748b]">待处理的工单被指派后自动进入「处理中」。</p>
       <RemotePicker
         v-model="assignHandlerId"
         :fetcher="fetchUsers"
-        :formatter="(row) => `${row.nickname || row.username}（${row.username}）`"
-        placeholder="搜索客服账号"
+        :formatter="handlerLabel"
+        placeholder="搜索客服昵称/账号"
       />
+      <p class="mt-1 text-[10px] text-[#94a3b8]">
+        候选人只包含后台账号（已排除 App 会员），客服角色排在前面，按在处理单量从少到多排列。
+      </p>
       <template #footer>
         <div class="flex justify-end gap-1">
           <el-button size="small" @click="assignOpen = false">取消</el-button>

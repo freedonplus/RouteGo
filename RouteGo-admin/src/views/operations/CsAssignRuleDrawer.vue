@@ -6,12 +6,12 @@ import {
   createAssignRule,
   deleteAssignRule,
   getAssignWorkload,
+  listTicketHandlers,
   pageAssignRules,
   previewAssignRule,
   setAssignRuleStatus,
   updateAssignRule,
 } from '@/api/operations'
-import { pageUsers } from '@/api/system'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -77,14 +77,14 @@ const priorityText = (value) => (value === null || value === undefined ? '不限
 async function searchUsers(text) {
   userSearching.value = true
   try {
-    const result = await pageUsers({ username: text || undefined, pageNum: 1, pageSize: 20 })
-    const list = (result.records || []).map((user) => ({
-      id: user.id,
-      label: `${user.nickname || user.username}（${user.username}）`,
+    const list = (await listTicketHandlers(text)) || []
+    const options = list.map((user) => ({
+      id: user.handlerId,
+      label: `${user.handlerName || user.username} · 处理中 ${user.processing ?? 0} 单`,
     }))
     // 已选中的客服不在搜索结果里时补回去，否则下拉会显示成一串 ID
     const selected = userOptions.value.filter((item) => form.userIds.includes(item.id))
-    const merged = [...list]
+    const merged = [...options]
     selected.forEach((item) => {
       if (!merged.some((option) => option.id === item.id)) merged.push(item)
     })

@@ -5,7 +5,10 @@ import com.rg.operations.dto.CsTicketCreateRequest;
 import com.rg.operations.dto.CsTicketQuery;
 import com.rg.operations.dto.CsTicketUpdateRequest;
 import com.rg.operations.vo.CsTicketVO;
+import com.rg.operations.vo.HandlerWorkloadVO;
 import com.rg.operations.vo.TicketStatisticsVO;
+
+import java.util.List;
 
 /**
  * 客服工单服务。
@@ -17,6 +20,13 @@ import com.rg.operations.vo.TicketStatisticsVO;
 public interface CsTicketService {
 
     PageResult<CsTicketVO> page(CsTicketQuery query);
+
+    /**
+     * 可指派的处理人候选人：拥有后台角色的账号（排除 App 端会员账号），按在处理单量升序。
+     *
+     * @param keyword 用户名或昵称关键字，可空
+     */
+    List<HandlerWorkloadVO> handlers(String keyword);
 
     CsTicketVO detail(Long id);
 
