@@ -70,12 +70,11 @@ WHERE NOT EXISTS (
   SELECT 1 FROM sys_permission p WHERE p.permission_code = t.b
 );
 
--- 客服角色（role_id = 3）只读，配置规则交给管理员
-INSERT INTO sys_role_permission (role_id, permission_id)
-SELECT 3, p.id
-FROM sys_permission p
-WHERE p.permission_code = 'operations:CsAssignRule:page'
-  AND p.deleted = 0
-  AND NOT EXISTS (
-    SELECT 1 FROM sys_role_permission rp WHERE rp.role_id = 3 AND rp.permission_id = p.id
-  );
+-- 客服角色不再授予「自动分配规则」页面：分配规则与指派处理人同属管理员职权，
+-- 只有超级管理员 / 系统管理员可见。早期版本给过 role_id = 3 的只读权限，
+-- 这里顺手收回，保证重复执行后状态一致。
+DELETE rp
+FROM sys_role_permission rp
+         JOIN sys_permission p ON p.id = rp.permission_id
+WHERE rp.role_id = 3
+  AND p.permission_code LIKE 'operations:CsAssignRule:%';

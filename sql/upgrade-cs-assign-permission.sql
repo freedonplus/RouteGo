@@ -30,7 +30,27 @@ WHERE r.role_code IN ('super_admin', 'admin')
   AND NOT EXISTS (SELECT 1 FROM sys_role_permission x
                   WHERE x.role_id = r.id AND x.permission_id = p.id);
 
--- 3. 自检：应只剩超管与系统管理员两条
+-- 3. 客服角色：一并收回「自动分配规则」页面（分配规则属于管理员职权）
+DELETE rp
+FROM sys_role_permission rp
+         JOIN sys_role r ON r.id = rp.role_id
+         JOIN sys_permission p ON p.id = rp.permission_id
+WHERE r.role_code = 'support'
+  AND p.permission_code LIKE 'operations:CsAssignRule:%';
+
+-- 4. 超级管理员 / 系统管理员：补齐「自动分配规则」的 5 个权限点
+--    （系统管理员的权限是显式列表，早期建库时还没有这张表，需要补）
+INSERT INTO sys_role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM sys_role r, sys_permission p
+WHERE r.role_code IN ('super_admin', 'admin')
+  AND r.deleted = 0
+  AND p.permission_code LIKE 'operations:CsAssignRule:%'
+  AND p.deleted = 0
+  AND NOT EXISTS (SELECT 1 FROM sys_role_permission x
+                  WHERE x.role_id = r.id AND x.permission_id = p.id);
+
+-- 5. 自检：应只剩超管与系统管理员两条
 -- SELECT r.role_name, p.permission_code
 -- FROM sys_role_permission rp
 --          JOIN sys_role r ON r.id = rp.role_id
