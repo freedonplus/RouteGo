@@ -13,6 +13,7 @@ import {
 import { pageUsers } from '@/api/system'
 import { formatDateTime } from '@/utils/format'
 import { isSoundOn, playNewMessageSound, setSoundOn, setTitleBadge } from '@/utils/notice'
+import { createCsStream } from '@/utils/cs-stream'
 import PageHeader from '@/components/PageHeader.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -46,7 +47,6 @@ const assignRuleOpen = ref(false)
 /** 全局待回复总数：决定是否响铃、标题角标与顶部横幅 */
 const unreadTotal = ref(0)
 const soundOn = ref(isSoundOn())
-let statsTimer = null
 let statsReady = false
 
 const assignOpen = ref(false)
@@ -270,27 +270,102 @@ async function remove(row) {
   }
 }
 
-function startStatsPolling() {
-  stopStatsPolling()
-  // 15 秒一次：比对话内的 5 秒轮询慢，但足够及时，也不至于给后端添压力
-  statsTimer = setInterval(loadStats, 15000)
+let stream = null
+let fallbackTimer = null
+let reloadTimer = null
+/** connecting 建连中，online 实时推送，offline 断线重连，unsupported 环境不支持 */
+const streamStatus = ref('connecting')
+/** 最近一条推送事件，转给对话抽屉触发即时拉取 */
+const chatSignal = ref(null)
+
+/** 推送断了才启用的兜底轮询：30 秒一次，只为不漏消息，恢复推送后立刻停 */
+function startFallbackPolling() {
+  if (fallbackTimer) return
+  fallbackTimer = setInterval(loadStats, 30000)
 }
 
-function stopStatsPolling() {
-  if (statsTimer) {
-    clearInterval(statsTimer)
-    statsTimer = null
+function stopFallbackPolling() {
+  if (fallbackTimer) {
+    clearInterval(fallbackTimer)
+    fallbackTimer = null
   }
+}
+
+/** 推送可能连着来几条，列表刷新做 800ms 节流，避免把接口刷爆 */
+function scheduleReload() {
+  if (reloadTimer) return
+  reloadTimer = setTimeout(() => {
+    reloadTimer = null
+    load()
+  }, 800)
+}
+
+function applyUnread(raw) {
+  const prev = unreadTotal.value
+  const value = Number(raw || 0)
+  unreadTotal.value = value
+  setTitleBadge(value)
+  // KPI 卡上的待回复数跟着推送走，不必再单独发一次统计请求
+  if (stats.value) stats.value = { ...stats.value, staffUnread: value }
+  return { prev, value }
+}
+
+function handleStreamEvent(kind, payload) {
+  if (kind === 'hello') {
+    applyUnread(payload.staffUnread)
+    // 建连即拿到当前未读，等价于做了一次统计，后续不再为历史未读响铃
+    statsReady = true
+    return
+  }
+
+  const { prev, value } = applyUnread(payload.staffUnread)
+  chatSignal.value = payload
+  const fromCustomer = payload.type === 'message' && Number(payload.senderType) === 1
+  // 正开着这个工单的对话时，抽屉里自己会提示，列表页不再重复响铃
+  const inCurrentChat = chatOpen.value && String(payload.ticketId) === String(chatTicketId.value)
+
+  if (fromCustomer && value > prev && !inCurrentChat) {
+    playNewMessageSound()
+    ElNotification({
+      title: '收到新的客户消息',
+      message: payload.preview
+        ? `${payload.preview}（共 ${value} 条待回复）`
+        : `当前共 ${value} 条待回复`,
+      type: 'warning',
+      duration: 6000,
+      onClick: () => showUnreadOnly(),
+    })
+  }
+  scheduleReload()
+}
+
+function startStream() {
+  stream = createCsStream({
+    onEvent: handleStreamEvent,
+    onStatus: (status) => {
+      streamStatus.value = status
+      if (status === 'online') {
+        stopFallbackPolling()
+      } else {
+        startFallbackPolling()
+      }
+    },
+  })
 }
 
 onMounted(() => {
   loadStats()
   load()
-  startStatsPolling()
+  startStream()
 })
 
 onBeforeUnmount(() => {
-  stopStatsPolling()
+  if (stream) stream.close()
+  if (reloadTimer) {
+    clearTimeout(reloadTimer)
+    reloadTimer = null
+  }
+  stopFallbackPolling()
   setTitleBadge(0)
 })
 </script>
@@ -299,6 +374,26 @@ onBeforeUnmount(() => {
   <div class="pb-4">
     <PageHeader title="客服工单" description="0 待处理 → 1 处理中 → 2 已解决 → 3 已关闭；已关闭为终态">
       <template #actions>
+        <span
+          class="flex items-center gap-1 text-[11px] text-[#64748b]"
+          :title="
+            streamStatus === 'online'
+              ? '推送长连接已建立，客户消息秒级到达'
+              : '推送未连上，暂用 30 秒轮询兜底，恢复后自动切回'
+          "
+        >
+          <span
+            class="h-1.5 w-1.5 rounded-full"
+            :class="
+              streamStatus === 'online'
+                ? 'bg-[#22c55e]'
+                : streamStatus === 'connecting'
+                  ? 'bg-[#f59e0b]'
+                  : 'bg-[#ef4444]'
+            "
+          ></span>
+          {{ streamStatus === 'online' ? '实时' : streamStatus === 'connecting' ? '连接中' : '轮询' }}
+        </span>
         <el-button
           size="small"
           :icon="soundOn ? Bell : MuteNotification"
@@ -544,7 +639,12 @@ onBeforeUnmount(() => {
     </div>
 
     <TicketFormDrawer v-model="formOpen" @saved="() => { load(); loadStats() }" />
-    <TicketChatDrawer v-model="chatOpen" :ticket-id="chatTicketId" @changed="() => { load(); loadStats() }" />
+    <TicketChatDrawer
+      v-model="chatOpen"
+      :ticket-id="chatTicketId"
+      :signal="chatSignal"
+      @changed="() => { load(); loadStats() }"
+    />
     <CsAssignRuleDrawer v-model="assignRuleOpen" />
 
     <el-dialog v-model="assignOpen" title="指派处理人" width="420px" append-to-body>

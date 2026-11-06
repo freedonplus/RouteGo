@@ -11,11 +11,14 @@ import StatusTag from '@/components/StatusTag.vue'
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   ticketId: { type: [Number, String], default: null },
+  /** 父级推送中心转来的最近一条事件，命中当前工单就立刻拉增量 */
+  signal: { type: Object, default: null },
 })
 const emit = defineEmits(['update:modelValue', 'changed'])
 
 const MAX_IMAGES = 9
-const POLL_INTERVAL = 5000
+/** 兜底轮询：正常情况下消息由 SSE 推送即时触发，这里只在推送断开时兜住 */
+const POLL_INTERVAL = 15000
 
 const loading = ref(false)
 const sending = ref(false)
@@ -130,6 +133,16 @@ function stopPolling() {
     pollTimer = null
   }
 }
+
+watch(
+  () => props.signal,
+  (payload) => {
+    if (!props.modelValue || !payload) return
+    // 推送是全客服广播，只有轮到自己正开着的这张工单才拉
+    if (String(payload.ticketId) !== String(props.ticketId)) return
+    pollNewMessages()
+  }
+)
 
 watch(
   () => props.modelValue,

@@ -171,3 +171,8 @@ export function getStatTrend(params) {
 export function rebuildStats(data) {
   return http.post('/operations/stat-daily/rebuild', data)
 }
+
+/* 客服消息推送（SSE）：先用登录态换一次性票据，再拿票据建连 */
+export function createStreamTicket() {
+  return http.post('/operations/cs/stream-ticket')
+}

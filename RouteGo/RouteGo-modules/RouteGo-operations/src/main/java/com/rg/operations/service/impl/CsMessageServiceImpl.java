@@ -22,6 +22,7 @@ import com.rg.operations.mapper.model.CustomerSnapshot;
 import com.rg.operations.mapper.model.UserSnapshot;
 import com.rg.operations.service.CsMessageService;
 import com.rg.operations.support.CurrentOperator;
+import com.rg.operations.support.CsStreamHub;
 import com.rg.operations.support.TicketStateMachine;
 import com.rg.operations.vo.CsMessageVO;
 import org.springframework.stereotype.Service;
@@ -58,17 +59,20 @@ public class CsMessageServiceImpl extends ServiceImpl<CsMessageMapper, CsMessage
     private final OperationsGatewayMapper gateway;
     private final ObjectMapper objectMapper;
     private final TempUrlSigner tempUrlSigner;
+    private final CsStreamHub hub;
 
     public CsMessageServiceImpl(CsMessageMapper messageMapper,
                                CsTicketMapper ticketMapper,
                                OperationsGatewayMapper gateway,
                                ObjectMapper objectMapper,
-                               TempUrlSigner tempUrlSigner) {
+                               TempUrlSigner tempUrlSigner,
+                               CsStreamHub hub) {
         this.messageMapper = messageMapper;
         this.ticketMapper = ticketMapper;
         this.gateway = gateway;
         this.objectMapper = objectMapper;
         this.tempUrlSigner = tempUrlSigner;
+        this.hub = hub;
     }
 
     @Override
@@ -98,10 +102,15 @@ public class CsMessageServiceImpl extends ServiceImpl<CsMessageMapper, CsMessage
     @Override
     public List<CsMessageVO> listByTicket(Long ticketId) {
         List<CsMessageVO> messages = loadThread(ticketId);
-        // 客服打开对话即视为已读，列表上的未读红点随之消失
-        ticketMapper.update(null, Wrappers.<CsTicket>lambdaUpdate()
+        // 客服打开对话即视为已读，列表上的未读红点随之消失。
+        // 带上 staff_unread > 0 的条件：本来就没未读时不产生更新，也就不必惊动其他客服
+        int cleared = ticketMapper.update(null, Wrappers.<CsTicket>lambdaUpdate()
                 .eq(CsTicket::getId, ticketId)
+                .gt(CsTicket::getStaffUnread, 0)
                 .set(CsTicket::getStaffUnread, 0));
+        if (cleared > 0) {
+            hub.publish("read", ticketId, null, null);
+        }
         return messages;
     }
 
@@ -183,6 +192,10 @@ public class CsMessageServiceImpl extends ServiceImpl<CsMessageMapper, CsMessage
             unreadUpdate.setSql("staff_unread = staff_unread + 1");
         }
         ticketMapper.update(null, unreadUpdate);
+
+        // 事务提交后再广播：推送只是「来拉数据」的信号，抢在提交前发出去
+        // 会让前端读到旧数据，表现为「提示来了但对话里没有这条消息」
+        hub.publishAfterCommit("message", ticket.getId(), (int) senderType, preview);
         return message.getId();
     }
 

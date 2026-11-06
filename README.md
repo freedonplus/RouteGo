@@ -158,9 +158,15 @@ C 端注册用户默认绑定**普通用户**；只有 `super_admin` 拥有通�
 - **工单自动分配**：按「工单类型 / 优先级」圈定一组客服，策略选轮询或「当前在处理最少」，
   规则按排序命中的第一条生效；新建工单（客户咨询或后台建单）未手动指派时自动落到人，
   候选客服全部停用则工单留在未指派池。命中规则记在 `cs_ticket.assign_rule_id`，可追溯。
-- **新消息提醒**：工单页 15 秒轮询未读总数，涨了就响一声（WebAudio 合成，可一键关掉）、
-  弹通知、浏览器标题带未读角标；未读行整行浅红高亮 + 左侧红条 +「N 条待回」角标，
-  可一键「只看待回复」。对话抽屉内 5 秒轮询，客服翻历史时新消息以悬浮气泡提示而不打断。
+- **实时推送（SSE）**：客服工单页与后台之间维持一条 `text/event-stream` 长连接，客户发消息、
+  客服读消息、工单改状态都会即时推过去，前端不再靠定时器轮询——列表页原来 15 秒的等待直接变秒级。
+  `EventSource` 带不上 `Authorization` 头，所以先用登录态换一张 **60 秒有效、用后即删**的票据再建连；
+  票据是一次性的，而 `EventSource` 断线会拿同一张废票自动重试（401 死循环），因此前端主动接管
+  `onerror`：关连接 → 重新换票 → 1/2/5/10/30 秒退避重连。推送断开时自动退回 30 秒兜底轮询，
+  恢复后立刻切回，页面右上角有「实时 / 轮询」状态指示灯。
+- **新消息提醒**：未读总数上涨就响一声（WebAudio 合成，可一键关掉）、弹通知、浏览器标题带未读角标；
+  未读行整行浅红高亮 + 左侧红条 +「N 条待回」角标，可一键「只看待回复」。对话抽屉内新消息以悬浮
+  气泡提示，客服正在翻历史时不会被强制拉到底部。
 
 - **字段加密**：手机号、证件号 AES-GCM 加密入库，等值查询走 HMAC 盲索引。
 - **权限缓存**：按用户缓存到 Redis，key 带全局版本号，角色变更只删版本号即可整体失效。
@@ -192,10 +198,29 @@ C 端注册用户默认绑定**普通用户**；只有 `super_admin` 拥有通�
 | `ROUTEGO_SECURITY_ALLOWED_ORIGINS` | CORS 允许来源 | `localhost:5173` 等 |
 | `SPRING_DATA_REDIS_PASSWORD` | Redis 密码（无密码时不要写空值） | 空 |
 
+### 反向代理与 SSE
+
+客服推送走 `Server-Sent Events`，放在 nginx 后面时有两处必须改，否则表现是「消息攒着才到」：
+
+```nginx
+location /api/operations/cs/stream {
+    proxy_pass         http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header   Connection '';
+    proxy_set_header   Host $host;
+    proxy_buffering    off;      # 关键：不关会让 SSE 变成批量到货
+    proxy_read_timeout 1h;       # 默认 60s 会周期性掐断长连接
+    gzip               off;
+}
+```
+
+后端已主动下发 `X-Accel-Buffering: no`，并每 20 秒发一次心跳注释帧；
+即使代理层仍把连接掐断，前端也会自动换票重连，并在断开期间退回 30 秒兜底轮询。
+
 ## 测试
 
 ```bash
-cd RouteGo && ./mvnw test        # 后端 128 例
+cd RouteGo && ./mvnw test        # 后端 144 例
 cd RouteGo-admin && npx vitest run   # 前端 24 例
 ```
 

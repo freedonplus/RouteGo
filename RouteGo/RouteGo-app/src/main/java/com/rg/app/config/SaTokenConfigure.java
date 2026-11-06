@@ -48,6 +48,11 @@ public class SaTokenConfigure implements WebMvcConfigurer {
                         // C 端 App 接口：使用独立的 customer 账号体系（StpKit.CUSTOMER），
                         // 不走后台 StpUtil；需要登录的接口在方法内显式 checkLogin
                         "/app/**",
+                        // 客服 SSE 长连接：EventSource 带不上 Authorization 头，
+                        // 改由 /operations/cs/stream-ticket 用登录态换一次性票据，
+                        // 本路径在方法内自行验票（票据无效即 401）。
+                        // 精确路径，不会连带放行 /operations/cs/stream-ticket
+                        "/operations/cs/stream",
                         // 图片等静态资源：线路封面/图集由后端随包提供，本身就是公开内容
                         "/covers/**",
                         // 运维与可观测端点（独立网关/内网访问）

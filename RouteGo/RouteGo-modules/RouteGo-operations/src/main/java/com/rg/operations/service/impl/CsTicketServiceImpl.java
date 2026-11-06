@@ -26,6 +26,7 @@ import com.rg.operations.support.BizNoGenerator;
 import com.rg.operations.support.CsAssignEngine;
 import com.rg.operations.support.AssignDecision;
 import com.rg.operations.support.CurrentOperator;
+import com.rg.operations.support.CsStreamHub;
 import com.rg.operations.support.TicketStateMachine;
 import com.rg.operations.vo.CsTicketVO;
 import com.rg.operations.vo.TicketStatisticsVO;
@@ -61,17 +62,20 @@ public class CsTicketServiceImpl extends ServiceImpl<CsTicketMapper, CsTicket> i
     private final OperationsGatewayMapper gateway;
     private final SensitiveCipher cipher;
     private final CsAssignEngine assignEngine;
+    private final CsStreamHub hub;
 
     public CsTicketServiceImpl(CsTicketMapper ticketMapper,
                                CsMessageMapper messageMapper,
                                OperationsGatewayMapper gateway,
                                SensitiveCipher cipher,
-                               CsAssignEngine assignEngine) {
+                               CsAssignEngine assignEngine,
+                               CsStreamHub hub) {
         this.ticketMapper = ticketMapper;
         this.messageMapper = messageMapper;
         this.gateway = gateway;
         this.cipher = cipher;
         this.assignEngine = assignEngine;
+        this.hub = hub;
     }
 
     @Override
@@ -377,6 +381,9 @@ public class CsTicketServiceImpl extends ServiceImpl<CsTicketMapper, CsTicket> i
         message.setContent(content);
         message.setCreateTime(LocalDateTime.now());
         messageMapper.insert(message);
+        // 状态流转、指派都会落到这里：推一条 ticket 事件，别的客服正开着的列表能立刻刷新。
+        // senderType 传 2，前端据此判断不是客户消息，不响铃
+        hub.publishAfterCommit("ticket", ticketId, 2, content);
     }
 
     private String statusText(byte status) {

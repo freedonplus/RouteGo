@@ -21,6 +21,7 @@ import com.rg.operations.service.CsMessageService;
 import com.rg.operations.support.BizNoGenerator;
 import com.rg.operations.support.AssignDecision;
 import com.rg.operations.support.CsAssignEngine;
+import com.rg.operations.support.CsStreamHub;
 import com.rg.operations.support.TicketStateMachine;
 import com.rg.operations.vo.CsMessageVO;
 import com.rg.operations.vo.CsSessionVO;
@@ -62,17 +63,20 @@ public class CsChatServiceImpl implements CsChatService {
     private final CsMessageService messageService;
     private final OperationsGatewayMapper gateway;
     private final CsAssignEngine assignEngine;
+    private final CsStreamHub hub;
 
     public CsChatServiceImpl(CsTicketMapper ticketMapper,
                              CsMessageMapper messageMapper,
                              CsMessageService messageService,
                              OperationsGatewayMapper gateway,
-                             CsAssignEngine assignEngine) {
+                             CsAssignEngine assignEngine,
+                             CsStreamHub hub) {
         this.ticketMapper = ticketMapper;
         this.messageMapper = messageMapper;
         this.messageService = messageService;
         this.gateway = gateway;
         this.assignEngine = assignEngine;
+        this.hub = hub;
     }
 
     @Override
@@ -266,6 +270,8 @@ public class CsChatServiceImpl implements CsChatService {
         message.setContent(content);
         message.setCreateTime(LocalDateTime.now());
         messageMapper.insert(message);
+        // 会话被客户主动结束时也从这里留痕：推一条 ticket 事件让客服列表立刻看到状态变化
+        hub.publishAfterCommit("ticket", ticketId, 2, content);
     }
 
     private List<String> cleanImages(List<String> images) {

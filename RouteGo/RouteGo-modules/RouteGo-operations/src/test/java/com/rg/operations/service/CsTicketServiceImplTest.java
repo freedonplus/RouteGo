@@ -14,6 +14,7 @@ import com.rg.operations.mapper.model.UserSnapshot;
 import com.rg.operations.service.impl.CsTicketServiceImpl;
 import com.rg.operations.support.AssignDecision;
 import com.rg.operations.support.CsAssignEngine;
+import com.rg.operations.support.CsStreamHub;
 import com.rg.operations.vo.CsTicketVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -56,6 +57,8 @@ class CsTicketServiceImplTest {
     private SensitiveCipher cipher;
     @Mock
     private CsAssignEngine assignEngine;
+    @Mock
+    private CsStreamHub hub;
 
     private CsTicketServiceImpl service;
 
@@ -68,7 +71,8 @@ class CsTicketServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new CsTicketServiceImpl(ticketMapper, messageMapper, gateway, cipher, assignEngine);
+        service = new CsTicketServiceImpl(ticketMapper, messageMapper, gateway, cipher,
+                assignEngine, hub);
         lenient().when(assignEngine.decide(any(), any())).thenReturn(AssignDecision.none());
     }
 

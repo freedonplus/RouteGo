@@ -154,6 +154,14 @@ public final class CacheKeyConstants {
          * 这里不为了省一个 key 让轮询每次都从 0 开始（会导致总是分给同一个人）。
          */
         public static final String CS_ASSIGN_ROUND_ROBIN = "operations:cs:assign:rr:%s";
+
+        /**
+         * SSE 建连票据，参数为票据串，值为操作人 ID。
+         * <p>
+         * EventSource 不支持自定义请求头，带不上 Authorization，所以先用正常登录态换一张
+         * 短时票据，再拿票据建连。一次性使用 + 60 秒过期，泄露窗口极小。
+         */
+        public static final String CS_STREAM_TICKET = "operations:cs:stream:ticket:%s";
     }
 
     /**
