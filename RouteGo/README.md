@@ -246,7 +246,22 @@ $env:SPRING_PROFILES_ACTIVE = "test"
 ```
 
 生产环境必须提供 `MYSQL_HOST`、`MYSQL_USERNAME`、`MYSQL_PASSWORD`、
-`REDIS_HOST`；Redis 密码用 `SPRING_DATA_REDIS_PASSWORD`。
+`REDIS_HOST`；Redis 密码用 `SPRING_DATA_REDIS_PASSWORD`（**无密码时不要定义这个变量**：
+空字符串会让 Redisson 发一次 `AUTH ""`，连接直接失败）。
+
+生产 profile 还会强制要求下面这些项，缺任意一个启动即失败（避免误用仓库里的开发默认值）：
+
+| 变量 | 说明 |
+| --- | --- |
+| `ROUTEGO_CRYPTO_AES_KEY` | 敏感字段加密，`openssl rand -base64 32` |
+| `ROUTEGO_CRYPTO_HMAC_KEY` | 盲索引密钥，`openssl rand -hex 32`，不能与 AES 相同 |
+| `ROUTEGO_TEMP_URL_SECRET` | 文件临时预览链接签名密钥 |
+| `ROUTEGO_SECURITY_ALLOWED_ORIGINS` | CORS 白名单，逗号分隔（必填，不允许回退 localhost） |
+
+生产默认行为：Swagger 关闭（`ROUTEGO_OPENAPI_ENABLED=true` 可临时打开）、
+Actuator 移到独立端口 `9090`、请求体日志关闭、Cookie `Secure`、日志滚动 100MB/30 天。
+
+一键部署（含 MySQL / Redis / MinIO / nginx）见 [`docker/README.md`](docker/README.md)。
 
 常用环境变量：
 

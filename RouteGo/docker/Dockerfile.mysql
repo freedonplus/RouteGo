@@ -1,0 +1,16 @@
+# =============================================================================
+# RouteGo · MySQL 8.0 镜像
+#
+# 为什么不直接 bind mount my.cnf？
+#   Windows / macOS 的 Docker Desktop 把宿主机文件挂进容器后，权限会变成 0777，
+#   MySQL 判定「配置文件全局可写」后直接忽略它（日志里一行 World-writable ... is ignored），
+#   sql_mode / 慢查询 / max_allowed_packet 这些配置就全部没生效，且很难发现。
+#   COPY 进镜像并由 RUN chmod 644 固定权限，Linux / Windows / macOS 表现一致。
+# =============================================================================
+FROM mysql:8.0
+
+# 版本化的生产配置；需要调整调优项时改 mysql/my.cnf 后重新构建镜像
+COPY mysql/my.cnf /etc/mysql/conf.d/routego.cnf
+
+RUN chmod 644 /etc/mysql/conf.d/routego.cnf \
+    && chown root:root /etc/mysql/conf.d/routego.cnf

@@ -1,4 +1,45 @@
+# =============================================================================
+# RouteGo · 生产环境配置（SPRING_PROFILES_ACTIVE=prod）
+#
+# 约定：
+#   1. 所有敏感项只从环境变量读取，仓库里不出现真实密钥；关键项缺失直接启动失败，
+#      避免「生产跑在开发默认值上」这类事故。
+#   2. 环境变量与 RouteGo/docker/.env 一一对应，字段含义见 RouteGo/docker/README.md。
+#   3. 反向代理（nginx / SLB）后部署时，X-Forwarded-* 由 forward-headers-strategy 还原，
+#      否则登录日志里的 IP 全是容器网关地址。
+# =============================================================================
+
+server:
+  port: 8080
+  # 优雅停机：先摘流量（容器 stop 的 SIGTERM），再等在途请求与 SSE 连接收尾
+  shutdown: graceful
+  forward-headers-strategy: native
+  tomcat:
+    threads:
+      max: ${TOMCAT_MAX_THREADS:200}
+      min-spare: ${TOMCAT_MIN_SPARE_THREADS:20}
+    max-connections: ${TOMCAT_MAX_CONNECTIONS:8192}
+    accept-count: 200
+    connection-timeout: 20s
+    # 上传走 multipart，单请求上限由 spring.servlet.multipart.max-request-size 控制
+    max-swallow-size: 30MB
+  compression:
+    # 直连 8080 时也能省带宽；SSE（text/event-stream）不在清单里，不会被压缩缓冲
+    enabled: true
+    mime-types: application/json,text/html,text/css,text/plain,application/javascript
+    min-response-size: 2KB
+  error:
+    whitelabel:
+      enabled: false
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
 spring:
+  lifecycle:
+    # 比单请求超时更长：给 SSE 广播、异步任务留出收尾时间
+    timeout-per-shutdown-phase: 30s
+
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:routego}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
@@ -8,55 +49,217 @@ spring:
       pool-name: routego-prod-pool
       # 与业务时区保持一致，避免数据库默认值写入的时间与 Java 写入的时间差 8 小时
       connection-init-sql: SET time_zone = '+08:00'
-      minimum-idle: 5
-      maximum-pool-size: 30
+      minimum-idle: ${DB_POOL_MIN_IDLE:10}
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:30}
       connection-timeout: 30000
+      validation-timeout: 5000
       idle-timeout: 600000
       max-lifetime: 1800000
-      initialization-fail-timeout: 10000
+      # 每 5 分钟探活一次，避免被 MySQL wait_timeout 或中间件掐掉之后才发现连接已死
+      keepalive-time: 300000
+      initialization-fail-timeout: 15000
+      register-mbeans: false
+
   data:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
       database: ${REDIS_DATABASE:0}
+      # 不在这里写 password：留空字符串会让 Redisson 发一次 AUTH ""，Redis 无密码时直接连接失败。
+      # 密码统一由标准环境变量 SPRING_DATA_REDIS_PASSWORD 注入（Spring 自动绑定到本节点）；
+      # Redis 确实没有密码时，不要定义这个变量。
       timeout: 3s
-    # Redis 密码通过标准环境变量 SPRING_DATA_REDIS_PASSWORD 注入
+      connect-timeout: 3s
+      lettuce:
+        shutdown-timeout: 200ms
+
+  jackson:
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+
+  sql:
+    init:
+      # 生产库结构由 sql/ 目录的脚本初始化，应用启动不碰 DDL/DML
+      mode: never
+
+  main:
+    banner-mode: off
 
 routego:
+  redis:
+    enabled: true
+
+  # 敏感字段加密（手机号、证件号）。库里只存密文，等值查询走 HMAC 盲索引。
+  # 缺失任意一把密钥启动即失败；两把不能相同，且 AES 密钥 base64 解码后必须是 16/24/32 字节。
   crypto:
-    # 生产环境必须显式注入，缺一个都启动失败，避免误用仓库里的示例密钥
+    enabled: true
     aes-key: ${ROUTEGO_CRYPTO_AES_KEY}
     hmac-key: ${ROUTEGO_CRYPTO_HMAC_KEY}
 
-rocketmq:
-  # 交易域接入 MQ 时放开本段，并在主配置将 routego.mq.enabled 置 true；
-  # 当前消息域未投入使用，不强制要求 ROCKETMQ_NAME_SERVER 环境变量
-  # name-server: ${ROCKETMQ_NAME_SERVER}
-  # producer:
-  #   group: RouteGo-app-producer
-  #   send-message-timeout: 3000
-  #   retry-times-when-send-failed: 3
+  mq:
+    # 交易域接入 MQ 时改 true，并在下方 rocketmq 段配置 name-server
+    enabled: false
 
+  # Swagger / OpenAPI 文档：生产默认关闭，需要临时排查时 ROUTEGO_OPENAPI_ENABLED=true
+  openapi:
+    enabled: ${ROUTEGO_OPENAPI_ENABLED:false}
+
+  web:
+    # 请求体日志会落敏感字段，生产关闭；排障时临时开启并配合 max-log-text-length 截断
+    request-logging-enabled: ${ROUTEGO_REQUEST_LOGGING:false}
+    max-log-text-length: 512
+
+  storage:
+    # minio：对象存储（推荐）；local：挂载卷兜底
+    type: ${ROUTEGO_STORAGE_TYPE:minio}
+    local-path: ${ROUTEGO_STORAGE_LOCAL_PATH:/app/uploads}
+    max-size: 20971520
+    allowed-extensions: [jpg, jpeg, png, webp, pdf]
+    minio:
+      endpoint: ${MINIO_ENDPOINT:http://minio:9000}
+      access-key: ${MINIO_ACCESS_KEY:}
+      secret-key: ${MINIO_SECRET_KEY:}
+      bucket: ${MINIO_BUCKET:routego}
+    temp-url:
+      # 文件临时预览链接（HMAC 签名 + 过期时间），供 <img> 等无法携带登录态的场景
+      secret: ${ROUTEGO_TEMP_URL_SECRET}
+      ttl: ${ROUTEGO_TEMP_URL_TTL:2h}
+
+  security:
+    # 必填，逗号分隔。用域名部署时至少包含后台前端来源，例如 https://admin.example.com
+    allowed-origins: ${ROUTEGO_SECURITY_ALLOWED_ORIGINS}
+    # 只有直接对端命中这些地址时才信任 X-Forwarded-For；容器网段 + 本机回环
+    trusted-proxies:
+      - 127.0.0.1
+      - ::1
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+
+  # 短信验证码（接口盒子 apihz）
+  sms:
+    enabled: ${ROUTEGO_SMS_ENABLED:true}
+    endpoint: ${ROUTEGO_SMS_ENDPOINT:https://cn.apihz.cn/api/sms/dfapi.php}
+    id: ${ROUTEGO_SMS_ID:}
+    key: ${ROUTEGO_SMS_KEY:}
+    code-length: 6
+    code-ttl: 5m
+    resend-interval: 60s
+    daily-limit: 20
+    hourly-limit-per-ip: 20
+
+  # IP 归属地（与短信共用 apihz 账号）
+  ip-location:
+    enabled: ${ROUTEGO_IP_LOCATION_ENABLED:true}
+    endpoint: ${ROUTEGO_IP_LOCATION_ENDPOINT:https://cn.apihz.cn/api/ip/chaapi.php}
+    id: ${ROUTEGO_SMS_ID:}
+    key: ${ROUTEGO_SMS_KEY:}
+    td: "0"
+    cache-ttl: 7d
+
+  # 第三方登录（JustAuth）。未配置 client-id/secret 的平台保持 disabled，
+  # 前端只会渲染已启用的平台按钮。
+  oauth:
+    success-redirect: ${ROUTEGO_OAUTH_SUCCESS_REDIRECT:}
+    failure-redirect: ${ROUTEGO_OAUTH_FAILURE_REDIRECT:}
+    providers:
+      github:
+        enabled: ${GITHUB_OAUTH_ENABLED:false}
+        client-id: ${GITHUB_CLIENT_ID:}
+        client-secret: ${GITHUB_CLIENT_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:}/admin/auth/oauth/github/callback
+      gitee:
+        enabled: ${GITEE_OAUTH_ENABLED:false}
+        client-id: ${GITEE_CLIENT_ID:}
+        client-secret: ${GITEE_CLIENT_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:}/admin/auth/oauth/gitee/callback
+      wechat:
+        enabled: ${WECHAT_OAUTH_ENABLED:false}
+        client-id: ${WECHAT_OPEN_APP_ID:}
+        client-secret: ${WECHAT_OPEN_APP_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:}/admin/auth/oauth/wechat/callback
+      qq:
+        enabled: ${QQ_OAUTH_ENABLED:false}
+        client-id: ${QQ_APP_ID:}
+        client-secret: ${QQ_APP_KEY:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:}/admin/auth/oauth/qq/callback
+      dingtalk:
+        enabled: ${DINGTALK_OAUTH_ENABLED:false}
+        client-id: ${DINGTALK_APP_KEY:}
+        client-secret: ${DINGTALK_APP_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:}/admin/auth/oauth/dingtalk/callback
+
+# Swagger / OpenAPI 文档：生产默认关闭，需要临时排查时 ROUTEGO_OPENAPI_ENABLED=true。
+# 只关 routego.openapi.enabled 不够——springdoc 自己的自动配置默认是开的，
+# 会把 /v3/api-docs 和 Swagger UI 一起暴露到公网。
+springdoc:
+  api-docs:
+    enabled: ${ROUTEGO_OPENAPI_ENABLED:false}
+  swagger-ui:
+    enabled: ${ROUTEGO_OPENAPI_ENABLED:false}
+
+# Token 策略沿用主配置，这里只收紧生产相关的部分
+sa-token:
+  is-log: false
+  # 浏览器的 Cookie 只走 HTTPS；纯 HTTP 先用内网 IP 访问时设 SA_TOKEN_COOKIE_SECURE=false
+  cookie:
+    secure: ${SA_TOKEN_COOKIE_SECURE:true}
+    http-only: true
+    same-site: Lax
+    path: /
+
+# 日志：容器内同时写控制台与滚动文件，docker logs 和宿主机 ./logs 都能查
 logging:
   level:
     root: info
     com.rg: info
+    org.springframework.web: warn
+    org.springframework.security: warn
+    com.baomidou.mybatisplus: warn
+    org.apache.ibatis: warn
+  file:
+    name: ${LOG_PATH:/app/logs}/routego.log
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 30
+      total-size-cap: 5GB
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{36}) - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
+  charset:
+    console: UTF-8
+    file: UTF-8
 
-# 管理端点与业务流量隔离端口，仅供内网/监控采集访问
+# 管理端点走独立端口，只暴露给内网监控采集；docker compose 默认不发布这个端口
 management:
   server:
-    port: 9090
+    port: ${MANAGEMENT_PORT:9090}
+    address: 0.0.0.0
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: never
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      # 让 http.server.requests 带 p95/p99，便于定位慢接口
+      percentiles-histogram:
+        http.server.requests: true
 
-# 生产环境 CORS 白名单必须显式注入（逗号分隔），
-# 缺少 ROUTEGO_SECURITY_ALLOWED_ORIGINS 环境变量时直接启动失败，禁止静默回退到 localhost
-routego:
-  security:
-    allowed-origins: ${ROUTEGO_SECURITY_ALLOWED_ORIGINS}
-
-sa-token:
-  cookie:
-    secure: true
-
+# 交易域接入 RocketMQ 时放开本段，并把 routego.mq.enabled 置为 true
+# rocketmq:
+#   name-server: ${ROCKETMQ_NAME_SERVER}
+#   producer:
+#     group: RouteGo-app-producer
+#     send-message-timeout: 3000
+#     retry-times-when-send-failed: 3

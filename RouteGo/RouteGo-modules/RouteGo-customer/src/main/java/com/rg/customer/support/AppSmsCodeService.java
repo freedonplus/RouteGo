@@ -6,6 +6,7 @@ import com.rg.common.redis.RedisService;
 import com.rg.common.sms.SmsClient;
 import com.rg.common.sms.SmsProperties;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -32,12 +33,17 @@ public class AppSmsCodeService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final RedisService redisService;
-    private final SmsClient smsClient;
+    /**
+     * 短信客户端按需取：{@code routego.sms.enabled=false} 时容器里根本没有这个 Bean。
+     * 直接注入 SmsClient 会让「关闭短信」的生产环境启动失败，所以这里用 ObjectProvider。
+     */
+    private final ObjectProvider<SmsClient> smsClientProvider;
     private final SmsProperties smsProperties;
 
-    public AppSmsCodeService(RedisService redisService, SmsClient smsClient, SmsProperties smsProperties) {
+    public AppSmsCodeService(RedisService redisService, ObjectProvider<SmsClient> smsClientProvider,
+                             SmsProperties smsProperties) {
         this.redisService = redisService;
-        this.smsClient = smsClient;
+        this.smsClientProvider = smsClientProvider;
         this.smsProperties = smsProperties;
     }
 
@@ -47,7 +53,8 @@ public class AppSmsCodeService {
      * @throws BusinessException 短信未启用、发送过于频繁或网关失败
      */
     public String send(String phone) {
-        if (!smsProperties.isEnabled()) {
+        SmsClient smsClient = smsClientProvider.getIfAvailable();
+        if (!smsProperties.isEnabled() || smsClient == null) {
             throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "短信服务未启用，请联系管理员");
         }
         if (Boolean.TRUE.equals(redisService.hasKey(LIMIT_KEY + phone))) {

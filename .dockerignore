@@ -1,0 +1,13 @@
+# 项目根构建上下文：只服务管理端镜像（RouteGo-admin 静态构建）
+.git/
+.gitignore
+.idea/
+.workbuddy/
+doc/
+sql/
+**/node_modules/
+**/dist/
+**/target/
+**/*.log
+RouteGo-mobile-app/
+RouteGo/docker/.env

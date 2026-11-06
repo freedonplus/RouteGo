@@ -49,6 +49,7 @@ RouteGo/
 │   │   └── RouteGo-operations      客服工单、定制游、统计报表
 │   ├── RouteGo-app                 唯一启动模块（Spring Boot 应用）
 │   ├── RouteGo-generator           MyBatis-Plus 代码生成器
+│   ├── docker/                     生产部署：compose、Dockerfile、nginx、.env、deploy.sh
 │   └── README.md                   后端详细文档
 ├── RouteGo-admin/                  管理后台（Vue 3 + Element Plus）
 ├── RouteGo-mobile-app/             C 端 App（uni-app x）
@@ -185,15 +186,35 @@ C 端注册用户默认绑定**普通用户**；只有 `super_admin` 拥有通�
 
 ## 接口文档与监控
 
-| 用途 | 地址 |
-| --- | --- |
-| Swagger UI | `http://localhost:8080/api/swagger-ui.html` |
-| OpenAPI JSON | `http://localhost:8080/api/v3/api-docs` |
-| 健康检查 | `http://localhost:8080/api/actuator/health` |
-| Prometheus 指标 | `http://localhost:8080/api/actuator/prometheus` |
+| 用途 | 地址（dev） | 生产（`prod` profile） |
+| --- | --- | --- |
+| Swagger UI | `http://localhost:8080/api/swagger-ui.html` | 默认关闭，需 `ROUTEGO_OPENAPI_ENABLED=true` |
+| OpenAPI JSON | `http://localhost:8080/api/v3/api-docs` | 同上 |
+| 健康检查 | `http://localhost:8080/api/actuator/health` | `http://<主机>:9090/actuator/health`（独立管理端口） |
+| Prometheus 指标 | `http://localhost:8080/api/actuator/prometheus` | `http://<主机>:9090/actuator/prometheus` |
 
 接口路径按模块划分：`/api/admin/**`、`/api/catalog/**`、`/api/trade/**`、
 `/api/customer/**`、`/api/operations/**`；C 端为 `/api/app/**`。
+
+## 生产部署（Docker Compose）
+
+`RouteGo/docker/` 里是一套完整的单机编排：MySQL 8 + Redis 7 + MinIO + 后端 + 管理后台（nginx 同源托管 + 反代 `/api`），
+浏览器只访问一个端口，中间件端口一律绑 `127.0.0.1`。
+
+```bash
+cd RouteGo/docker
+cp .env.example .env
+./deploy.sh init     # 生成 MySQL / Redis / MinIO / AES / HMAC / 临时链接密钥，并校验必填项
+vim .env             # 必改 ROUTEGO_SECURITY_ALLOWED_ORIGINS 为真实域名
+./deploy.sh up       # 构建镜像 → 启动 → 等健康检查通过
+```
+
+- 首次启动（数据卷为空）会自动执行 `sql/routego.sql` 建表与 `sql/admin-init.sql` 写入角色权限，**已有库不会被覆盖**
+- 生产配置在 `application-prod.yaml`：HikariCP 连接池、Tomcat 线程、Actuator 独立端口 9090、日志按 100MB/30 天滚动、
+  Swagger 默认关闭、Cookie `Secure`、`X-Forwarded-*` 还原真实 IP；敏感项缺失直接启动失败
+- 详细变量说明、HTTPS、备份恢复、升级流程、故障排查见 [`RouteGo/docker/README.md`](RouteGo/docker/README.md)
+
+常用命令：`./deploy.sh ps | logs app | restart | backup | down | destroy`。
 
 ## 常用配置
 

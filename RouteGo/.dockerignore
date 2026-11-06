@@ -1,0 +1,11 @@
+# 后端构建上下文（RouteGo/）忽略项
+target/
+**/target/
+.git/
+.gitignore
+.idea/
+*.iml
+*.log
+logs/
+uploads/
+docker/.env

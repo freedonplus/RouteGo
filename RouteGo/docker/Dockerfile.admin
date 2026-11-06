@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile:1.6
+# =============================================================================
+# RouteGo 管理后台镜像（构建静态产物 + nginx 托管）
+#
+# 构建上下文是项目根目录（compose 里配的 context: ../..），因为 nginx 配置与
+# 前端源码分处两个目录，需要一个能同时看到它们的上下文。
+#   docker build -f RouteGo/docker/Dockerfile.admin -t routego/admin:latest ../..
+# =============================================================================
+
+# ---------- 构建阶段 ----------
+FROM node:20-alpine AS build
+WORKDIR /app
+
+# 接口前缀由 compose 注入，默认同源 /api（与 .env.production 一致）
+ARG VITE_API_BASE_URL=/api
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
+# 依赖层独立缓存：只改业务代码时不会重装 node_modules
+COPY RouteGo-admin/package.json RouteGo-admin/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY RouteGo-admin/ ./
+# .env.production 里 VITE_API_BASE_URL=/api，与同源 nginx 反代保持一致
+RUN npm run build
+
+# ---------- 运行阶段 ----------
+FROM nginx:1.27-alpine
+
+ENV TZ=Asia/Shanghai
+RUN apk add --no-cache tzdata
+
+# 站点配置由 compose 以只读方式挂载，改完 nginx 配置只需 docker compose restart web
+RUN rm -f /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -q --spider http://127.0.0.1/healthz || exit 1
