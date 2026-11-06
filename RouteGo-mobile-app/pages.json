@@ -57,6 +57,12 @@
 			}
 		},
 		{
+			"path": "pages/user/coupon",
+			"style": {
+				"navigationBarTitleText": "我的券包"
+			}
+		},
+		{
 			"path": "pages/custom/apply",
 			"style": {
 				"navigationBarTitleText": "定制行程"

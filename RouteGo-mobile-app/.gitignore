@@ -3,6 +3,10 @@ unpackage/
 .hbuilderx/
 .DS_Store
 
+# HBuilderX/CLI 本地构建缓存，不是工程源码
+.vite/
+package-lock.json
+
 # 本地环境覆盖：放个人调试地址或密钥，不入库
 .env.local
 .env.*.local

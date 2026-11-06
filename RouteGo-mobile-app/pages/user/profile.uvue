@@ -26,20 +26,20 @@
 						<view class="divider" style="margin-top:18px;margin-bottom:16px"></view>
 
 						<view class="row-between">
-							<view class="stat">
-								<text class="stat-value">3</text>
+							<view class="stat" @click="goCoupons">
+								<text class="stat-value">{{ couponCount }}</text>
 								<text class="stat-label">优惠券</text>
 							</view>
-							<view class="stat">
-								<text class="stat-value">2</text>
+							<view class="stat" @click="goOrders">
+								<text class="stat-value">{{ tripCount }}</text>
 								<text class="stat-label">待出行</text>
 							</view>
-							<view class="stat">
-								<text class="stat-value">6</text>
+							<view class="stat" @click="onTodo('收藏')">
+								<text class="stat-value">0</text>
 								<text class="stat-label">收藏</text>
 							</view>
-							<view class="stat">
-								<text class="stat-value">12</text>
+							<view class="stat" @click="onTodo('足迹')">
+								<text class="stat-value">0</text>
 								<text class="stat-label">足迹</text>
 							</view>
 						</view>
@@ -102,7 +102,7 @@
 
 <script setup lang="uts">
 	import { computed, ref } from 'vue'
-	import { fetchMe, getSession, logout } from '../../data/api.uts'
+	import { fetchCoupons, fetchMe, fetchOrders, getSession, logout } from '../../data/api.uts'
 
 	type Row = {
 		label: string
@@ -118,6 +118,9 @@
 	]
 
 	const loggedIn = ref<boolean>(false)
+	// 券包与待出行的真实数量：之前写死的 3/2/6/12 是假数据，点了也没反应
+	const couponCount = ref<number>(0)
+	const tripCount = ref<number>(0)
 	const nickname = ref<string>('')
 	const phone = ref<string>('')
 
@@ -168,10 +171,43 @@
 			phone.value = me.phone
 		}).catch((e: Error) => {
 		})
+		loadStat()
 	})
+
+	/** 优惠券可用数量 + 待出行（已支付未完成）数量 */
+	function loadStat() {
+		fetchCoupons(0).then((list) => {
+			couponCount.value = list.length
+		}).catch((e: Error) => {
+			couponCount.value = 0
+		})
+		fetchOrders(-1, 1, 50).then((list) => {
+			let count = 0
+			list.forEach((o) => {
+				if (o.status === 1) {
+					count++
+				}
+			})
+			tripCount.value = count
+		}).catch((e: Error) => {
+			tripCount.value = 0
+		})
+	}
 
 	function goOrders() {
 		uni.switchTab({ url: '/pages/order/list' })
+	}
+
+	function goCoupons() {
+		if (!loggedIn.value) {
+			goLogin()
+			return
+		}
+		uni.navigateTo({ url: '/pages/user/coupon' })
+	}
+
+	function onTodo(name: string) {
+		uni.showToast({ title: name + '功能开发中', icon: 'none' })
 	}
 
 	function goLogin() {
@@ -203,11 +239,19 @@
 			uni.navigateTo({ url: '/pages/custom/apply' })
 			return
 		}
+		if (label === '优惠券') {
+			goCoupons()
+			return
+		}
+		if (label === '联系客服') {
+			uni.showToast({ title: '客服热线 400-800-1234（9:00-21:00）', icon: 'none' })
+			return
+		}
 		if (!loggedIn.value) {
 			goLogin()
 			return
 		}
-		uni.showToast({ title: label + '待接入', icon: 'none' })
+		uni.showToast({ title: label + '功能开发中', icon: 'none' })
 	}
 </script>
 

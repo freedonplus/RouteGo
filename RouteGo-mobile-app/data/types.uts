@@ -60,3 +60,27 @@ export type Category = {
 	name: string
 	count: number
 }
+
+/** 我的券包条目 */
+export type CouponItem = {
+	id: number
+	templateName: string
+	/** 券类型描述，如「满减券」 */
+	typeDesc: string
+	/** 使用门槛，0 表示无门槛 */
+	threshold: number
+	/** 面额（满减券） */
+	amount: number
+	/** 折扣（折扣券），0 表示不适用 */
+	discount: number
+	/** 权益描述，如「满 1000 减 100」 */
+	benefitDesc: string
+	/** 0 未使用，1 已使用，2 已过期 */
+	status: number
+	statusDesc: string
+	expired: boolean
+	usable: boolean
+	/** 有效期，形如 2026-12-31 */
+	expireTime: string
+	code: string
+}

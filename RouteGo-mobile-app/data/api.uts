@@ -12,7 +12,7 @@
  * 约定：后端统一返回 { code, msg, data }，这里只把 code 2xx 视作成功。
  */
 import { getApiBaseUrl, KEY_CUSTOMER, KEY_TOKEN } from '../config/env.uts'
-import type { Category, Departure, Itinerary, OrderItem, RouteItem } from './types.uts'
+import type { Category, CouponItem, Departure, Itinerary, OrderItem, RouteItem } from './types.uts'
 
 /** 登录态 */
 export type Session = {
@@ -261,29 +261,23 @@ function toItinerary(o: UTSJSONObject): Itinerary {
 }
 
 /**
- * 外网图源（picsum.photos）在国内网络基本不可达，封面会一直灰底。
- * 数据库里存的是 seed 规则 URL（picsum.photos/seed/rgN/...），
- * 这里把命中的 seed 换成打包进 App 的本地插画 static/covers/rgN.png；
- * 其它 URL（以后换 MinIO 等）原样返回。
+ * 图片地址补全。
+ *
+ * 后端返回的图片字段是相对路径（形如 /covers/rg0.png）——数据库不写死主机名，
+ * 同一份数据 H5 拿到 127.0.0.1、真机拿到局域网 IP。这里拼上当前环境的接口根地址；
+ * 已经是 http(s) 绝对地址（例如以后接 MinIO）则原样使用。
  */
-function toLocalCover(url: string): string {
+function resolveImageUrl(url: string): string {
 	if (url.length == 0) {
 		return url
 	}
-	const mark = 'picsum.photos/seed/'
-	const i = url.indexOf(mark)
-	if (i < 0) {
+	if (url.startsWith('http://') || url.startsWith('https://')) {
 		return url
 	}
-	let seed = url.substring(i + mark.length)
-	const j = seed.indexOf('/')
-	if (j > 0) {
-		seed = seed.substring(0, j)
+	if (url.startsWith('/')) {
+		return getApiBaseUrl() + url
 	}
-	if (seed.length == 0) {
-		return url
-	}
-	return '/static/covers/' + seed + '.png'
+	return url
 }
 
 function toRoute(o: UTSJSONObject): RouteItem {
@@ -304,7 +298,7 @@ function toRoute(o: UTSJSONObject): RouteItem {
 		for (let i = 0; i < imgArray!.length; i++) {
 			const url = imgArray![i].getString('imageUrl')
 			if (url != null && url!.length > 0) {
-				images.push(toLocalCover(url!))
+				images.push(resolveImageUrl(url!))
 			}
 		}
 	}
@@ -328,7 +322,7 @@ function toRoute(o: UTSJSONObject): RouteItem {
 		rating: num(o, 'rating'),
 		sales: num(o, 'sales'),
 		categoryName: str(o, 'categoryName'),
-		coverImage: toLocalCover(str(o, 'coverImage')),
+		coverImage: resolveImageUrl(str(o, 'coverImage')),
 		images: images,
 		highlights: str(o, 'highlights'),
 		includeItems: str(o, 'includeItems'),
@@ -744,9 +738,60 @@ export function payOrder(id: number): Promise<void> {
 }
 
 /**
- * 我的券包：后端暂无 C 端券接口（现有 /customer/coupon/list/{id} 属后台权限），
- * 接入时在后端补 /app/coupons 后在此添加实现，页面调用处再做空态处理。
+ * 日期字段统一取日期部分。
+ * 后端 LocalDateTime 可能序列化成 2026-12-31T23:59:59，也可能是不带时间的形式，
+ * 这里只保留 yyyy-MM-dd，避免页面上出现一长串时间。
  */
+function dateText(o: UTSJSONObject, key: string): string {
+	const raw = str(o, key)
+	if (raw.length <= 10) {
+		return raw
+	}
+	return raw.substring(0, 10)
+}
+
+/**
+ * 我的券包。
+ * status：0 未使用，1 已使用，2 已过期；传 -1 取全部。
+ */
+export function fetchCoupons(status: number): Promise<CouponItem[]> {
+	const parts: string[] = []
+	if (status >= 0) {
+		parts.push('status=' + status)
+	}
+	const query = parts.length > 0 ? parts.join('&') : ''
+	return new Promise<CouponItem[]>((resolve, reject) => {
+		requestGet('/app/coupons', query).then((body) => {
+			const list: CouponItem[] = []
+			const arr = dataArray(body)
+			if (arr != null) {
+				for (let i = 0; i < arr!.length; i++) {
+					const o = arr![i]
+					const item: CouponItem = {
+						id: num(o, 'id'),
+						templateName: str(o, 'templateName'),
+						typeDesc: str(o, 'typeDesc'),
+						threshold: num(o, 'threshold'),
+						amount: num(o, 'amount'),
+						discount: num(o, 'discount'),
+						benefitDesc: str(o, 'benefitDesc'),
+						status: num(o, 'status'),
+						statusDesc: str(o, 'statusDesc'),
+						expired: o.getBoolean('expired') == true,
+						usable: o.getBoolean('usable') == true,
+						expireTime: dateText(o, 'expireTime'),
+						code: str(o, 'code')
+					}
+					list.push(item)
+				}
+			}
+			resolve(list)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
 
 /** 提交定制需求，返回需求单 ID */
 export function submitCustom(payload: UTSJSONObject): Promise<number> {

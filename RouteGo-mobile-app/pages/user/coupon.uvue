@@ -1,0 +1,224 @@
+<template>
+	<view class="page-root">
+		<scroll-view class="page-scroll" style="flex:1">
+			<view class="page">
+				<view class="section" style="padding-top:20px">
+					<text class="h1" style="font-size:26px">我的券包</text>
+					<text class="muted" style="margin-top:8px">下单时自动匹配可用优惠券</text>
+
+					<view class="chips-wrap">
+						<view
+							v-for="(t, index) in tabs"
+							:key="t.label"
+							:class="index === activeTab ? 'chip chip-active' : 'chip'"
+							style="margin-right:8px;margin-bottom:8px"
+							@click="switchTab(index)"
+						>
+							<text :class="index === activeTab ? 'chip-text chip-text-active' : 'chip-text'">{{ t.label }}</text>
+						</view>
+					</view>
+				</view>
+
+				<view class="section" style="margin-top:8px">
+					<view v-if="errorText.length > 0" class="card" style="margin-bottom:12px">
+						<text class="body">{{ errorText }}</text>
+						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" @click="loadData">
+							<text class="btn-secondary-text">重新加载</text>
+						</view>
+					</view>
+
+					<view v-else-if="loading" class="card" style="align-items:center;padding-top:40px;padding-bottom:40px">
+						<text class="muted">加载中…</text>
+					</view>
+
+					<view v-else-if="coupons.length === 0" class="card" style="align-items:center;padding-top:44px;padding-bottom:44px">
+						<text class="h3">{{ emptyTitle }}</text>
+						<text class="muted" style="margin-top:8px">{{ emptyHint }}</text>
+					</view>
+
+					<view
+						v-for="c in coupons"
+						:key="c.id"
+						:class="c.usable ? 'card ticket' : 'card ticket ticket-dim'"
+						style="margin-bottom:12px"
+					>
+						<view class="ticket-left">
+							<view class="row" style="align-items:flex-end">
+								<text class="ticket-symbol">¥</text>
+								<text class="ticket-amount">{{ amountText(c) }}</text>
+							</view>
+							<text class="ticket-threshold">{{ thresholdText(c) }}</text>
+						</view>
+
+						<view class="ticket-line"></view>
+
+						<view class="ticket-right">
+							<text class="h3" style="font-size:15px">{{ c.templateName }}</text>
+							<text class="faint" style="margin-top:6px">{{ c.benefitDesc }}</text>
+							<view class="row-between" style="margin-top:10px">
+								<text class="faint" style="font-size:12px">有效期至 {{ c.expireTime }}</text>
+								<text :class="c.usable ? 'ticket-status' : 'ticket-status ticket-status-dim'">{{ c.statusDesc }}</text>
+							</view>
+						</view>
+					</view>
+				</view>
+
+				<view style="height:24px"></view>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { computed, ref } from 'vue'
+	import { fetchCoupons, isLoggedIn } from '../../data/api.uts'
+	import type { CouponItem } from '../../data/types.uts'
+
+	type TabItem = {
+		label: string
+		value: number
+	}
+
+	const tabs: TabItem[] = [
+		{ label: '可用', value: 0 },
+		{ label: '已使用', value: 1 },
+		{ label: '已过期', value: 2 }
+	]
+
+	const activeTab = ref<number>(0)
+	const coupons = ref<CouponItem[]>([] as CouponItem[])
+	const loading = ref<boolean>(true)
+	const errorText = ref<string>('')
+
+	const emptyTitle = computed((): string => {
+		if (activeTab.value === 1) {
+			return '还没有用过的券'
+		}
+		if (activeTab.value === 2) {
+			return '没有已过期的券'
+		}
+		return '暂无可用优惠券'
+	})
+
+	const emptyHint = computed((): string => {
+		if (activeTab.value === 0) {
+			return '关注活动，出券后会出现在这里'
+		}
+		return '换个标签看看'
+	})
+
+	onShow(() => {
+		loadData()
+	})
+
+	function loadData() {
+		if (!isLoggedIn()) {
+			coupons.value = [] as CouponItem[]
+			loading.value = false
+			errorText.value = '请先登录后查看券包'
+			return
+		}
+		loading.value = true
+		errorText.value = ''
+		fetchCoupons(tabs[activeTab.value].value).then((list) => {
+			coupons.value = list
+			loading.value = false
+		}).catch((e: Error) => {
+			errorText.value = e.message
+			coupons.value = [] as CouponItem[]
+			loading.value = false
+		})
+	}
+
+	function switchTab(index: number) {
+		if (activeTab.value === index) {
+			return
+		}
+		activeTab.value = index
+		coupons.value = [] as CouponItem[]
+		loadData()
+	}
+
+	function amountText(c: CouponItem): string {
+		if (c.amount > 0) {
+			return c.amount.toFixed(0)
+		}
+		if (c.discount > 0) {
+			return c.discount.toFixed(1)
+		}
+		return '券'
+	}
+
+	function thresholdText(c: CouponItem): string {
+		if (c.amount <= 0 && c.discount > 0) {
+			return c.threshold > 0 ? '满 ' + c.threshold.toFixed(0) + ' 可用' : '无门槛'
+		}
+		return c.threshold > 0 ? '满 ' + c.threshold.toFixed(0) + ' 可用' : '无门槛'
+	}
+</script>
+
+<style>
+	.chips-wrap {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-top: 16px;
+	}
+
+	.ticket {
+		flex-direction: row;
+		align-items: center;
+		padding-top: 18px;
+		padding-bottom: 18px;
+	}
+
+	.ticket-dim {
+		opacity: 0.55;
+	}
+
+	.ticket-left {
+		width: 104px;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.ticket-symbol {
+		font-size: 14px;
+		color: #0071e3;
+		margin-bottom: 3px;
+	}
+
+	.ticket-amount {
+		font-size: 30px;
+		color: #0071e3;
+		font-weight: 700;
+		line-height: 32px;
+	}
+
+	.ticket-threshold {
+		font-size: 11px;
+		color: #86868b;
+		margin-top: 4px;
+	}
+
+	.ticket-line {
+		width: 1px;
+		height: 58px;
+		background-color: #e5e5ea;
+		margin-right: 16px;
+	}
+
+	.ticket-right {
+		flex: 1;
+		flex-direction: column;
+	}
+
+	.ticket-status {
+		font-size: 12px;
+		color: #0071e3;
+	}
+
+	.ticket-status-dim {
+		color: #86868b;
+	}
+</style>
