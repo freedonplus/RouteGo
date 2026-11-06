@@ -269,6 +269,66 @@
     font-family:var(--mono);font-size:9.5px;color:var(--ink-3);
   }
   .prio li:last-child{border-bottom:0}
+  .prio li .txt{flex:1}
+
+  /* ── state badge ──────────────────────────────────────── */
+  .state{
+    flex:none;margin-left:8px;padding:1px 6px;border:1px solid var(--rule-2);
+    font-family:var(--mono);font-size:9px;letter-spacing:.08em;line-height:1.55;
+    color:var(--ink-3);white-space:nowrap;
+  }
+  .state--done{color:#3E6A4C;border-color:#9CB8A4;background:rgba(62,106,76,.07)}
+  .state--part{color:var(--red);border-color:rgba(180,69,31,.42);background:rgba(180,69,31,.06)}
+  .state--todo{color:var(--ink-3);border-style:dashed}
+
+  /* ── progress ─────────────────────────────────────────── */
+  .progress{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  }
+  .progress__cell{padding:24px 0 22px}
+  .progress__cell + .progress__cell{border-left:1px solid var(--rule);padding-left:30px}
+  .progress__num{
+    display:flex;align-items:baseline;gap:8px;
+    font-family:var(--serif);font-size:42px;font-weight:600;line-height:1;
+  }
+  .progress__num small{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-weight:400}
+  .progress__label{
+    margin-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+    color:var(--ink-3);text-transform:uppercase;
+  }
+  .progress__note{margin-top:7px;font-size:12.5px;line-height:1.6;color:var(--ink-2)}
+  .progress-bar{margin:26px 0 0}
+  .progress-bar .dist{height:14px;border:1px solid var(--ink)}
+  .progress-bar .dist__seg--done{background:#3E6A4C}
+  .progress-bar .dist__seg--part{background:var(--red)}
+  .progress-bar .dist__seg--todo{background:var(--rule-2);border-left:1px solid var(--paper)}
+  .progress-bar .dist__legend{margin-top:12px;font-size:11px}
+
+  /* ── delivered ────────────────────────────────────────── */
+  .delivered{display:grid;grid-template-columns:repeat(2,1fr);gap:0 48px;margin-top:4px}
+  .delivered__item{
+    padding:18px 0 16px;border-bottom:1px solid var(--rule);
+  }
+  .delivered__item dt{
+    display:flex;align-items:baseline;gap:10px;
+    font-size:14px;font-weight:500;color:var(--ink);
+  }
+  .delivered__item dt .idx{
+    font-family:var(--mono);font-size:9.5px;color:var(--ink-3);flex:none;
+  }
+  .delivered__item dd{
+    margin:7px 0 0 26px;font-size:12.5px;line-height:1.7;color:var(--ink-2);
+  }
+  .delivered__item dd code{
+    font-family:var(--mono);font-size:11.5px;color:var(--ink);
+    background:var(--paper-2);padding:1px 4px;
+  }
+  .verify{
+    margin-top:24px;padding:16px 18px;background:var(--paper-2);
+    border-left:2px solid var(--red);font-size:12.5px;line-height:1.75;color:var(--ink-2);
+  }
+  .verify b{color:var(--ink);font-weight:500}
 
   /* ── colophon ─────────────────────────────────────────── */
   .colophon{
@@ -396,7 +456,7 @@
     <div class="masthead__meta">
       <span>旅游电商平台 / 生产级建设</span>
       <span>Production Capability Review</span>
-      <span>No. 01 · 2026</span>
+      <span>No. 02 · 更新 2026-11-06</span>
     </div>
 
     <div class="masthead__grid">
@@ -406,29 +466,76 @@
           全国风景线路旅游电商平台 · 业务域 × 技术能力评估。<strong>14 个业务域</strong>、
           <strong>8 项技术能力</strong>，共 112 个评估点。每一点只回答一个问题：
           该业务在生产环境里，是否必须为这项能力付出工程成本。
+          本轮起每项标注<strong>真实落地状态</strong>，与仓库代码、测试、冒烟结果对齐。
           <span class="cite">详细规则见《方案书》第 12 章。</span>
         </p>
       </div>
 
       <figure class="composition">
-        <figcaption class="composition__label">评估构成 / Composition</figcaption>
+        <figcaption class="composition__label">落地进度 / Delivery</figcaption>
         <div class="composition__figure">
-          <b>112</b><span>个评估点</span>
+          <b>19</b><span>项优先级清单</span>
         </div>
-        <div class="dist" role="img" aria-label="112 个评估点中，必需 53 个，按需 27 个，不涉及 32 个">
-          <span class="dist__seg dist__seg--must" style="flex:53"></span>
-          <span class="dist__seg dist__seg--opt" style="flex:27"></span>
-          <span class="dist__seg dist__seg--none" style="flex:32"></span>
+        <div class="dist" role="img" aria-label="19 项中已实现 4 项，部分实现 9 项，未开始 6 项">
+          <span class="dist__seg dist__seg--must" style="flex:4"></span>
+          <span class="dist__seg dist__seg--opt" style="flex:9"></span>
+          <span class="dist__seg dist__seg--none" style="flex:6"></span>
         </div>
         <div class="dist__legend">
-          <span><i class="mark mark--must" aria-hidden="true"></i>53 必需</span>
-          <span><i class="mark mark--opt" aria-hidden="true"></i>27 按需</span>
-          <span><i class="mark mark--none" aria-hidden="true"></i>32 不涉及</span>
+          <span><i class="mark mark--must" aria-hidden="true"></i>4 已实现</span>
+          <span><i class="mark mark--opt" aria-hidden="true"></i>9 部分实现</span>
+          <span><i class="mark mark--none" aria-hidden="true"></i>6 未开始</span>
         </div>
-        <div class="composition__foot">14 业务域 × 8 技术能力</div>
+        <div class="composition__foot">P0 8 项 / P1 6 项 / P2 5 项</div>
       </figure>
     </div>
   </header>
+
+  <!-- ══════════ 00 落地进度 ══════════ -->
+  <section class="section reveal" id="progress">
+    <div class="section__head">
+      <div class="section__no">00</div>
+      <div class="section__title">
+        <h2>落地进度</h2>
+        <p class="section__note">
+          清单是要求，状态是事实。以下按「已实现 / 部分实现 / 未开始」口径统计 19 项优先级，
+          每项依据都能在仓库里找到对应代码、测试或配置。
+        </p>
+      </div>
+      <div class="section__aside">19 项 / 3 种状态</div>
+    </div>
+
+    <div class="progress">
+      <div class="progress__cell">
+        <div class="progress__num">4<small>/ 19</small></div>
+        <div class="progress__label">已实现</div>
+        <p class="progress__note">代码、配置、测试齐备，可直接验收。</p>
+      </div>
+      <div class="progress__cell">
+        <div class="progress__num">9<small>/ 19</small></div>
+        <div class="progress__label">部分实现</div>
+        <p class="progress__note">主干能力已落地，仍缺运维侧或外部依赖（如 TLS 证书、CI/CD、Grafana）。</p>
+      </div>
+      <div class="progress__cell">
+        <div class="progress__num">6<small>/ 19</small></div>
+        <div class="progress__label">未开始</div>
+        <p class="progress__note">当前规模下收益不足以覆盖成本，或依赖业务量增长后启动。</p>
+      </div>
+    </div>
+
+    <div class="progress-bar">
+      <div class="dist" role="img" aria-label="19 项落地分布：已实现 4，部分实现 9，未开始 6">
+        <span class="dist__seg dist__seg--done" style="flex:4"></span>
+        <span class="dist__seg dist__seg--part" style="flex:9"></span>
+        <span class="dist__seg dist__seg--todo" style="flex:6"></span>
+      </div>
+      <div class="dist__legend">
+        <span><i class="mark mark--must" aria-hidden="true"></i>已实现 4</span>
+        <span><i class="mark mark--opt" aria-hidden="true"></i>部分实现 9</span>
+        <span><i class="mark mark--none" aria-hidden="true"></i>未开始 6</span>
+      </div>
+    </div>
+  </section>
 
   <!-- ══════════ 01 矩阵 ══════════ -->
   <section class="section reveal" id="matrix">
@@ -749,7 +856,11 @@
       <div class="section__no">03</div>
       <div class="section__title">
         <h2>落地优先级</h2>
-        <p class="section__note">按上线节奏拆分为三个层级，同一层级内按工程量排序。</p>
+        <p class="section__note">
+          按上线节奏拆分为三个层级，同一层级内按工程量排序。每项后缀标注当前落地状态，
+          口径：<b>已实现</b>（代码 + 配置 + 测试齐备）、<b>部分实现</b>（主干已落地，缺运维或外部依赖）、
+          <b>未开始</b>（尚未动工）。
+        </p>
       </div>
       <div class="section__aside">3 层级 / 19 项</div>
     </div>
@@ -759,17 +870,17 @@
         <div class="prio__head">
           <span class="prio__code">P0</span>
           <span class="prio__tag">上线前必须</span>
-          <span class="prio__count">08 项</span>
+          <span class="prio__count">08 项 · 已 3 / 部分 4 / 未 1</span>
         </div>
         <ol>
-          <li>HTTPS / TLS、安全响应头</li>
-          <li>密码 BCrypt、敏感字段 AES 加密与脱敏</li>
-          <li>接口鉴权与越权校验（RBAC）</li>
-          <li>操作日志与登录日志、日志脱敏</li>
-          <li>支付回调 / 退款 / 下单幂等</li>
-          <li>登录与导出接口限流</li>
-          <li>数据库定期备份与恢复演练</li>
-          <li>配置与密钥外置，禁止提交仓库</li>
+          <li><span class="txt">HTTPS / TLS、安全响应头</span><span class="state state--part">部分实现</span></li>
+          <li><span class="txt">密码 BCrypt、敏感字段 AES 加密与脱敏</span><span class="state state--done">已实现</span></li>
+          <li><span class="txt">接口鉴权与越权校验（RBAC）</span><span class="state state--done">已实现</span></li>
+          <li><span class="txt">操作日志与登录日志、日志脱敏</span><span class="state state--done">已实现</span></li>
+          <li><span class="txt">支付回调 / 退款 / 下单幂等</span><span class="state state--part">部分实现</span></li>
+          <li><span class="txt">登录与导出接口限流</span><span class="state state--todo">未开始</span></li>
+          <li><span class="txt">数据库定期备份与恢复演练</span><span class="state state--part">部分实现</span></li>
+          <li><span class="txt">配置与密钥外置，禁止提交仓库</span><span class="state state--part">部分实现</span></li>
         </ol>
       </article>
 
@@ -777,15 +888,15 @@
         <div class="prio__head">
           <span class="prio__code">P1</span>
           <span class="prio__tag">随业务量补齐</span>
-          <span class="prio__count">06 项</span>
+          <span class="prio__count">06 项 · 已 1 / 部分 5</span>
         </div>
         <ol>
-          <li>Redis 缓存（字典、权限、线路、看板）</li>
-          <li>Redisson 分布式锁（库存、领券、定时任务）</li>
-          <li>慢 SQL 治理、索引优化、连接池调优</li>
-          <li>Prometheus + Grafana 监控与告警</li>
-          <li>优雅停机、健康检查、CI/CD</li>
-          <li>缓存穿透 / 击穿 / 雪崩治理</li>
+          <li><span class="txt">Redis 缓存（字典、权限、线路、看板）</span><span class="state state--part">部分实现</span></li>
+          <li><span class="txt">Redisson 分布式锁（库存、领券、定时任务）</span><span class="state state--part">部分实现</span></li>
+          <li><span class="txt">慢 SQL 治理、索引优化、连接池调优</span><span class="state state--part">部分实现</span></li>
+          <li><span class="txt">Prometheus + Grafana 监控与告警</span><span class="state state--part">部分实现</span></li>
+          <li><span class="txt">优雅停机、健康检查、CI/CD</span><span class="state state--part">部分实现</span></li>
+          <li><span class="txt">缓存穿透 / 击穿 / 雪崩治理</span><span class="state state--done">已实现</span></li>
         </ol>
       </article>
 
@@ -793,24 +904,88 @@
         <div class="prio__head">
           <span class="prio__code">P2</span>
           <span class="prio__tag">规模化演进</span>
-          <span class="prio__count">05 项</span>
+          <span class="prio__count">05 项 · 未 5</span>
         </div>
         <ol>
-          <li>消息队列（订单超时、异步通知、日志）</li>
-          <li>链路追踪（SkyWalking）</li>
-          <li>读写分离、分库分表</li>
-          <li>多级缓存与热点探测</li>
-          <li>多活与容灾</li>
+          <li><span class="txt">消息队列（订单超时、异步通知、日志）</span><span class="state state--todo">未开始</span></li>
+          <li><span class="txt">链路追踪（SkyWalking）</span><span class="state state--todo">未开始</span></li>
+          <li><span class="txt">读写分离、分库分表</span><span class="state state--todo">未开始</span></li>
+          <li><span class="txt">多级缓存与热点探测</span><span class="state state--todo">未开始</span></li>
+          <li><span class="txt">多活与容灾</span><span class="state state--todo">未开始</span></li>
         </ol>
       </article>
     </div>
   </section>
 
+  <!-- ══════════ 04 本轮交付 ══════════ -->
+  <section class="section reveal" id="delivered">
+    <div class="section__head">
+      <div class="section__no">04</div>
+      <div class="section__title">
+        <h2>本轮交付</h2>
+        <p class="section__note">
+          对应上面 4 项状态变更与 1 项既有能力补齐，均已通过单元测试与接口冒烟。
+        </p>
+      </div>
+      <div class="section__aside">5 项 / 2026-11-06</div>
+    </div>
+
+    <dl class="delivered">
+      <div class="delivered__item">
+        <dt><span class="idx">01</span>安全响应头</dt>
+        <dd>
+          <code>SecurityHeadersFilter</code> 统一下发 <code>nosniff</code>、<code>DENY</code>、
+          <code>Referrer-Policy</code>、<code>Permissions-Policy</code> 与接口侧的
+          <code>CSP default-src 'none'</code>；Swagger 单独放行，HSTS 仅在 HTTPS 请求下发送。
+        </dd>
+      </div>
+      <div class="delivered__item">
+        <dt><span class="idx">02</span>优雅停机</dt>
+        <dd>
+          <code>server.shutdown=graceful</code> 配合
+          <code>spring.lifecycle.timeout-per-shutdown-phase=20s</code>，发布时先停止接单、
+          再等在途请求结束，不再直接掐断。
+        </dd>
+      </div>
+      <div class="delivered__item">
+        <dt><span class="idx">03</span>下单幂等</dt>
+        <dd>
+          新增 <code>OrderCreateFacade</code>：客户端 <code>Idempotency-Key</code> +
+          Redis SETNX 占位，同键重复提交返回同一张订单；未传键时按「会员 + 班期 + 人数」
+          做 30 秒窗口去重；业务异常自动释放占位，不堵死重试。
+        </dd>
+      </div>
+      <div class="delivered__item">
+        <dt><span class="idx">04</span>班期余位分布式锁</dt>
+        <dd>
+          锁 <code>lock:departure:{id}</code> 加在事务外层，释放时事务已提交，不存在
+          「锁先放、数据后可见」的窗口；与原有 <code>stock - sold &gt;= n</code> 条件更新
+          共同构成双保险。
+        </dd>
+      </div>
+      <div class="delivered__item">
+        <dt><span class="idx">05</span>线路详情缓存</dt>
+        <dd>
+          <code>catalog:route:detail:{id}</code>，30 分钟 TTL 带 ±10% 抖动；线路编辑、
+          上下架、删除以及图集 / 行程增删改都精确失效。缓存里只存库内相对路径，
+          签名链接在出参时生成，不会把过期链接写进缓存。
+        </dd>
+      </div>
+    </dl>
+
+    <p class="verify">
+      <b>验证：</b>后端单元测试 <b>119 例</b>全通过（本轮新增 11 例）；8081 实测同一幂等键
+      两次提交均返回订单 39、换键才生成 40、班期余位只扣两次（1 → 5）；线路详情首次回源后
+      命中缓存（TTL 1950s），后台改状态后缓存键立即消失；响应头在
+      <code>/api/actuator/health</code> 上可逐条核对。
+    </p>
+  </section>
+
   <!-- ══════════ 页脚 ══════════ -->
   <footer class="colophon">
     <span>说明：矩阵用于指导各业务模块在生产环境的建设重点，具体规则见方案书第 12 章。</span>
-    <span>与方案书保持同步</span>
-    <span>01 / 01</span>
+    <span>与仓库实现同步 · 2026-11-06</span>
+    <span>02 / 02</span>
   </footer>
 
 </div>

@@ -184,6 +184,22 @@ Cookie），直接引用会 401。因此文件接口统一额外返回 `previewU
 Origin + `allowCredentials`，不能再用 `*`。生产环境通过
 `ROUTEGO_SECURITY_ALLOWED_ORIGINS` 覆盖为实际前端域名。
 
+### 下单幂等与余位并发
+
+写链路的两个入口（`AppOrderController`、`OrdersController`）都走 `OrderCreateFacade`，
+不再直接调用 `OrderService.create`：
+
+- **幂等**：请求头 `Idempotency-Key` → `trade:order:idem:{customerId}:{key}` 占位 2 分钟，
+  成功后写 `DONE:{orderId}`（30 分钟）。占位中返回 409「订单正在处理中」，
+  已完成则直接返回同一张订单；业务异常会删除占位，用户可立即重试。
+- **未传幂等键**：退化为 `trade:order:dup:{customerId}:{routeId}:{departureId}:{count}`
+  30 秒窗口去重，防前端连点。
+- **并发**：`lock:departure:{departureId}`（Redisson）**加在事务外层**——
+  锁包住「事务开始 → 提交结束」，解锁时数据已可见。与 `occupyStock` 的
+  `stock - sold >= n` 条件更新共同构成双保险：锁减少冲突，条件更新兜底不超卖。
+- **缓存**：线路详情 `catalog:route:detail:{id}`，30 分钟 TTL（±10% 抖动），
+  线路编辑/上下架/删除、图集与行程增删改后事务提交时失效。列表刻意不缓存。
+
 ## Database
 
 单体使用一个数据库 `routego`。**首次启动应用前**先导入初始化脚本，
