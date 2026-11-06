@@ -12,6 +12,8 @@ import com.rg.operations.mapper.CsTicketMapper;
 import com.rg.operations.mapper.OperationsGatewayMapper;
 import com.rg.operations.mapper.model.OrderSnapshot;
 import com.rg.operations.service.impl.CsChatServiceImpl;
+import com.rg.operations.support.AssignDecision;
+import com.rg.operations.support.CsAssignEngine;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +34,7 @@ import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,6 +56,8 @@ class CsChatServiceImplTest {
     private CsMessageService messageService;
     @Mock
     private OperationsGatewayMapper gateway;
+    @Mock
+    private CsAssignEngine assignEngine;
 
     private CsChatServiceImpl service;
 
@@ -65,7 +70,9 @@ class CsChatServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new CsChatServiceImpl(ticketMapper, messageMapper, messageService, gateway);
+        service = new CsChatServiceImpl(ticketMapper, messageMapper, messageService, gateway, assignEngine);
+        // 默认不命中任何分配规则：这些用例聚焦会话本身，分配行为单独在 CsAssignEngineTest 覆盖
+        lenient().when(assignEngine.decide(any(), any())).thenReturn(AssignDecision.none());
     }
 
     @Test

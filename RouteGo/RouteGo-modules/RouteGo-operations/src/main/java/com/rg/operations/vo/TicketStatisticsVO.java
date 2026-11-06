@@ -36,6 +36,9 @@ public class TicketStatisticsVO {
     @Schema(description = "待处理中的高优先级工单数")
     private Long urgentPending;
 
+    @Schema(description = "所有工单的客服未读消息总数，用于列表页的响铃提醒与标题角标")
+    private Long staffUnread;
+
     @Schema(description = "按类型统计，key 为类型中文名")
     private Map<String, Long> typeCounts;
 }

@@ -278,6 +278,7 @@ mysql -u root -p routego < sql/admin-init.sql
 | `2026-11-05-roles-simplify.sql` | 角色 8→5 迁移（已在库执行，仅存档） | 否 |
 | `2026-11-05-add-login-log-location.sql` | 登录日志补 IP 归属地字段（已执行，仅存档） | 否 |
 | `upgrade-cs-chat.sql` | 客服会话增强：`cs_ticket` 补未读数与最后消息字段，并回填历史会话摘要（可重复执行） | 已有库升级时执行一次 |
+| `upgrade-cs-assign-rule.sql` | 工单自动分配：新建 `cs_assign_rule`、`cs_ticket` 补 `assign_rule_id`、补齐 5 个权限点（可重复执行） | 已有库升级时执行一次 |
 | `backup/` | 重大变更前的整库备份 | 回滚用 |
 
 微服务时代的 `routego_*.sql`、`schema.sql` 等历史脚本已废弃，单体部署只用上表文件。

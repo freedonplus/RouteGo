@@ -4,7 +4,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Picture } from '@element-plus/icons-vue'
 import { getTicket, listMessages, sendMessage, setTicketStatus } from '@/api/operations'
 import { uploadFile } from '@/api/system'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, resolveFileUrl } from '@/utils/format'
+import { playNewMessageSound } from '@/utils/notice'
 import StatusTag from '@/components/StatusTag.vue'
 
 const props = defineProps({
@@ -24,6 +25,10 @@ const messages = ref([])
 const text = ref('')
 const pendingImages = ref([])
 const listRef = ref(null)
+/** 本次打开后新收进来的客户消息数，用于顶部提示与「回到最新」气泡 */
+const newIncoming = ref(0)
+/** 不在底部时浮出「有新消息」按钮，避免客服看历史记录时被打断 */
+const showJump = ref(false)
 let pollTimer = null
 
 const STATUS_LABELS = ['待处理', '处理中', '已解决', '已关闭']
@@ -62,6 +67,8 @@ async function load() {
     const [detail, list] = await Promise.all([getTicket(props.ticketId), listMessages(props.ticketId)])
     ticket.value = detail
     messages.value = list || []
+    newIncoming.value = 0
+    showJump.value = false
     await scrollToBottom()
   } catch (error) {
     ElMessage.error(error.message || '工单加载失败')
@@ -70,6 +77,23 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+/** 滚动位置变化时决定要不要浮出「有新消息」按钮 */
+function onScroll() {
+  if (nearBottom()) {
+    showJump.value = false
+  }
+}
+
+async function jumpToLatest() {
+  await scrollToBottom()
+  newIncoming.value = 0
+  showJump.value = false
+}
+
+function countCustomerMessages(list) {
+  return list.filter((item) => Number(item.senderType) === 1).length
 }
 
 /** 轮询增量：只在有新消息时重绘，避免把客服正在滚动的位置顶走 */
@@ -81,7 +105,14 @@ async function pollNewMessages() {
     const lastNew = list[list.length - 1]?.id
     if (list.length === messages.value.length && lastOld === lastNew) return
     const stick = nearBottom()
+    // 只把「客户新说的话」算作提示：自己刚发的回复、系统留痕不响铃
+    const incoming = Math.max(0, countCustomerMessages(list) - countCustomerMessages(messages.value))
     messages.value = list
+    if (incoming > 0) {
+      playNewMessageSound()
+      newIncoming.value += incoming
+      if (!stick) showJump.value = true
+    }
     if (stick) await scrollToBottom()
   } catch {
     // 轮询失败不打扰客服，下一轮会补上
@@ -111,6 +142,8 @@ watch(
     messages.value = []
     text.value = ''
     pendingImages.value = []
+    newIncoming.value = 0
+    showJump.value = false
     load()
     startPolling()
   }
@@ -209,6 +242,19 @@ function hasText(message) {
           <span class="text-[10px] text-[#94a3b8]">
             {{ ticket.typeDesc }} · {{ ticket.priorityDesc }}优先级 · {{ ticket.handlerName || '未指派' }}
           </span>
+          <span
+            v-if="Number(ticket.priority) === 3"
+            class="rounded bg-[#fef2f2] px-1.5 py-0.5 text-[10px] font-medium text-[#b91c1c] ring-1 ring-[#fecaca]"
+          >
+            高优先级
+          </span>
+          <span
+            v-if="ticket.assignRuleId"
+            class="rounded bg-[#eef6ff] px-1.5 py-0.5 text-[10px] text-[#1d4ed8]"
+            title="由自动分配规则分给当前处理人"
+          >
+            自动分配
+          </span>
           <div class="ml-auto flex gap-1">
             <el-button
               v-for="item in nextActions"
@@ -233,7 +279,12 @@ function hasText(message) {
           </p>
         </div>
 
-        <div ref="listRef" class="min-h-[240px] flex-1 space-y-2 overflow-y-auto rounded border border-[#e2e8f0] p-2">
+        <div class="relative min-h-0 flex-1">
+          <div
+            ref="listRef"
+            class="h-full min-h-[240px] space-y-2 overflow-y-auto rounded border border-[#e2e8f0] p-2"
+            @scroll="onScroll"
+          >
           <el-empty v-if="!messages.length" description="还没有对话" :image-size="60" />
           <div
             v-for="message in messages"
@@ -259,10 +310,10 @@ function hasText(message) {
                   <el-image
                     v-for="(url, index) in imageList(message)"
                     :key="index"
-                    :src="url"
+                    :src="resolveFileUrl(url)"
                     fit="cover"
-                    class="h-16 w-16 cursor-zoom-in rounded"
-                    :preview-src-list="imageList(message)"
+                    class="h-16 w-16 cursor-zoom-in rounded ring-1 ring-black/5"
+                    :preview-src-list="imageList(message).map((item) => resolveFileUrl(item))"
                     :initial-index="index"
                     preview-teleported
                     lazy
@@ -271,12 +322,33 @@ function hasText(message) {
               </div>
             </div>
           </div>
+          </div>
+
+          <!-- 客服正在翻历史时飘一条提示，不强行把视图拽到底部 -->
+          <div
+            v-if="newIncoming > 0"
+            class="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center"
+          >
+            <button
+              class="pointer-events-auto flex items-center gap-1 rounded-full bg-[#1d4ed8] px-3 py-1 text-[11px] font-medium text-white shadow-lg transition hover:bg-[#1e40af]"
+              @click="jumpToLatest"
+            >
+              客户发来 {{ newIncoming }} 条新消息
+              <span aria-hidden="true">↓</span>
+            </button>
+          </div>
         </div>
 
         <div class="mt-2">
           <div v-if="pendingImages.length" class="mb-1 flex flex-wrap gap-1">
             <div v-for="(image, index) in pendingImages" :key="image.url" class="relative">
-              <el-image :src="image.url" fit="cover" class="h-14 w-14 rounded border border-[#e2e8f0]" />
+              <el-image
+                :src="resolveFileUrl(image.url)"
+                fit="cover"
+                class="h-14 w-14 rounded border border-[#e2e8f0]"
+                :preview-src-list="[resolveFileUrl(image.url)]"
+                preview-teleported
+              />
               <el-button
                 class="!absolute -right-1 -top-1"
                 size="small"

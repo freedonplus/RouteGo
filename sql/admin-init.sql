@@ -503,7 +503,19 @@ VALUES
 (194, '趋势数据', 'operations:StatDaily:trend', '经营统计',
  '按日期升序返回逐日指标，供首页与报表页折线图使用（只读）', 1, 0),
 (195, '重算统计', 'operations:StatDaily:rebuild', '经营统计',
- '按天覆盖重算指定区间，幂等可重复执行；单次最多 366 天，用于补跑漏掉的定时任务', 1, 0);
+ '按天覆盖重算指定区间，幂等可重复执行；单次最多 366 天，用于补跑漏掉的定时任务', 1, 0),
+
+-- 客服自动分配规则 -----------------------------------------------------------
+(196, '规则分页', 'operations:CsAssignRule:page', '自动分配规则',
+ '查看分配规则、启停状态与启用顺序，并用试算接口预演某类工单会分给谁（只读）', 1, 0),
+(197, '新建规则', 'operations:CsAssignRule:create', '自动分配规则',
+ '按工单类型/优先级圈定一组客服，选择轮询或「在处理最少」策略；至少一个可用客服才允许保存', 1, 0),
+(198, '编辑规则', 'operations:CsAssignRule:update', '自动分配规则',
+ '修改匹配条件、候选客服、策略与排序；带乐观锁，并发修改会提示刷新后重试', 1, 0),
+(199, '删除规则', 'operations:CsAssignRule:delete', '自动分配规则',
+ '逻辑删除规则，之后的新工单不再命中；已分配工单的 assign_rule_id 仍可追溯', 1, 0),
+(200, '启停规则', 'operations:CsAssignRule:updateStatus', '自动分配规则',
+ '临时停用某条规则而不删除，常用于客服请假期间把该组规则摘下', 1, 0);
 
 -- ---------------------------------------------------------------------------
 -- 3. 菜单（M 目录 / C 菜单；component 需与 src/router/menu-components.js 对应）
@@ -696,6 +708,7 @@ WHERE permission_code IN ('admin:Dashboard:overview',
                           'customer:Coupon:page', 'customer:Coupon:detail', 'customer:Coupon:list',
                           'operations:CsTicket:page', 'operations:CsTicket:detail',
                           'operations:CsMessage:page', 'operations:CsMessage:listByTicket',
+                          'operations:CsAssignRule:page',
                           'operations:CustomRequirement:page', 'operations:CustomRequirement:detail',
                           'operations:CustomQuote:page', 'operations:CustomQuote:detail',
                           'operations:CustomQuote:listByRequirement',

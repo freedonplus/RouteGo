@@ -44,6 +44,11 @@ public final class OperationsDict {
             1, "客户",
             2, "客服");
 
+    /** 自动分配策略：1 轮询，2 当前在处理最少 */
+    public static final Map<Integer, String> ASSIGN_STRATEGY = ordered(
+            1, "轮询",
+            2, "在处理最少");
+
     /** 定制需求状态：0 待跟进，1 已报价，2 已成交，3 已关闭 */
     public static final Map<Integer, String> REQUIREMENT_STATUS = ordered(
             0, "待跟进",

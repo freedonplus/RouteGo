@@ -699,6 +699,7 @@ CREATE TABLE IF NOT EXISTS cs_ticket (
   priority    tinyint      NOT NULL DEFAULT 2 COMMENT '优先级：1 低，2 中，3 高',
   status      tinyint      NOT NULL DEFAULT 0 COMMENT '状态：0 待处理，1 处理中，2 已解决，3 已关闭',
   handler_id  bigint       DEFAULT NULL COMMENT '处理人 ID',
+  assign_rule_id bigint    DEFAULT NULL COMMENT '自动分配命中的规则 ID，人工指派时为空',
   finish_time datetime     DEFAULT NULL COMMENT '完成时间',
   last_message_time datetime DEFAULT NULL COMMENT '最后一条消息时间，会话列表按它排序',
   last_message varchar(200) DEFAULT NULL COMMENT '最后一条消息摘要，会话列表直接展示',
@@ -731,6 +732,29 @@ CREATE TABLE IF NOT EXISTS cs_message (
   PRIMARY KEY (id),
   KEY idx_ticket_id (ticket_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='工单消息表';
+
+-- 33-1. 客服自动分配规则表
+-- 新工单未指定处理人时，按 sort 从小到大找第一条命中的启用规则，把工单分给规则里的客服。
+-- match_type / match_priority 为 NULL 表示不限；user_ids 用逗号分隔（纯数字，无需 JSON）。
+CREATE TABLE IF NOT EXISTS cs_assign_rule (
+  id             bigint       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  rule_name      varchar(50)  NOT NULL COMMENT '规则名称',
+  match_type     tinyint      DEFAULT NULL COMMENT '适用工单类型：1 售前，2 订单，3 退款，4 投诉，5 其他；NULL 不限',
+  match_priority tinyint      DEFAULT NULL COMMENT '适用优先级：1 低，2 中，3 高；NULL 不限',
+  strategy       tinyint      NOT NULL DEFAULT 2 COMMENT '分配策略：1 轮询，2 当前在处理最少',
+  user_ids       varchar(500) NOT NULL COMMENT '候选客服 ID，逗号分隔',
+  enabled        tinyint      NOT NULL DEFAULT 1 COMMENT '是否启用：0 停用，1 启用',
+  sort           int          NOT NULL DEFAULT 0 COMMENT '匹配顺序，数字小的先命中',
+  remark         varchar(255) DEFAULT NULL COMMENT '备注',
+  version        int          NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
+  create_by      bigint       DEFAULT NULL COMMENT '创建人 ID',
+  create_time    datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_by      bigint       DEFAULT NULL COMMENT '更新人 ID',
+  update_time    datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted        tinyint      NOT NULL DEFAULT 0 COMMENT '逻辑删除：0 正常，1 删除',
+  PRIMARY KEY (id),
+  KEY idx_enabled_sort (enabled, sort)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='客服自动分配规则表';
 
 -- =============================================================================
 -- 六、定制游域（2 张）
@@ -1309,7 +1333,19 @@ VALUES
 (194, '趋势数据', 'operations:StatDaily:trend', '经营统计',
  '按日期升序返回逐日指标，供首页与报表页折线图使用（只读）', 1, 0),
 (195, '重算统计', 'operations:StatDaily:rebuild', '经营统计',
- '按天覆盖重算指定区间，幂等可重复执行；单次最多 366 天，用于补跑漏掉的定时任务', 1, 0);
+ '按天覆盖重算指定区间，幂等可重复执行；单次最多 366 天，用于补跑漏掉的定时任务', 1, 0),
+
+-- 客服自动分配规则 -----------------------------------------------------------
+(196, '规则分页', 'operations:CsAssignRule:page', '自动分配规则',
+ '查看分配规则、启停状态与启用顺序，并用试算接口预演某类工单会分给谁（只读）', 1, 0),
+(197, '新建规则', 'operations:CsAssignRule:create', '自动分配规则',
+ '按工单类型/优先级圈定一组客服，选择轮询或「在处理最少」策略；至少一个可用客服才允许保存', 1, 0),
+(198, '编辑规则', 'operations:CsAssignRule:update', '自动分配规则',
+ '修改匹配条件、候选客服、策略与排序；带乐观锁，并发修改会提示刷新后重试', 1, 0),
+(199, '删除规则', 'operations:CsAssignRule:delete', '自动分配规则',
+ '逻辑删除规则，之后的新工单不再命中；已分配工单的 assign_rule_id 仍可追溯', 1, 0),
+(200, '启停规则', 'operations:CsAssignRule:updateStatus', '自动分配规则',
+ '临时停用某条规则而不删除，常用于客服请假期间把该组规则摘下', 1, 0);
 
 -- ---------------------------------------------------------------------------
 -- 3. 菜单（M 目录 / C 菜单；component 需与 src/router/menu-components.js 对应）
@@ -1502,6 +1538,7 @@ WHERE permission_code IN ('admin:Dashboard:overview',
                           'customer:Coupon:page', 'customer:Coupon:detail', 'customer:Coupon:list',
                           'operations:CsTicket:page', 'operations:CsTicket:detail',
                           'operations:CsMessage:page', 'operations:CsMessage:listByTicket',
+                          'operations:CsAssignRule:page',
                           'operations:CustomRequirement:page', 'operations:CustomRequirement:detail',
                           'operations:CustomQuote:page', 'operations:CustomQuote:detail',
                           'operations:CustomQuote:listByRequirement',

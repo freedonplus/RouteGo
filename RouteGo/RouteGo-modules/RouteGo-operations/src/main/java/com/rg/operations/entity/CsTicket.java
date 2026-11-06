@@ -82,6 +82,12 @@ public class CsTicket implements Serializable {
     private Long handlerId;
 
     /**
+     * 自动分配命中的规则 ID；人工指派或未分配到人时为空
+     */
+    @TableField("assign_rule_id")
+    private Long assignRuleId;
+
+    /**
      * 完成时间
      */
     @TableField("finish_time")
@@ -228,6 +234,14 @@ public class CsTicket implements Serializable {
         this.handlerId = handlerId;
     }
 
+    public Long getAssignRuleId() {
+        return assignRuleId;
+    }
+
+    public void setAssignRuleId(Long assignRuleId) {
+        this.assignRuleId = assignRuleId;
+    }
+
     public LocalDateTime getFinishTime() {
         return finishTime;
     }
@@ -329,6 +343,7 @@ public class CsTicket implements Serializable {
             ", priority = " + priority +
             ", status = " + status +
             ", handlerId = " + handlerId +
+            ", assignRuleId = " + assignRuleId +
             ", finishTime = " + finishTime +
             ", lastMessageTime = " + lastMessageTime +
             ", lastMessage = " + lastMessage +

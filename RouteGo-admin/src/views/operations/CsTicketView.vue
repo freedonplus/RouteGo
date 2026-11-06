@@ -1,7 +1,7 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { Bell, MuteNotification, Plus, Refresh, Search, Setting } from '@element-plus/icons-vue'
 import {
   assignTicket,
   deleteTicket,
@@ -12,6 +12,7 @@ import {
 } from '@/api/operations'
 import { pageUsers } from '@/api/system'
 import { formatDateTime } from '@/utils/format'
+import { isSoundOn, playNewMessageSound, setSoundOn, setTitleBadge } from '@/utils/notice'
 import PageHeader from '@/components/PageHeader.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -19,6 +20,7 @@ import KpiCard from '@/components/KpiCard.vue'
 import RemotePicker from '@/components/RemotePicker.vue'
 import TicketFormDrawer from './TicketFormDrawer.vue'
 import TicketChatDrawer from './TicketChatDrawer.vue'
+import CsAssignRuleDrawer from './CsAssignRuleDrawer.vue'
 
 const loading = ref(false)
 const rows = ref([])
@@ -31,6 +33,7 @@ const filters = reactive({
   status: '',
   handlerId: null,
   unhandled: '',
+  unread: '',
 })
 const timeRange = ref([])
 const page = reactive({ pageNum: 1, pageSize: 10, total: 0 })
@@ -38,6 +41,13 @@ const page = reactive({ pageNum: 1, pageSize: 10, total: 0 })
 const formOpen = ref(false)
 const chatOpen = ref(false)
 const chatTicketId = ref(null)
+const assignRuleOpen = ref(false)
+
+/** 全局待回复总数：决定是否响铃、标题角标与顶部横幅 */
+const unreadTotal = ref(0)
+const soundOn = ref(isSoundOn())
+let statsTimer = null
+let statsReady = false
 
 const assignOpen = ref(false)
 const assignTarget = ref(null)
@@ -73,12 +83,56 @@ function typeLabel(type) {
   return TYPE_OPTIONS.find((item) => item.value === Number(type))?.label || '—'
 }
 
+/**
+ * 拉统计的同时做提醒：未读总数比上次多就响一声并弹通知。
+ * 首次加载只记录基线，避免刚进页面就为历史未读响铃。
+ */
 async function loadStats() {
   try {
-    stats.value = await getTicketStatistics()
+    const data = await getTicketStatistics()
+    const next = Number(data.staffUnread || 0)
+    const prev = unreadTotal.value
+    stats.value = data
+    unreadTotal.value = next
+    setTitleBadge(next)
+    if (statsReady && next > prev) {
+      playNewMessageSound()
+      ElNotification({
+        title: '收到新的客户消息',
+        message: `新增 ${next - prev} 条，当前共 ${next} 条待回复`,
+        type: 'warning',
+        duration: 6000,
+        onClick: () => showUnreadOnly(),
+      })
+    }
+    statsReady = true
   } catch {
     stats.value = null
   }
+}
+
+/** 一键筛出待回复的工单 */
+function showUnreadOnly() {
+  filters.unread = true
+  page.pageNum = 1
+  load()
+}
+
+function clearUnreadFilter() {
+  filters.unread = ''
+  page.pageNum = 1
+  load()
+}
+
+function toggleSound() {
+  soundOn.value = !soundOn.value
+  setSoundOn(soundOn.value)
+  if (soundOn.value) playNewMessageSound()
+}
+
+/** 未读行整行标红，一眼能看出哪几行等着回 */
+function rowClassName({ row }) {
+  return Number(row.staffUnread) > 0 ? 'cs-row-unread' : ''
 }
 
 async function load() {
@@ -92,6 +146,7 @@ async function load() {
       status: filters.status === '' ? undefined : filters.status,
       handlerId: filters.handlerId || undefined,
       unhandled: filters.unhandled === '' ? undefined : filters.unhandled,
+      unread: filters.unread === '' ? undefined : filters.unread,
       createTimeStart: timeRange.value?.[0] ? `${timeRange.value[0]} 00:00:00` : undefined,
       createTimeEnd: timeRange.value?.[1] ? `${timeRange.value[1]} 23:59:59` : undefined,
       pageNum: page.pageNum,
@@ -122,6 +177,7 @@ function resetFilters() {
     status: '',
     handlerId: null,
     unhandled: '',
+    unread: '',
   })
   timeRange.value = []
   page.pageNum = 1
@@ -214,9 +270,28 @@ async function remove(row) {
   }
 }
 
+function startStatsPolling() {
+  stopStatsPolling()
+  // 15 秒一次：比对话内的 5 秒轮询慢，但足够及时，也不至于给后端添压力
+  statsTimer = setInterval(loadStats, 15000)
+}
+
+function stopStatsPolling() {
+  if (statsTimer) {
+    clearInterval(statsTimer)
+    statsTimer = null
+  }
+}
+
 onMounted(() => {
   loadStats()
   load()
+  startStatsPolling()
+})
+
+onBeforeUnmount(() => {
+  stopStatsPolling()
+  setTitleBadge(0)
 })
 </script>
 
@@ -224,6 +299,23 @@ onMounted(() => {
   <div class="pb-4">
     <PageHeader title="客服工单" description="0 待处理 → 1 处理中 → 2 已解决 → 3 已关闭；已关闭为终态">
       <template #actions>
+        <el-button
+          size="small"
+          :icon="soundOn ? Bell : MuteNotification"
+          :type="soundOn ? 'default' : 'info'"
+          :title="soundOn ? '新消息提示音已开启，点击关闭' : '提示音已关闭，点击开启'"
+          @click="toggleSound"
+        >
+          {{ soundOn ? '提示音开' : '提示音关' }}
+        </el-button>
+        <el-button
+          v-perm="'operations:CsAssignRule:page'"
+          size="small"
+          :icon="Setting"
+          @click="assignRuleOpen = true"
+        >
+          分配规则
+        </el-button>
         <el-button size="small" :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
         <el-button v-perm="'operations:CsTicket:create'" size="small" type="primary" :icon="Plus" @click="formOpen = true">
           新建工单
@@ -232,12 +324,32 @@ onMounted(() => {
     </PageHeader>
 
     <div class="rg-page space-y-2">
-      <div v-if="stats" class="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
+      <!-- 待回复横幅：比表里的角标更早被注意到，点一下直接筛出这些工单 -->
+      <div
+        v-if="unreadTotal > 0"
+        class="flex flex-wrap items-center gap-2 rounded border border-[#fecaca] bg-[#fff5f5] px-3 py-2"
+      >
+        <span class="relative flex h-2.5 w-2.5 shrink-0">
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ef4444] opacity-75"></span>
+          <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ef4444]"></span>
+        </span>
+        <span class="text-[12px] font-medium text-[#b91c1c]">
+          客户有 {{ unreadTotal }} 条消息等待回复
+        </span>
+        <span class="text-[11px] text-[#ef4444]/80">每 15 秒自动刷新，有新消息会响铃提醒</span>
+        <div class="ml-auto flex gap-1">
+          <el-button size="small" type="danger" plain @click="showUnreadOnly">只看待回复</el-button>
+          <el-button v-if="filters.unread === true" size="small" @click="clearUnreadFilter">取消筛选</el-button>
+        </div>
+      </div>
+
+      <div v-if="stats" class="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
         <KpiCard label="工单总数" :value="stats.total ?? 0" />
         <KpiCard label="待处理" :value="stats.pending ?? 0" hint="含未指派" />
         <KpiCard label="处理中" :value="stats.processing ?? 0" />
         <KpiCard label="已解决" :value="stats.resolved ?? 0" />
         <KpiCard label="未指派" :value="stats.unhandled ?? 0" hint="需要尽快认领" />
+        <KpiCard label="待回复消息" :value="stats.staffUnread ?? 0" hint="客户已发、客服未读" />
         <KpiCard label="高优待处理" :value="stats.urgentPending ?? 0" hint="优先级为高" />
       </div>
 
@@ -292,6 +404,13 @@ onMounted(() => {
           </el-select>
         </label>
         <label class="flex flex-col gap-0.5">
+          <span class="rg-label">待回复</span>
+          <el-select v-model="filters.unread" size="small" style="width: 100px">
+            <el-option label="全部" value="" />
+            <el-option label="仅待回复" :value="true" />
+          </el-select>
+        </label>
+        <label class="flex flex-col gap-0.5">
           <span class="rg-label">创建时间</span>
           <el-date-picker
             v-model="timeRange"
@@ -312,7 +431,16 @@ onMounted(() => {
 
       <div class="rg-card min-w-0">
         <div class="rg-scroll-x">
-          <el-table v-loading="loading" :data="rows" size="small" border stripe row-key="id" empty-text="没有匹配的工单">
+          <el-table
+            v-loading="loading"
+            :data="rows"
+            size="small"
+            border
+            stripe
+            row-key="id"
+            empty-text="没有匹配的工单"
+            :row-class-name="rowClassName"
+          >
             <el-table-column label="工单" min-width="220">
               <template #default="{ row }">
                 <div class="flex items-start gap-1">
@@ -328,10 +456,10 @@ onMounted(() => {
                       <span class="truncate">{{ row.ticketNo }} · {{ typeLabel(row.type) }} · {{ row.messageCount || 0 }} 条对话</span>
                       <span
                         v-if="Number(row.staffUnread) > 0"
-                        class="shrink-0 rounded-full bg-[#ef4444] px-1.5 text-[9px] leading-4 text-white"
+                        class="inline-flex shrink-0 animate-pulse items-center gap-0.5 rounded-full bg-[#ef4444] px-1.5 text-[10px] font-medium leading-4 text-white shadow-sm ring-2 ring-white"
                         :title="`客户有 ${row.staffUnread} 条待回复消息`"
                       >
-                        {{ Number(row.staffUnread) > 99 ? '99+' : row.staffUnread }}
+                        {{ Number(row.staffUnread) > 99 ? '99+' : row.staffUnread }} 条待回
                       </span>
                     </p>
                   </div>
@@ -417,6 +545,7 @@ onMounted(() => {
 
     <TicketFormDrawer v-model="formOpen" @saved="() => { load(); loadStats() }" />
     <TicketChatDrawer v-model="chatOpen" :ticket-id="chatTicketId" @changed="() => { load(); loadStats() }" />
+    <CsAssignRuleDrawer v-model="assignRuleOpen" />
 
     <el-dialog v-model="assignOpen" title="指派处理人" width="420px" append-to-body>
       <p class="mb-2 text-[11px] text-[#64748b]">待处理的工单被指派后自动进入「处理中」。</p>
@@ -435,3 +564,18 @@ onMounted(() => {
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+/* 未读行：浅红底 + 左侧红条，扫一眼就知道哪几行要回 */
+:deep(.el-table .cs-row-unread > td.el-table__cell) {
+  background-color: #fff6f6 !important;
+}
+
+:deep(.el-table .cs-row-unread > td.el-table__cell:first-child) {
+  box-shadow: inset 3px 0 0 #ef4444;
+}
+
+:deep(.el-table .cs-row-unread:hover > td.el-table__cell) {
+  background-color: #ffecec !important;
+}
+</style>

@@ -23,6 +23,8 @@ import com.rg.operations.mapper.model.OrderSnapshot;
 import com.rg.operations.mapper.model.UserSnapshot;
 import com.rg.operations.service.CsTicketService;
 import com.rg.operations.support.BizNoGenerator;
+import com.rg.operations.support.CsAssignEngine;
+import com.rg.operations.support.AssignDecision;
 import com.rg.operations.support.CurrentOperator;
 import com.rg.operations.support.TicketStateMachine;
 import com.rg.operations.vo.CsTicketVO;
@@ -58,15 +60,18 @@ public class CsTicketServiceImpl extends ServiceImpl<CsTicketMapper, CsTicket> i
     private final CsMessageMapper messageMapper;
     private final OperationsGatewayMapper gateway;
     private final SensitiveCipher cipher;
+    private final CsAssignEngine assignEngine;
 
     public CsTicketServiceImpl(CsTicketMapper ticketMapper,
                                CsMessageMapper messageMapper,
                                OperationsGatewayMapper gateway,
-                               SensitiveCipher cipher) {
+                               SensitiveCipher cipher,
+                               CsAssignEngine assignEngine) {
         this.ticketMapper = ticketMapper;
         this.messageMapper = messageMapper;
         this.gateway = gateway;
         this.cipher = cipher;
+        this.assignEngine = assignEngine;
     }
 
     @Override
@@ -99,6 +104,9 @@ public class CsTicketServiceImpl extends ServiceImpl<CsTicketMapper, CsTicket> i
         }
         if (Boolean.TRUE.equals(query.getUnhandled())) {
             wrapper.isNull(CsTicket::getHandlerId).eq(CsTicket::getStatus, TicketStateMachine.PENDING);
+        }
+        if (Boolean.TRUE.equals(query.getUnread())) {
+            wrapper.gt(CsTicket::getStaffUnread, 0);
         }
         if (query.getCreateTimeStart() != null) {
             wrapper.ge(CsTicket::getCreateTime, query.getCreateTimeStart());
@@ -142,6 +150,18 @@ public class CsTicketServiceImpl extends ServiceImpl<CsTicketMapper, CsTicket> i
             requireHandler(handlerId);
         }
 
+        // 没指定处理人时走自动分配：规则命中了就直接进入「处理中」，
+        // 和手动指派的效果一致，客服侧也不用再点一次「开始处理」
+        Long assignRuleId = null;
+        if (handlerId == null) {
+            AssignDecision decision = assignEngine.decide(request.getType(),
+                    request.getPriority() == null ? (byte) 2 : request.getPriority());
+            if (decision.assigned()) {
+                handlerId = decision.handlerId();
+                assignRuleId = decision.ruleId();
+            }
+        }
+
         CsTicket ticket = new CsTicket();
         ticket.setTicketNo(nextTicketNo());
         ticket.setCustomerId(customerId);
@@ -152,6 +172,7 @@ public class CsTicketServiceImpl extends ServiceImpl<CsTicketMapper, CsTicket> i
         ticket.setPriority(request.getPriority() == null ? (byte) 2 : request.getPriority());
         ticket.setStatus(handlerId == null ? TicketStateMachine.PENDING : TicketStateMachine.PROCESSING);
         ticket.setHandlerId(handlerId);
+        ticket.setAssignRuleId(assignRuleId);
         ticket.setVersion(0);
         ticket.setCreateBy(CurrentOperator.id());
         ticket.setCreateTime(LocalDateTime.now());
@@ -291,6 +312,7 @@ public class CsTicketServiceImpl extends ServiceImpl<CsTicketMapper, CsTicket> i
         vo.setTotal(statusMap.values().stream().mapToLong(Long::longValue).sum());
         vo.setUnhandled(ticketMapper.countUnhandled());
         vo.setUrgentPending(ticketMapper.countUrgentPending());
+        vo.setStaffUnread(ticketMapper.countStaffUnread());
 
         Map<Integer, Long> typeMap = ticketMapper.countByType().stream()
                 .collect(Collectors.toMap(GroupCount::getGroupKey, GroupCount::getTotal));
@@ -407,6 +429,7 @@ public class CsTicketServiceImpl extends ServiceImpl<CsTicketMapper, CsTicket> i
         vo.setStatus(ticket.getStatus());
         vo.setStatusDesc(OperationsDict.of(OperationsDict.TICKET_STATUS, ticket.getStatus()));
         vo.setHandlerId(ticket.getHandlerId());
+        vo.setAssignRuleId(ticket.getAssignRuleId());
         if (ticket.getHandlerId() != null) {
             UserSnapshot handler = users.get(ticket.getHandlerId());
             if (handler != null) {

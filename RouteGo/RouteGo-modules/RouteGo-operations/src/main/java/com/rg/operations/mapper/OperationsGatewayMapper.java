@@ -63,4 +63,17 @@ public interface OperationsGatewayMapper {
             </script>
             """)
     List<UserSnapshot> selectUsers(@Param("ids") Collection<Long> ids);
+
+    /**
+     * 只返回「未删除且启用」的账号，用于自动分配时剔除离职/停用的客服。
+     */
+    @Select("""
+            <script>
+            SELECT id, username, nickname
+            FROM sys_user
+            WHERE deleted = 0 AND status = 1 AND id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+            </script>
+            """)
+    List<UserSnapshot> selectEnabledUsers(@Param("ids") Collection<Long> ids);
 }

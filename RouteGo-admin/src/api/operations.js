@@ -50,6 +50,45 @@ export function sendMessage(data) {
   return http.post('/operations/cs-message', data)
 }
 
+/* 工单自动分配规则 */
+export function pageAssignRules(params) {
+  return http.get('/operations/cs-assign-rule/page', { params })
+}
+
+export function listEnabledAssignRules() {
+  return http.get('/operations/cs-assign-rule/enabled')
+}
+
+export function getAssignRule(id) {
+  return http.get(`/operations/cs-assign-rule/${id}`)
+}
+
+export function createAssignRule(data) {
+  return http.post('/operations/cs-assign-rule', data)
+}
+
+export function updateAssignRule(id, data) {
+  return http.put(`/operations/cs-assign-rule/${id}`, data)
+}
+
+export function setAssignRuleStatus(id, enabled) {
+  return http.put(`/operations/cs-assign-rule/${id}/status`, null, { params: { enabled } })
+}
+
+export function deleteAssignRule(id) {
+  return http.delete(`/operations/cs-assign-rule/${id}`)
+}
+
+/** 试算：给工单类型与优先级，返回会命中的规则与客服 */
+export function previewAssignRule(type, priority) {
+  return http.get('/operations/cs-assign-rule/preview', { params: { type, priority } })
+}
+
+/** 客服当前在手工单量 */
+export function getAssignWorkload(userIds) {
+  return http.get('/operations/cs-assign-rule/workload', { params: { userIds: userIds.join(',') } })
+}
+
 /* 定制需求 */
 export function pageRequirements(params) {
   return http.get('/operations/custom-requirement/page', { params })

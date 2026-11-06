@@ -146,6 +146,14 @@ public final class CacheKeyConstants {
 
         private Operations() {
         }
+
+        /**
+         * 客服自动分配的轮询游标，参数为规则 ID。
+         * <p>
+         * 纯自增计数，不设过期：规则删掉后 key 自然成为孤儿，由巡检脚本按前缀清理即可，
+         * 这里不为了省一个 key 让轮询每次都从 0 开始（会导致总是分给同一个人）。
+         */
+        public static final String CS_ASSIGN_ROUND_ROBIN = "operations:cs:assign:rr:%s";
     }
 
     /**

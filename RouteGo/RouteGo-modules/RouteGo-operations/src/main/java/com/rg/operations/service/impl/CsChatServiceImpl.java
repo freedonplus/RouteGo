@@ -19,6 +19,8 @@ import com.rg.operations.mapper.model.UserSnapshot;
 import com.rg.operations.service.CsChatService;
 import com.rg.operations.service.CsMessageService;
 import com.rg.operations.support.BizNoGenerator;
+import com.rg.operations.support.AssignDecision;
+import com.rg.operations.support.CsAssignEngine;
 import com.rg.operations.support.TicketStateMachine;
 import com.rg.operations.vo.CsMessageVO;
 import com.rg.operations.vo.CsSessionVO;
@@ -59,15 +61,18 @@ public class CsChatServiceImpl implements CsChatService {
     private final CsMessageMapper messageMapper;
     private final CsMessageService messageService;
     private final OperationsGatewayMapper gateway;
+    private final CsAssignEngine assignEngine;
 
     public CsChatServiceImpl(CsTicketMapper ticketMapper,
                              CsMessageMapper messageMapper,
                              CsMessageService messageService,
-                             OperationsGatewayMapper gateway) {
+                             OperationsGatewayMapper gateway,
+                             CsAssignEngine assignEngine) {
         this.ticketMapper = ticketMapper;
         this.messageMapper = messageMapper;
         this.messageService = messageService;
         this.gateway = gateway;
+        this.assignEngine = assignEngine;
     }
 
     @Override
@@ -93,11 +98,18 @@ public class CsChatServiceImpl implements CsChatService {
         ticket.setTicketNo(nextTicketNo());
         ticket.setCustomerId(customerId);
         ticket.setOrderId(request.getOrderId());
-        ticket.setType(normalizeType(request.getType()));
+        byte type = normalizeType(request.getType());
+        ticket.setType(type);
         ticket.setTitle(resolveTitle(request.getTitle(), content));
         ticket.setContent(content.isEmpty() ? IMAGE_ONLY_CONTENT : content);
         ticket.setPriority((byte) 2);
-        ticket.setStatus(TicketStateMachine.PENDING);
+
+        // 客户咨询进来先按规则分配：分到人就直接进「处理中」，客户侧立刻能看到接待客服；
+        // 没匹配到规则（或候选客服都停用了）就留在待处理池等人工认领
+        AssignDecision decision = assignEngine.decide(type, (byte) 2);
+        ticket.setStatus(decision.assigned() ? TicketStateMachine.PROCESSING : TicketStateMachine.PENDING);
+        ticket.setHandlerId(decision.handlerId());
+        ticket.setAssignRuleId(decision.assigned() ? decision.ruleId() : null);
         ticket.setVersion(0);
         ticket.setCreateBy(customerId);
         ticket.setCreateTime(LocalDateTime.now());

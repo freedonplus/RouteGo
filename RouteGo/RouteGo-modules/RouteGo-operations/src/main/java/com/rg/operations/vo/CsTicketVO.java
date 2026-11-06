@@ -66,6 +66,9 @@ public class CsTicketVO {
     @Schema(description = "处理人姓名")
     private String handlerName;
 
+    @Schema(description = "自动分配命中的规则 ID；人工指派或未分到人时为空")
+    private Long assignRuleId;
+
     @Schema(description = "完成时间：进入已解决/已关闭时写入")
     private LocalDateTime finishTime;
 

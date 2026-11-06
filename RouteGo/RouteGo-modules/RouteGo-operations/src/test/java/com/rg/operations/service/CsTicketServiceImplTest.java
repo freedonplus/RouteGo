@@ -12,6 +12,8 @@ import com.rg.operations.mapper.CsTicketMapper;
 import com.rg.operations.mapper.OperationsGatewayMapper;
 import com.rg.operations.mapper.model.UserSnapshot;
 import com.rg.operations.service.impl.CsTicketServiceImpl;
+import com.rg.operations.support.AssignDecision;
+import com.rg.operations.support.CsAssignEngine;
 import com.rg.operations.vo.CsTicketVO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -32,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,6 +54,8 @@ class CsTicketServiceImplTest {
     private OperationsGatewayMapper gateway;
     @Mock
     private SensitiveCipher cipher;
+    @Mock
+    private CsAssignEngine assignEngine;
 
     private CsTicketServiceImpl service;
 
@@ -63,7 +68,8 @@ class CsTicketServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new CsTicketServiceImpl(ticketMapper, messageMapper, gateway, cipher);
+        service = new CsTicketServiceImpl(ticketMapper, messageMapper, gateway, cipher, assignEngine);
+        lenient().when(assignEngine.decide(any(), any())).thenReturn(AssignDecision.none());
     }
 
     @Test

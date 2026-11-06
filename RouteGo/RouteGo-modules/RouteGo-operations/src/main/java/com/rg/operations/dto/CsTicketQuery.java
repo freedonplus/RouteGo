@@ -45,6 +45,9 @@ public class CsTicketQuery extends PageQuery {
     @Schema(description = "只看未指派且待处理的工单")
     private Boolean unhandled;
 
+    @Schema(description = "只看有未读消息的工单（客户发了消息但客服还没看）")
+    private Boolean unread;
+
     @Schema(description = "创建时间起（含）")
     private LocalDateTime createTimeStart;
 
