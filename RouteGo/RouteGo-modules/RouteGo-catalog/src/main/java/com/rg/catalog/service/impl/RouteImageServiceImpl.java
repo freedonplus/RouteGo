@@ -8,7 +8,9 @@ import com.rg.catalog.entity.RouteImage;
 import com.rg.catalog.mapper.RouteImageMapper;
 import com.rg.catalog.mapper.RouteMapper;
 import com.rg.catalog.service.RouteImageService;
+import com.rg.catalog.support.RouteCacheKeys;
 import com.rg.catalog.vo.RouteImageVO;
+import com.rg.common.cache.CacheHelper;
 import com.rg.common.exception.ErrorCode;
 import com.rg.common.exception.serviceException.CatalogException;
 import com.rg.common.storage.TempUrlSigner;
@@ -27,12 +29,14 @@ public class RouteImageServiceImpl extends ServiceImpl<RouteImageMapper, RouteIm
     private final RouteImageMapper imageMapper;
     private final RouteMapper routeMapper;
     private final TempUrlSigner tempUrlSigner;
+    private final CacheHelper cacheHelper;
 
     public RouteImageServiceImpl(RouteImageMapper imageMapper, RouteMapper routeMapper,
-                                 TempUrlSigner tempUrlSigner) {
+                                 TempUrlSigner tempUrlSigner, CacheHelper cacheHelper) {
         this.imageMapper = imageMapper;
         this.routeMapper = routeMapper;
         this.tempUrlSigner = tempUrlSigner;
+        this.cacheHelper = cacheHelper;
     }
 
     @Override
@@ -57,6 +61,8 @@ public class RouteImageServiceImpl extends ServiceImpl<RouteImageMapper, RouteIm
         image.setImageUrl(tempUrlSigner.canonicalize(request.getImageUrl().trim()));
         image.setSort(request.getSort() == null ? 0 : request.getSort());
         imageMapper.insert(image);
+        // 详情缓存里带着图集，新增图片后必须失效
+        cacheHelper.evictAfterCommit(RouteCacheKeys.detail(image.getRouteId()));
         return image.getId();
     }
 
@@ -68,6 +74,7 @@ public class RouteImageServiceImpl extends ServiceImpl<RouteImageMapper, RouteIm
             throw new CatalogException(ErrorCode.NOT_FOUND, "图片不存在");
         }
         imageMapper.deleteById(id);
+        cacheHelper.evictAfterCommit(RouteCacheKeys.detail(image.getRouteId()));
     }
 
     private RouteImageVO toVO(RouteImage image) {

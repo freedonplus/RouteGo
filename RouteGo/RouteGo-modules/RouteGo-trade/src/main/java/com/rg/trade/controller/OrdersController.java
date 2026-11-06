@@ -11,6 +11,7 @@ import com.rg.trade.dto.OrderPayRequest;
 import com.rg.trade.dto.OrderQuery;
 import com.rg.trade.dto.OrderUpdateRequest;
 import com.rg.trade.service.OrderService;
+import com.rg.trade.support.OrderCreateFacade;
 import com.rg.trade.vo.OrderVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,9 +41,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrdersController {
 
     private final OrderService orderService;
+    private final OrderCreateFacade orderCreateFacade;
 
-    public OrdersController(OrderService orderService) {
+    public OrdersController(OrderService orderService, OrderCreateFacade orderCreateFacade) {
         this.orderService = orderService;
+        this.orderCreateFacade = orderCreateFacade;
     }
 
     @Operation(summary = "订单分页", description = "支持按订单号/客户/线路/状态/出发日期/下单时间筛选；联系电话按盲索引精确匹配")
@@ -58,12 +62,16 @@ public class OrdersController {
         return Result.success(orderService.detail(id));
     }
 
-    @Operation(summary = "后台代录订单", description = "按当前线路与班期生成快照并占用库存，初始状态为待支付")
+    @Operation(summary = "后台代录订单",
+            description = "按当前线路与班期生成快照并占用库存，初始状态为待支付；"
+                    + "可传 Idempotency-Key 头防止重复提交")
     @SaCheckPermission("trade:Orders:create")
     @OperLog(title = "订单管理", type = BusinessType.INSERT)
     @PostMapping
-    public Result<Long> create(@Valid @RequestBody OrderCreateRequest request) {
-        return Result.success(orderService.create(request));
+    public Result<Long> create(@Valid @RequestBody OrderCreateRequest request,
+                               @Parameter(description = "幂等键，同键重复提交返回同一张订单")
+                               @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return Result.success(orderCreateFacade.create(request, idempotencyKey));
     }
 
     @Operation(summary = "修改订单联系信息", description = "金额、线路与出发日期为快照，不可修改")

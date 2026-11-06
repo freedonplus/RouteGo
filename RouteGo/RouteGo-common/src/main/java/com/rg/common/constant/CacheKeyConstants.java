@@ -95,21 +95,39 @@ public final class CacheKeyConstants {
     }
 
     /**
-     * 线路模块（后续批次使用）。
+     * 线路模块。
      */
     public static final class Catalog {
 
         private Catalog() {
         }
+
+        /**
+         * 线路详情聚合（主表 + 分类 + 图集 + 行程 + 标签）。参数为线路 ID。
+         * <p>
+         * 缓存里存的是库内相对路径，签名链接在出参时生成，不进缓存。
+         */
+        public static final String ROUTE_DETAIL = "catalog:route:detail:%s";
     }
 
     /**
-     * 订单模块（后续批次使用）。
+     * 订单模块。
      */
     public static final class Trade {
 
         private Trade() {
         }
+
+        /**
+         * 下单幂等占位与结果。参数依次为：客户 ID、客户端幂等键。
+         * 值为 {@code PENDING} 或 {@code DONE:{orderId}}。
+         */
+        public static final String ORDER_IDEM = "trade:order:idem:%s:%s";
+
+        /**
+         * 未传幂等键时的窗口去重键。参数依次为：客户 ID、线路 ID、班期 ID、出行人数。
+         */
+        public static final String ORDER_DUP = "trade:order:dup:%s:%s:%s:%s";
     }
 
     /**
@@ -140,5 +158,12 @@ public final class CacheKeyConstants {
 
         /** 缓存重建互斥锁，参数为被重建的缓存 key。 */
         public static final String CACHE_REBUILD = "lock:cache:rebuild:%s";
+
+        /**
+         * 班期维度下单锁，参数为班期 ID。
+         * <p>
+         * 加在事务外层：锁包住「事务开始 → 提交结束」，释放时数据已可见。
+         */
+        public static final String DEPARTURE = "lock:departure:%s";
     }
 }

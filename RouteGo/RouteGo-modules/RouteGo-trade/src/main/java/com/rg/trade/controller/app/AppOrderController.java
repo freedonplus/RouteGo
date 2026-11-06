@@ -12,6 +12,7 @@ import com.rg.trade.dto.OrderQuery;
 import com.rg.trade.dto.app.AppOrderCreateRequest;
 import com.rg.trade.service.OrderService;
 import com.rg.trade.service.OrderTravelerService;
+import com.rg.trade.support.OrderCreateFacade;
 import com.rg.trade.vo.OrderVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,16 +47,23 @@ public class AppOrderController {
 
     private final OrderService orderService;
     private final OrderTravelerService orderTravelerService;
+    private final OrderCreateFacade orderCreateFacade;
 
     public AppOrderController(OrderService orderService,
-                              OrderTravelerService orderTravelerService) {
+                              OrderTravelerService orderTravelerService,
+                              OrderCreateFacade orderCreateFacade) {
         this.orderService = orderService;
         this.orderTravelerService = orderTravelerService;
+        this.orderCreateFacade = orderCreateFacade;
     }
 
-    @Operation(summary = "创建订单", description = "会员下单；客户身份取登录态，无需传 customerId。")
+    @Operation(summary = "创建订单",
+            description = "会员下单；客户身份取登录态，无需传 customerId。"
+                    + "建议前端每次提交生成 UUID 放在 Idempotency-Key 头，重复提交会返回同一张订单。")
     @PostMapping
-    public Result<Long> create(@Valid @RequestBody AppOrderCreateRequest request) {
+    public Result<Long> create(@Valid @RequestBody AppOrderCreateRequest request,
+                               @Parameter(description = "幂等键，同键重复提交返回同一张订单")
+                               @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         OrderCreateRequest create = new OrderCreateRequest();
         create.setCustomerId(requireCustomer());
         create.setRouteId(request.getRouteId());
@@ -65,7 +74,7 @@ public class AppOrderController {
         create.setRemark(request.getRemark());
         create.setSource(SOURCE_APP);
         create.setTravelers(request.getTravelers());
-        return Result.success(orderService.create(create));
+        return Result.success(orderCreateFacade.create(create, idempotencyKey));
     }
 
     @Operation(summary = "我的订单", description = "只返回当前登录会员的订单；status 不传为全部。")

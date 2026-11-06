@@ -19,10 +19,12 @@ import com.rg.catalog.mapper.RouteMapper;
 import com.rg.catalog.mapper.RouteTagMapper;
 import com.rg.catalog.mapper.RouteTagRelMapper;
 import com.rg.catalog.service.RouteService;
+import com.rg.catalog.support.RouteCacheKeys;
 import com.rg.catalog.vo.RouteImageVO;
 import com.rg.catalog.vo.RouteItineraryVO;
 import com.rg.catalog.vo.RouteTagVO;
 import com.rg.catalog.vo.RouteVO;
+import com.rg.common.cache.CacheHelper;
 import com.rg.common.exception.ErrorCode;
 import com.rg.common.exception.serviceException.CatalogException;
 import com.rg.common.storage.TempUrlSigner;
@@ -57,6 +59,7 @@ public class RouteServiceImpl extends ServiceImpl<RouteMapper, Route> implements
     private final RouteTagMapper tagMapper;
     private final RouteTagRelMapper tagRelMapper;
     private final TempUrlSigner tempUrlSigner;
+    private final CacheHelper cacheHelper;
 
     public RouteServiceImpl(RouteMapper routeMapper,
                             RouteCategoryMapper categoryMapper,
@@ -64,7 +67,8 @@ public class RouteServiceImpl extends ServiceImpl<RouteMapper, Route> implements
                             RouteImageMapper imageMapper,
                             RouteTagMapper tagMapper,
                             RouteTagRelMapper tagRelMapper,
-                            TempUrlSigner tempUrlSigner) {
+                            TempUrlSigner tempUrlSigner,
+                            CacheHelper cacheHelper) {
         this.routeMapper = routeMapper;
         this.categoryMapper = categoryMapper;
         this.itineraryMapper = itineraryMapper;
@@ -72,6 +76,7 @@ public class RouteServiceImpl extends ServiceImpl<RouteMapper, Route> implements
         this.tagMapper = tagMapper;
         this.tagRelMapper = tagRelMapper;
         this.tempUrlSigner = tempUrlSigner;
+        this.cacheHelper = cacheHelper;
     }
 
     @Override
@@ -110,8 +115,19 @@ public class RouteServiceImpl extends ServiceImpl<RouteMapper, Route> implements
         return new PageResult<>(records, page.getTotal(), page.getCurrent(), page.getSize(), page.getPages());
     }
 
+    /**
+     * 线路详情。命中缓存直接返回；未命中回源并写入缓存（含空值哨兵，防穿透）。
+     * <p>
+     * 返回对象是 Redis 反序列化出来的新实例，调用方（如 C 端 Controller）可以安全地
+     * 就地改写图片地址，不会污染缓存。
+     */
     @Override
     public RouteVO detail(Long id) {
+        return cacheHelper.getOrLoad(RouteCacheKeys.detail(id), RouteCacheKeys.DETAIL_TTL,
+                () -> loadDetail(id));
+    }
+
+    private RouteVO loadDetail(Long id) {
         Route route = requireRoute(id);
         RouteVO vo = toVO(route);
 
@@ -188,6 +204,7 @@ public class RouteServiceImpl extends ServiceImpl<RouteMapper, Route> implements
         if (routeMapper.updateById(update) == 0) {
             throw new CatalogException(ErrorCode.CONFLICT, "数据已被修改，请刷新后重试");
         }
+        cacheHelper.evictAfterCommit(RouteCacheKeys.detail(id));
     }
 
     @Override
@@ -204,6 +221,7 @@ public class RouteServiceImpl extends ServiceImpl<RouteMapper, Route> implements
         if (routeMapper.updateById(update) == 0) {
             throw new CatalogException(ErrorCode.CONFLICT, "数据已被修改，请刷新后重试");
         }
+        cacheHelper.evictAfterCommit(RouteCacheKeys.detail(id));
     }
 
     @Override
@@ -215,6 +233,7 @@ public class RouteServiceImpl extends ServiceImpl<RouteMapper, Route> implements
         itineraryMapper.delete(Wrappers.<RouteItinerary>lambdaQuery().eq(RouteItinerary::getRouteId, id));
         imageMapper.delete(Wrappers.<RouteImage>lambdaQuery().eq(RouteImage::getRouteId, id));
         tagRelMapper.delete(Wrappers.<RouteTagRel>lambdaQuery().eq(RouteTagRel::getRouteId, id));
+        cacheHelper.evictAfterCommit(RouteCacheKeys.detail(id));
     }
 
     private Route requireRoute(Long id) {

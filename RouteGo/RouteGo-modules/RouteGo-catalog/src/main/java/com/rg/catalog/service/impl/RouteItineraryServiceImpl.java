@@ -9,7 +9,9 @@ import com.rg.catalog.entity.RouteItinerary;
 import com.rg.catalog.mapper.RouteItineraryMapper;
 import com.rg.catalog.mapper.RouteMapper;
 import com.rg.catalog.service.RouteItineraryService;
+import com.rg.catalog.support.RouteCacheKeys;
 import com.rg.catalog.vo.RouteItineraryVO;
+import com.rg.common.cache.CacheHelper;
 import com.rg.common.exception.ErrorCode;
 import com.rg.common.exception.serviceException.CatalogException;
 import com.rg.common.storage.TempUrlSigner;
@@ -28,12 +30,14 @@ public class RouteItineraryServiceImpl extends ServiceImpl<RouteItineraryMapper,
     private final RouteItineraryMapper itineraryMapper;
     private final RouteMapper routeMapper;
     private final TempUrlSigner tempUrlSigner;
+    private final CacheHelper cacheHelper;
 
     public RouteItineraryServiceImpl(RouteItineraryMapper itineraryMapper, RouteMapper routeMapper,
-                                     TempUrlSigner tempUrlSigner) {
+                                     TempUrlSigner tempUrlSigner, CacheHelper cacheHelper) {
         this.itineraryMapper = itineraryMapper;
         this.routeMapper = routeMapper;
         this.tempUrlSigner = tempUrlSigner;
+        this.cacheHelper = cacheHelper;
     }
 
     @Override
@@ -54,6 +58,7 @@ public class RouteItineraryServiceImpl extends ServiceImpl<RouteItineraryMapper,
         applyRequest(itinerary, request);
         itinerary.setRouteId(request.getRouteId());
         itineraryMapper.insert(itinerary);
+        cacheHelper.evictAfterCommit(RouteCacheKeys.detail(request.getRouteId()));
         return itinerary.getId();
     }
 
@@ -69,13 +74,15 @@ public class RouteItineraryServiceImpl extends ServiceImpl<RouteItineraryMapper,
         // 行程不允许跨线路搬迁
         update.setRouteId(existing.getRouteId());
         itineraryMapper.updateById(update);
+        cacheHelper.evictAfterCommit(RouteCacheKeys.detail(existing.getRouteId()));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteItinerary(Long id) {
-        requireItinerary(id);
+        RouteItinerary existing = requireItinerary(id);
         itineraryMapper.deletePhysicallyById(id);
+        cacheHelper.evictAfterCommit(RouteCacheKeys.detail(existing.getRouteId()));
     }
 
     @Override
@@ -97,6 +104,7 @@ public class RouteItineraryServiceImpl extends ServiceImpl<RouteItineraryMapper,
             itinerary.setRouteId(routeId);
             itineraryMapper.insert(itinerary);
         }
+        cacheHelper.evictAfterCommit(RouteCacheKeys.detail(routeId));
     }
 
     private Route requireRoute(Long routeId) {
