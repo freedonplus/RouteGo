@@ -64,8 +64,12 @@ function onChange(value) {
   emit('change', hit?.raw || null)
 }
 
+/**
+ * 每次展开都重新拉一次候选：之前只在「列表为空」时才请求，
+ * 后台新增了客服 / 改了昵称，页面不刷新就永远看不到，看起来像筛不到人。
+ */
 function onVisible(open) {
-  if (open && options.value.length === 0) search('')
+  if (open) search('')
 }
 </script>
 
