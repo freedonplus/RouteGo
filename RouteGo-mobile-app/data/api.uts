@@ -12,7 +12,7 @@
  * 约定：后端统一返回 { code, msg, data }，这里只把 code 2xx 视作成功。
  */
 import { getApiBaseUrl, KEY_CUSTOMER, KEY_TOKEN } from '../config/env.uts'
-import type { Category, CouponItem, Departure, Itinerary, OrderItem, RouteItem } from './types.uts'
+import type { Category, CouponItem, CsMessage, CsSession, Departure, Itinerary, OrderItem, RouteItem } from './types.uts'
 
 /** 登录态 */
 export type Session = {
@@ -803,3 +803,247 @@ export function submitCustom(payload: UTSJSONObject): Promise<number> {
 		})
 	})
 }
+
+/* ------------------------------------------------------------------ */
+/* 在线客服                                                            */
+/* ------------------------------------------------------------------ */
+
+/** 未登录时统一返回一个已失败的 Promise，省得每个方法都写一遍 */
+function notLoggedIn<T>(): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		reject(new Error('请先登录'))
+	})
+}
+
+function toCsSession(o: UTSJSONObject): CsSession {
+	const s: CsSession = {
+		id: num(o, 'id'),
+		ticketNo: str(o, 'ticketNo'),
+		type: num(o, 'type'),
+		typeDesc: str(o, 'typeDesc'),
+		title: str(o, 'title'),
+		status: num(o, 'status'),
+		statusDesc: str(o, 'statusDesc'),
+		lastMessage: str(o, 'lastMessage'),
+		lastMessageTime: str(o, 'lastMessageTime'),
+		unread: num(o, 'unread'),
+		handlerName: str(o, 'handlerName')
+	}
+	return s
+}
+
+function toCsMessage(o: UTSJSONObject): CsMessage {
+	const images: string[] = []
+	const arr = o.getArray<string>('images')
+	if (arr != null) {
+		for (let i = 0; i < arr!.length; i++) {
+			images.push(resolveImageUrl(arr![i]))
+		}
+	}
+	const m: CsMessage = {
+		id: num(o, 'id'),
+		senderType: num(o, 'senderType'),
+		senderName: str(o, 'senderName'),
+		content: str(o, 'content'),
+		images: images,
+		createTime: str(o, 'createTime')
+	}
+	return m
+}
+
+/** 客服会话列表（按最后消息时间倒序） */
+export function fetchCsSessions(): Promise<CsSession[]> {
+	if (getSession() == null) {
+		return notLoggedIn<CsSession[]>()
+	}
+	return new Promise<CsSession[]>((resolve, reject) => {
+		requestGet('/app/cs/tickets', 'pageNum=1&pageSize=50').then((body) => {
+			const list: CsSession[] = []
+			const page = dataObject(body)
+			if (page != null) {
+				const records = page!.getArray<UTSJSONObject>('records')
+				if (records != null) {
+					for (let i = 0; i < records!.length; i++) {
+						list.push(toCsSession(records![i]))
+					}
+				}
+			}
+			resolve(list)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 单个会话详情；会话页用它刷新状态与接待客服 */
+export function fetchCsSession(ticketId: number): Promise<CsSession> {
+	return new Promise<CsSession>((resolve, reject) => {
+		requestGet('/app/cs/tickets/' + ticketId, '').then((body) => {
+			const data = dataObject(body)
+			if (data == null) {
+				reject(new Error('会话不存在'))
+				return
+			}
+			resolve(toCsSession(data!))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 会话消息，正序；调用后服务端会把未读清零 */
+export function fetchCsMessages(ticketId: number): Promise<CsMessage[]> {
+	return new Promise<CsMessage[]>((resolve, reject) => {
+		requestGet('/app/cs/tickets/' + ticketId + '/messages', '').then((body) => {
+			const list: CsMessage[] = []
+			const arr = dataArray(body)
+			if (arr != null) {
+				for (let i = 0; i < arr!.length; i++) {
+					list.push(toCsMessage(arr![i]))
+				}
+			}
+			resolve(list)
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 客户发送消息：文字与图片至少一个，返回消息 ID */
+export function sendCsMessage(ticketId: number, content: string, images: string[]): Promise<number> {
+	const payload: UTSJSONObject = {}
+	payload['ticketId'] = ticketId
+	payload['content'] = content
+	payload['images'] = images
+	return new Promise<number>((resolve, reject) => {
+		requestPost('/app/cs/messages', payload).then((body) => {
+			resolve(dataNumber(body))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 发起咨询，返回工单 ID */
+export function createCsTicket(type: number, title: string, content: string, images: string[]): Promise<number> {
+	const payload: UTSJSONObject = {}
+	payload['type'] = type
+	if (title.length > 0) {
+		payload['title'] = title
+	}
+	payload['content'] = content
+	payload['images'] = images
+	return new Promise<number>((resolve, reject) => {
+		requestPost('/app/cs/tickets', payload).then((body) => {
+			resolve(dataNumber(body))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 结束会话 */
+export function closeCsTicket(ticketId: number): Promise<void> {
+	return new Promise<void>((resolve, reject) => {
+		requestPost('/app/cs/tickets/' + ticketId + '/close', null).then((body) => {
+			resolve()
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/** 未读消息总数，供入口红点 */
+export function fetchCsUnread(): Promise<number> {
+	if (getSession() == null) {
+		return notLoggedIn<number>()
+	}
+	return new Promise<number>((resolve, reject) => {
+		requestGet('/app/cs/unread', '').then((body) => {
+			resolve(dataNumber(body))
+		}).catch((e: Error) => {
+			reject(e)
+		})
+	})
+}
+
+/**
+ * 上传一张客服对话图片，返回可直接展示/提交的地址。
+ * <p>
+ * 走 uni.uploadFile 而不是 requestPost：后者发的是 JSON，传不了二进制。
+ * 后端返回的 previewUrl 是带签名的临时链接，可以直接给 image 用；
+ * 提交消息时后端会还原成标准地址落库，读取时再重新签发，历史图片不会过期。
+ */
+export function uploadCsImage(filePath: string): Promise<string> {
+	const session = getSession()
+	if (session == null) {
+		return notLoggedIn<string>()
+	}
+	const header: UTSJSONObject = {}
+	header['Authorization'] = 'Bearer ' + session!.token
+	return new Promise<string>((resolve, reject) => {
+		uni.uploadFile({
+			url: getApiBaseUrl() + '/app/file/upload',
+			filePath: filePath,
+			name: 'file',
+			header: header,
+			success: (res) => {
+				let body: UTSJSONObject | null = null
+				try {
+					body = JSON.parse(res.data) as UTSJSONObject
+				} catch (e) {
+					body = null
+				}
+				if (body == null) {
+					reject(new Error('图片上传失败：响应解析错误'))
+					return
+				}
+				const rawCode = body!.getNumber('code')
+				const code = rawCode == null ? -1 : rawCode!
+				if (code < 200 || code >= 300) {
+					const msg = body!.getString('msg')
+					reject(new Error(msg == null ? '图片上传失败' : msg!))
+					return
+				}
+				const data = body!.getJSON('data')
+				if (data == null) {
+					reject(new Error('图片上传失败：未返回文件信息'))
+					return
+				}
+				const preview = data!.getString('previewUrl')
+				const fileUrl = data!.getString('fileUrl')
+				let raw = ''
+				if (preview != null && preview!.length > 0) {
+					raw = preview!
+				} else if (fileUrl != null) {
+					raw = fileUrl!
+				}
+				if (raw.length == 0) {
+					reject(new Error('图片上传失败：未返回图片地址'))
+					return
+				}
+				resolve(resolveImageUrl(raw))
+			},
+			fail: (err) => {
+				reject(new Error('图片上传失败，请检查网络'))
+			}
+		})
+	})
+}
+
+/** 会话时间显示：MM-DD HH:mm，跨年时带上年份 */
+export function formatChatTime(raw: string): string {
+	if (raw.length < 16) {
+		return raw
+	}
+	const datePart = raw.substring(5, 10)
+	const timePart = raw.substring(11, 16)
+	const year = raw.substring(0, 4)
+	const now = new Date()
+	// 不是今年的会话补上年份，避免「01-02」看不出是哪一年
+	if (year != now.getFullYear().toString()) {
+		return year + '-' + datePart + ' ' + timePart
+	}
+	return datePart + ' ' + timePart
+}
+

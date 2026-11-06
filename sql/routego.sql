@@ -700,6 +700,10 @@ CREATE TABLE IF NOT EXISTS cs_ticket (
   status      tinyint      NOT NULL DEFAULT 0 COMMENT '状态：0 待处理，1 处理中，2 已解决，3 已关闭',
   handler_id  bigint       DEFAULT NULL COMMENT '处理人 ID',
   finish_time datetime     DEFAULT NULL COMMENT '完成时间',
+  last_message_time datetime DEFAULT NULL COMMENT '最后一条消息时间，会话列表按它排序',
+  last_message varchar(200) DEFAULT NULL COMMENT '最后一条消息摘要，会话列表直接展示',
+  customer_unread int      NOT NULL DEFAULT 0 COMMENT '客户未读数：客服回复后 +1，客户打开会话清零',
+  staff_unread int         NOT NULL DEFAULT 0 COMMENT '客服未读数：客户发消息后 +1，客服打开会话清零',
   version     int          NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
   create_by   bigint       DEFAULT NULL COMMENT '创建人 ID',
   create_time datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -711,7 +715,8 @@ CREATE TABLE IF NOT EXISTS cs_ticket (
   KEY idx_customer_id (customer_id),
   KEY idx_order_id (order_id),
   KEY idx_status (status),
-  KEY idx_handler_id (handler_id)
+  KEY idx_handler_id (handler_id),
+  KEY idx_last_message_time (last_message_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='客服工单表';
 
 -- 33. 工单消息表（追加型）

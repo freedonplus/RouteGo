@@ -102,20 +102,25 @@
 
 <script setup lang="uts">
 	import { computed, ref } from 'vue'
-	import { fetchCoupons, fetchMe, fetchOrders, getSession, logout } from '../../data/api.uts'
+	import { fetchCoupons, fetchCsUnread, fetchMe, fetchOrders, getSession, logout } from '../../data/api.uts'
 
 	type Row = {
 		label: string
 		hint: string
 	}
 
-	const rows: Row[] = [
-		{ label: '定制行程', hint: '24 小时出方案' },
-		{ label: '优惠券', hint: '' },
-		{ label: '常用出行人', hint: '' },
-		{ label: '联系客服', hint: '9:00–21:00' },
-		{ label: '设置', hint: '' }
-	]
+	const csUnread = ref<number>(0)
+
+	const rows = computed((): Row[] => {
+		const list: Row[] = [
+			{ label: '定制行程', hint: '24 小时出方案' },
+			{ label: '优惠券', hint: '' },
+			{ label: '常用出行人', hint: '' },
+			{ label: '联系客服', hint: csUnread.value > 0 ? csUnread.value + ' 条未读' : '9:00–21:00' },
+			{ label: '设置', hint: '' }
+		]
+		return list
+	})
 
 	const loggedIn = ref<boolean>(false)
 	// 券包与待出行的真实数量：之前写死的 3/2/6/12 是假数据，点了也没反应
@@ -160,6 +165,7 @@
 			loggedIn.value = false
 			nickname.value = ''
 			phone.value = ''
+			csUnread.value = 0
 			return
 		}
 		loggedIn.value = true
@@ -172,7 +178,21 @@
 		}).catch((e: Error) => {
 		})
 		loadStat()
+		loadCsUnread()
 	})
+
+	/** 客服未读数：客服回复后累加，进会话即清零，这里只做入口提示 */
+	function loadCsUnread() {
+		if (!loggedIn.value) {
+			csUnread.value = 0
+			return
+		}
+		fetchCsUnread().then((count) => {
+			csUnread.value = count
+		}).catch((e: Error) => {
+			csUnread.value = 0
+		})
+	}
 
 	/** 优惠券可用数量 + 待出行（已支付未完成）数量 */
 	function loadStat() {
@@ -244,7 +264,7 @@
 			return
 		}
 		if (label === '联系客服') {
-			uni.showToast({ title: '客服热线 400-800-1234（9:00-21:00）', icon: 'none' })
+			uni.navigateTo({ url: '/pages/cs/list' })
 			return
 		}
 		if (!loggedIn.value) {

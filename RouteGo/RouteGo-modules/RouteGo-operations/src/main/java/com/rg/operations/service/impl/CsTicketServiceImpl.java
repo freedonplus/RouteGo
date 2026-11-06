@@ -415,6 +415,10 @@ public class CsTicketServiceImpl extends ServiceImpl<CsTicketMapper, CsTicket> i
             }
         }
         vo.setFinishTime(ticket.getFinishTime());
+        vo.setLastMessageTime(ticket.getLastMessageTime());
+        vo.setLastMessage(ticket.getLastMessage());
+        vo.setCustomerUnread(ticket.getCustomerUnread() == null ? 0 : ticket.getCustomerUnread());
+        vo.setStaffUnread(ticket.getStaffUnread() == null ? 0 : ticket.getStaffUnread());
         vo.setCreateBy(ticket.getCreateBy());
         vo.setCreateTime(ticket.getCreateTime());
         vo.setUpdateTime(ticket.getUpdateTime());

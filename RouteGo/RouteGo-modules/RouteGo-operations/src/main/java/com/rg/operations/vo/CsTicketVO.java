@@ -69,6 +69,18 @@ public class CsTicketVO {
     @Schema(description = "完成时间：进入已解决/已关闭时写入")
     private LocalDateTime finishTime;
 
+    @Schema(description = "最后一条消息时间")
+    private LocalDateTime lastMessageTime;
+
+    @Schema(description = "最后一条消息摘要")
+    private String lastMessage;
+
+    @Schema(description = "客户未读数：客服回复后 +1，客户打开会话清零")
+    private Integer customerUnread;
+
+    @Schema(description = "客服未读数：客户发消息后 +1，客服打开会话清零")
+    private Integer staffUnread;
+
     @Schema(description = "创建人 ID")
     private Long createBy;
 

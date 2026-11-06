@@ -324,17 +324,27 @@ onMounted(() => {
                   </span>
                   <div class="min-w-0">
                     <p class="truncate text-[11px] font-medium text-[#1e293b]">{{ row.title }}</p>
-                    <p class="font-mono text-[10px] text-[#94a3b8]">
-                      {{ row.ticketNo }} · {{ typeLabel(row.type) }} · {{ row.messageCount || 0 }} 条对话
+                    <p class="flex items-center gap-1 font-mono text-[10px] text-[#94a3b8]">
+                      <span class="truncate">{{ row.ticketNo }} · {{ typeLabel(row.type) }} · {{ row.messageCount || 0 }} 条对话</span>
+                      <span
+                        v-if="Number(row.staffUnread) > 0"
+                        class="shrink-0 rounded-full bg-[#ef4444] px-1.5 text-[9px] leading-4 text-white"
+                        :title="`客户有 ${row.staffUnread} 条待回复消息`"
+                      >
+                        {{ Number(row.staffUnread) > 99 ? '99+' : row.staffUnread }}
+                      </span>
                     </p>
                   </div>
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="客户 / 订单" min-width="150">
+            <el-table-column label="客户 / 订单" min-width="160">
               <template #default="{ row }">
                 <p class="truncate text-[11px] text-[#1e293b]">{{ row.customerNickname || '—' }}</p>
-                <p class="font-mono text-[10px] text-[#94a3b8]">{{ row.orderNo || row.customerPhone || '未关联' }}</p>
+                <p class="truncate text-[10px] text-[#94a3b8]">
+                  <span v-if="row.lastMessage">{{ row.lastMessage }}</span>
+                  <span v-else class="font-mono">{{ row.orderNo || row.customerPhone || '未关联' }}</span>
+                </p>
               </template>
             </el-table-column>
             <el-table-column label="状态" width="80">

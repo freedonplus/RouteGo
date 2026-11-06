@@ -1,0 +1,282 @@
+<template>
+	<view class="page-root">
+		<scroll-view class="page-scroll" style="flex:1">
+			<view class="page" style="padding-bottom:110px">
+				<view class="section" style="padding-top:20px">
+					<text class="h1" style="font-size:26px">发起咨询</text>
+					<text class="muted" style="margin-top:10px">描述遇到的情况，可以上传截图或照片，客服会在工作时间回复</text>
+				</view>
+
+				<!-- 问题类型 -->
+				<view class="section" style="margin-top:24px">
+					<text class="h3">问题类型</text>
+					<view class="chips-wrap">
+						<view
+							v-for="(item, index) in types"
+							:key="item.value"
+							:class="index === typeIndex ? 'chip chip-active' : 'chip'"
+							style="margin-right:8px;margin-bottom:8px"
+							@click="typeIndex = index"
+						>
+							<text :class="index === typeIndex ? 'chip-text chip-text-active' : 'chip-text'">{{ item.label }}</text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 标题 -->
+				<view class="section" style="margin-top:12px">
+					<text class="h3">标题（选填）</text>
+					<view class="card" style="margin-top:10px">
+						<input class="input" v-model="title" maxlength="50" placeholder="一句话说明问题" placeholder-class="ph" />
+					</view>
+				</view>
+
+				<!-- 描述 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">问题描述</text>
+					<view class="card" style="margin-top:10px">
+						<textarea
+							class="textarea"
+							v-model="content"
+							maxlength="2000"
+							placeholder="订单号、出行日期、遇到的问题…"
+							placeholder-class="ph"
+						/>
+						<view class="row-between" style="margin-top:6px">
+							<text class="faint">文字和图片至少填一项</text>
+							<text class="faint">{{ content.length }}/2000</text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 图片 -->
+				<view class="section" style="margin-top:20px">
+					<text class="h3">图片（最多 9 张）</text>
+					<view class="img-grid">
+						<view v-for="(url, index) in images" :key="'img' + index" class="img-cell">
+							<image class="img-thumb" :src="url" mode="aspectFill" @click="previewImage(index)" />
+							<view class="img-del" @click="removeImage(index)">
+								<text class="img-del-text">×</text>
+							</view>
+						</view>
+						<view v-if="images.length < 9" class="img-add" @click="pickImages">
+							<text class="img-add-icon">{{ uploading ? '…' : '+' }}</text>
+							<text class="img-add-text">{{ uploading ? '上传中' : '添加图片' }}</text>
+						</view>
+					</view>
+				</view>
+			</view>
+		</scroll-view>
+
+		<view class="footer">
+			<view class="col" style="flex:1;margin-right:16px">
+				<text class="faint">提交后可在「我的-联系客服」里继续对话</text>
+			</view>
+			<view :class="canSubmit ? 'btn btn-primary' : 'btn btn-disabled'" style="padding-left:26px;padding-right:26px" @click="submit">
+				<text class="btn-primary-text">{{ submitting ? '提交中' : '提交' }}</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { computed, ref } from 'vue'
+	import { createCsTicket, isLoggedIn, uploadCsImage } from '../../data/api.uts'
+
+	type TypeOption = {
+		label: string
+		value: number
+	}
+
+	const types: TypeOption[] = [
+		{ label: '售前咨询', value: 1 },
+		{ label: '订单问题', value: 2 },
+		{ label: '退款售后', value: 3 },
+		{ label: '投诉建议', value: 4 },
+		{ label: '其他', value: 5 }
+	]
+
+	const typeIndex = ref<number>(0)
+	const title = ref<string>('')
+	const content = ref<string>('')
+	const images = ref<string[]>([])
+	const submitting = ref<boolean>(false)
+	const uploading = ref<boolean>(false)
+	let uploadingCount = 0
+
+	const canSubmit = computed((): boolean => {
+		if (submitting.value) {
+			return false
+		}
+		if (uploading.value) {
+			return false
+		}
+		return content.value.trim().length > 0 || images.value.length > 0
+	})
+
+	function pickImages() {
+		const remain = 9 - images.value.length
+		if (remain <= 0) {
+			uni.showToast({ title: '最多上传 9 张图片', icon: 'none' })
+			return
+		}
+		uni.chooseImage({
+			count: remain,
+			success: (res) => {
+				const paths = res.tempFilePaths
+				for (let i = 0; i < paths.length; i++) {
+					uploadOne(paths[i])
+				}
+			}
+		})
+	}
+
+	function uploadOne(path: string) {
+		uploadingCount = uploadingCount + 1
+		uploading.value = true
+		uploadCsImage(path).then((url) => {
+			uploadingCount = uploadingCount - 1
+			uploading.value = uploadingCount > 0
+			const next: string[] = []
+			images.value.forEach((item) => {
+				next.push(item)
+			})
+			next.push(url)
+			images.value = next
+		}).catch((e: Error) => {
+			uploadingCount = uploadingCount - 1
+			uploading.value = uploadingCount > 0
+			uni.showToast({ title: e.message, icon: 'none' })
+		})
+	}
+
+	function removeImage(index: number) {
+		const next: string[] = []
+		images.value.forEach((item, i) => {
+			if (i !== index) {
+				next.push(item)
+			}
+		})
+		images.value = next
+	}
+
+	function previewImage(index: number) {
+		uni.previewImage({
+			urls: images.value,
+			current: images.value[index]
+		})
+	}
+
+	function submit() {
+		if (!canSubmit.value) {
+			return
+		}
+		if (!isLoggedIn()) {
+			uni.navigateTo({ url: '/pages/user/login' })
+			return
+		}
+		submitting.value = true
+		createCsTicket(types[typeIndex.value].value, title.value.trim(), content.value.trim(), images.value).then((id) => {
+			submitting.value = false
+			uni.redirectTo({ url: '/pages/cs/chat?id=' + id })
+		}).catch((e: Error) => {
+			submitting.value = false
+			uni.showToast({ title: e.message, icon: 'none' })
+		})
+	}
+</script>
+
+<style>
+	.ph {
+		color: #86868b;
+	}
+
+	.chips-wrap {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-top: 12px;
+	}
+
+	.textarea {
+		width: 100%;
+		height: 110px;
+		font-size: 15px;
+		color: #1d1d1f;
+		line-height: 22px;
+	}
+
+	.img-grid {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-top: 12px;
+	}
+
+	.img-cell {
+		width: 92px;
+		height: 92px;
+		margin-right: 10px;
+		margin-bottom: 10px;
+		border-radius: 10px;
+		position: relative;
+	}
+
+	.img-thumb {
+		width: 92px;
+		height: 92px;
+		border-radius: 10px;
+		background-color: #f5f5f7;
+	}
+
+	.img-del {
+		position: absolute;
+		top: -6px;
+		right: -6px;
+		width: 22px;
+		height: 22px;
+		border-radius: 11px;
+		background-color: rgba(0, 0, 0, 0.65);
+		justify-content: center;
+		align-items: center;
+	}
+
+	.img-del-text {
+		font-size: 14px;
+		color: #ffffff;
+	}
+
+	.img-add {
+		width: 92px;
+		height: 92px;
+		border-radius: 10px;
+		background-color: #f5f5f7;
+		justify-content: center;
+		align-items: center;
+		margin-bottom: 10px;
+	}
+
+	.img-add-icon {
+		font-size: 24px;
+		color: #86868b;
+	}
+
+	.img-add-text {
+		font-size: 11px;
+		color: #86868b;
+		margin-top: 4px;
+	}
+
+	.footer {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		background-color: #ffffff;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #e5e5ea;
+		padding: 12px 20px;
+	}
+</style>

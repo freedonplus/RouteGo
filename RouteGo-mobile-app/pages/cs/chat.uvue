@@ -1,0 +1,540 @@
+<template>
+	<view class="page-root">
+		<!-- 会话信息条 -->
+		<view class="chat-head">
+			<view class="row-between">
+				<view class="col" style="flex:1">
+					<text class="chat-title">{{ headTitle }}</text>
+					<text class="faint" style="margin-top:4px">{{ headHint }}</text>
+				</view>
+				<view v-if="canReply" class="end-btn" hover-class="press" @click="endSession">
+					<text class="end-text">结束会话</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- 消息区 -->
+		<scroll-view
+			class="msg-scroll"
+			style="flex:1"
+			scroll-y="true"
+			scroll-with-animation="true"
+			:scroll-into-view="scrollTarget"
+		>
+			<view class="msg-wrap">
+				<view v-if="messages.length === 0 && !loading" class="empty-tip">
+					<text class="muted">已发送，客服接入后会在这里回复你</text>
+				</view>
+
+				<view v-for="m in messages" :key="m.id" class="msg-row" :class="m.senderType === 1 ? 'row-right' : 'row-left'">
+					<view class="msg-bubble" :class="m.senderType === 1 ? 'bubble-mine' : 'bubble-other'">
+						<text v-if="m.content.length > 0" class="msg-text" :class="m.senderType === 1 ? 'text-mine' : 'text-other'">{{ m.content }}</text>
+						<view v-if="m.images.length > 0" class="msg-imgs">
+							<image
+								v-for="(url, index) in m.images"
+								:key="'m' + index"
+								class="msg-img"
+								:src="url"
+								mode="aspectFill"
+								@click="previewImage(m.images, index)"
+							/>
+						</view>
+					</view>
+					<text class="msg-time">{{ formatChatTime(m.createTime) }}</text>
+				</view>
+
+				<view id="chat-bottom" style="height:12px"></view>
+			</view>
+		</scroll-view>
+
+		<!-- 输入区 -->
+		<view class="input-bar">
+			<view v-if="pending.length > 0 || uploading" class="pending-row">
+				<view v-for="(url, index) in pending" :key="'p' + index" class="pending-cell">
+					<image class="pending-img" :src="url" mode="aspectFill" @click="previewImage(pending, index)" />
+					<view class="pending-del" @click="removePending(index)">
+						<text class="pending-del-text">×</text>
+					</view>
+				</view>
+				<view v-if="uploading" class="pending-cell pending-loading">
+					<text class="faint">上传中</text>
+				</view>
+			</view>
+
+			<view class="input-row">
+				<view :class="canReply ? 'img-btn' : 'img-btn img-btn-disabled'" @click="pickImages">
+					<text class="img-btn-text">＋</text>
+				</view>
+				<view class="input-box">
+					<input
+						class="chat-input"
+						v-model="draft"
+						:disabled="!canReply"
+						maxlength="2000"
+						:placeholder="canReply ? '输入消息…' : '会话已结束'"
+						placeholder-class="ph"
+						confirm-type="send"
+						@confirm="send"
+					/>
+				</view>
+				<view :class="canSend ? 'send-btn' : 'send-btn send-disabled'" @click="send">
+					<text class="send-text">{{ sending ? '发送中' : '发送' }}</text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { computed, ref } from 'vue'
+	import {
+		closeCsTicket,
+		fetchCsMessages,
+		fetchCsSession,
+		formatChatTime,
+		isLoggedIn,
+		sendCsMessage,
+		uploadCsImage
+	} from '../../data/api.uts'
+	import type { CsMessage, CsSession } from '../../data/types.uts'
+
+	const POLL_INTERVAL = 4000
+
+	const ticketId = ref<number>(0)
+	const session = ref<CsSession | null>(null)
+	const messages = ref<CsMessage[]>([])
+	const draft = ref<string>('')
+	const pending = ref<string[]>([])
+	const sending = ref<boolean>(false)
+	const uploading = ref<boolean>(false)
+	const loading = ref<boolean>(true)
+	const scrollTarget = ref<string>('')
+	let uploadingCount = 0
+	let timer: number = -1
+
+	const canReply = computed((): boolean => {
+		if (session.value == null) {
+			return false
+		}
+		return session.value!.status !== 3
+	})
+
+	const canSend = computed((): boolean => {
+		if (!canReply.value || sending.value || uploading.value) {
+			return false
+		}
+		return draft.value.trim().length > 0 || pending.value.length > 0
+	})
+
+	const headTitle = computed((): string => {
+		if (session.value == null) {
+			return '在线客服'
+		}
+		return session.value!.title
+	})
+
+	const headHint = computed((): string => {
+		if (session.value == null) {
+			return '正在加载…'
+		}
+		const s = session.value!
+		const who = s.handlerName.length > 0 ? '客服 ' + s.handlerName : '等待客服接入'
+		return s.statusDesc + ' · ' + who
+	})
+
+	onLoad((options) => {
+		const raw = options['id']
+		if (raw != null) {
+			const parsed = parseInt(raw.toString())
+			if (parsed > 0) {
+				ticketId.value = parsed
+			}
+		}
+		if (!isLoggedIn()) {
+			uni.navigateTo({ url: '/pages/user/login' })
+			return
+		}
+		if (ticketId.value <= 0) {
+			uni.showToast({ title: '会话不存在', icon: 'none' })
+			return
+		}
+		loadSession(true)
+		loadMessages(true)
+		startPoll()
+	})
+
+	onUnload(() => {
+		stopPoll()
+	})
+
+	function startPoll() {
+		stopPoll()
+		timer = setInterval(() => {
+			if (sending.value || uploading.value) {
+				return
+			}
+			loadMessages(false)
+			loadSession(false)
+		}, POLL_INTERVAL)
+	}
+
+	function stopPoll() {
+		if (timer !== -1) {
+			clearInterval(timer)
+			timer = -1
+		}
+	}
+
+	/** 会话头信息：客服接手或状态变化后，头部提示要跟着变 */
+	function loadSession(first: boolean) {
+		fetchCsSession(ticketId.value).then((item) => {
+			const changed = session.value == null || session.value!.status !== item.status
+			session.value = item
+			if (changed && first) {
+				uni.setNavigationBarTitle({ title: item.title })
+			}
+			if (first) {
+				loading.value = false
+			}
+		}).catch((e: Error) => {
+			if (first) {
+				loading.value = false
+				uni.showToast({ title: e.message, icon: 'none' })
+			}
+		})
+	}
+
+	function loadMessages(first: boolean) {
+		fetchCsMessages(ticketId.value).then((list) => {
+			const before = messages.value.length
+			const lastOld = before > 0 ? messages.value[before - 1].id : 0
+			const lastNew = list.length > 0 ? list[list.length - 1].id : 0
+			messages.value = list
+			loading.value = false
+			if (before === 0 || lastOld !== lastNew || first) {
+				scrollToBottom()
+			}
+		}).catch((e: Error) => {
+			loading.value = false
+			if (first) {
+				uni.showToast({ title: e.message, icon: 'none' })
+			}
+		})
+	}
+
+	function scrollToBottom() {
+		scrollTarget.value = ''
+		setTimeout(() => {
+			scrollTarget.value = 'chat-bottom'
+		}, 40)
+	}
+
+	function pickImages() {
+		if (!canReply.value) {
+			return
+		}
+		const remain = 9 - pending.value.length
+		if (remain <= 0) {
+			uni.showToast({ title: '单条消息最多 9 张图片', icon: 'none' })
+			return
+		}
+		uni.chooseImage({
+			count: remain,
+			success: (res) => {
+				const paths = res.tempFilePaths
+				for (let i = 0; i < paths.length; i++) {
+					uploadOne(paths[i])
+				}
+			}
+		})
+	}
+
+	function uploadOne(path: string) {
+		uploadingCount = uploadingCount + 1
+		uploading.value = true
+		uploadCsImage(path).then((url) => {
+			uploadingCount = uploadingCount - 1
+			uploading.value = uploadingCount > 0
+			const next: string[] = []
+			pending.value.forEach((item) => {
+				next.push(item)
+			})
+			next.push(url)
+			pending.value = next
+		}).catch((e: Error) => {
+			uploadingCount = uploadingCount - 1
+			uploading.value = uploadingCount > 0
+			uni.showToast({ title: e.message, icon: 'none' })
+		})
+	}
+
+	function removePending(index: number) {
+		const next: string[] = []
+		pending.value.forEach((item, i) => {
+			if (i !== index) {
+				next.push(item)
+			}
+		})
+		pending.value = next
+	}
+
+	function previewImage(urls: string[], index: number) {
+		uni.previewImage({ urls: urls, current: urls[index] })
+	}
+
+	function send() {
+		if (!canSend.value) {
+			return
+		}
+		sending.value = true
+		const images: string[] = []
+		pending.value.forEach((item) => {
+			images.push(item)
+		})
+		sendCsMessage(ticketId.value, draft.value.trim(), images).then((id) => {
+			sending.value = false
+			draft.value = ''
+			pending.value = []
+			loadMessages(false)
+			scrollToBottom()
+		}).catch((e: Error) => {
+			sending.value = false
+			uni.showToast({ title: e.message, icon: 'none' })
+		})
+	}
+
+	function endSession() {
+		uni.showModal({
+			title: '结束会话',
+			content: '结束后不能再发消息，需要继续沟通请重新发起咨询。',
+			success: (res) => {
+				if (!res.confirm) {
+					return
+				}
+				closeCsTicket(ticketId.value).then(() => {
+					uni.showToast({ title: '会话已结束', icon: 'none' })
+					loadSession(false)
+					loadMessages(false)
+				}).catch((e: Error) => {
+					uni.showToast({ title: e.message, icon: 'none' })
+				})
+			}
+		})
+	}
+</script>
+
+<style>
+	.ph {
+		color: #86868b;
+	}
+
+	.chat-head {
+		background-color: #ffffff;
+		padding: 14px 20px;
+		border-bottom-width: 1px;
+		border-bottom-style: solid;
+		border-bottom-color: #e5e5ea;
+	}
+
+	.chat-title {
+		font-size: 16px;
+		font-weight: 600;
+		color: #1d1d1f;
+	}
+
+	.end-btn {
+		border-radius: 14px;
+		border-width: 1px;
+		border-style: solid;
+		border-color: #e5e5ea;
+		padding: 6px 12px;
+	}
+
+	.end-text {
+		font-size: 12px;
+		color: #6e6e73;
+	}
+
+	.msg-scroll {
+		background-color: #f5f5f7;
+	}
+
+	.msg-wrap {
+		padding: 16px 16px 24px 16px;
+	}
+
+	.empty-tip {
+		align-items: center;
+		padding-top: 40px;
+		padding-bottom: 40px;
+	}
+
+	.msg-row {
+		margin-bottom: 14px;
+	}
+
+	.row-left {
+		align-items: flex-start;
+	}
+
+	.row-right {
+		align-items: flex-end;
+	}
+
+	.msg-bubble {
+		max-width: 76%;
+		border-radius: 16px;
+		padding: 10px 12px;
+	}
+
+	.bubble-mine {
+		background-color: #0071e3;
+	}
+
+	.bubble-other {
+		background-color: #ffffff;
+	}
+
+	.msg-text {
+		font-size: 15px;
+		line-height: 21px;
+	}
+
+	.text-mine {
+		color: #ffffff;
+	}
+
+	.text-other {
+		color: #1d1d1f;
+	}
+
+	.msg-imgs {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-top: 6px;
+	}
+
+	.msg-img {
+		width: 96px;
+		height: 96px;
+		border-radius: 10px;
+		margin-right: 6px;
+		margin-bottom: 6px;
+		background-color: #e5e5ea;
+	}
+
+	.msg-time {
+		font-size: 10px;
+		color: #a1a1a6;
+		margin-top: 4px;
+	}
+
+	.input-bar {
+		background-color: #ffffff;
+		border-top-width: 1px;
+		border-top-style: solid;
+		border-top-color: #e5e5ea;
+		padding: 10px 14px;
+	}
+
+	.pending-row {
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-bottom: 8px;
+	}
+
+	.pending-cell {
+		width: 56px;
+		height: 56px;
+		margin-right: 8px;
+		position: relative;
+	}
+
+	.pending-img {
+		width: 56px;
+		height: 56px;
+		border-radius: 8px;
+		background-color: #f5f5f7;
+	}
+
+	.pending-loading {
+		justify-content: center;
+		align-items: center;
+		background-color: #f5f5f7;
+		border-radius: 8px;
+	}
+
+	.pending-del {
+		position: absolute;
+		top: -5px;
+		right: -5px;
+		width: 18px;
+		height: 18px;
+		border-radius: 9px;
+		background-color: rgba(0, 0, 0, 0.65);
+		justify-content: center;
+		align-items: center;
+	}
+
+	.pending-del-text {
+		font-size: 12px;
+		color: #ffffff;
+	}
+
+	.input-row {
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.img-btn {
+		width: 34px;
+		height: 34px;
+		border-radius: 17px;
+		background-color: #f5f5f7;
+		justify-content: center;
+		align-items: center;
+		margin-right: 8px;
+	}
+
+	.img-btn-disabled {
+		opacity: 0.4;
+	}
+
+	.img-btn-text {
+		font-size: 20px;
+		color: #6e6e73;
+	}
+
+	.input-box {
+		flex: 1;
+		background-color: #f5f5f7;
+		border-radius: 18px;
+		padding-left: 14px;
+		padding-right: 14px;
+		height: 36px;
+		justify-content: center;
+	}
+
+	.chat-input {
+		font-size: 14px;
+		color: #1d1d1f;
+		height: 36px;
+	}
+
+	.send-btn {
+		margin-left: 8px;
+		background-color: #0071e3;
+		border-radius: 18px;
+		padding: 9px 16px;
+	}
+
+	.send-disabled {
+		background-color: #c7c7cc;
+	}
+
+	.send-text {
+		font-size: 14px;
+		color: #ffffff;
+		font-weight: 500;
+	}
+</style>

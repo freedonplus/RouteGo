@@ -67,6 +67,24 @@
 			"style": {
 				"navigationBarTitleText": "定制行程"
 			}
+		},
+		{
+			"path": "pages/cs/list",
+			"style": {
+				"navigationBarTitleText": "在线客服"
+			}
+		},
+		{
+			"path": "pages/cs/create",
+			"style": {
+				"navigationBarTitleText": "发起咨询"
+			}
+		},
+		{
+			"path": "pages/cs/chat",
+			"style": {
+				"navigationBarTitleText": "客服对话"
+			}
 		}
 	],
 	"tabBar": {

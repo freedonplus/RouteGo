@@ -1,7 +1,9 @@
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, Picture } from '@element-plus/icons-vue'
 import { getTicket, listMessages, sendMessage, setTicketStatus } from '@/api/operations'
+import { uploadFile } from '@/api/system'
 import { formatDateTime } from '@/utils/format'
 import StatusTag from '@/components/StatusTag.vue'
 
@@ -11,12 +13,18 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue', 'changed'])
 
+const MAX_IMAGES = 9
+const POLL_INTERVAL = 5000
+
 const loading = ref(false)
 const sending = ref(false)
+const uploading = ref(false)
 const ticket = ref(null)
 const messages = ref([])
 const text = ref('')
+const pendingImages = ref([])
 const listRef = ref(null)
+let pollTimer = null
 
 const STATUS_LABELS = ['待处理', '处理中', '已解决', '已关闭']
 const STATUS_TONES = ['warning', 'info', 'success', 'muted']
@@ -33,11 +41,18 @@ const NEXT_STATUS = {
 
 const nextActions = computed(() => NEXT_STATUS[Number(ticket.value?.status)] || [])
 const canReply = computed(() => ticket.value && Number(ticket.value.status) !== 3)
+const canSend = computed(() => canReply.value && (text.value.trim().length > 0 || pendingImages.value.length > 0))
 
 async function scrollToBottom() {
   await nextTick()
   const el = listRef.value
   if (el) el.scrollTop = el.scrollHeight
+}
+
+function nearBottom() {
+  const el = listRef.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 80
 }
 
 async function load() {
@@ -57,24 +72,85 @@ async function load() {
   }
 }
 
+/** 轮询增量：只在有新消息时重绘，避免把客服正在滚动的位置顶走 */
+async function pollNewMessages() {
+  if (!props.ticketId || loading.value || sending.value || uploading.value) return
+  try {
+    const list = (await listMessages(props.ticketId)) || []
+    const lastOld = messages.value[messages.value.length - 1]?.id
+    const lastNew = list[list.length - 1]?.id
+    if (list.length === messages.value.length && lastOld === lastNew) return
+    const stick = nearBottom()
+    messages.value = list
+    if (stick) await scrollToBottom()
+  } catch {
+    // 轮询失败不打扰客服，下一轮会补上
+  }
+}
+
+function startPolling() {
+  stopPolling()
+  pollTimer = setInterval(pollNewMessages, POLL_INTERVAL)
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
 watch(
   () => props.modelValue,
   (open) => {
-    if (!open) return
+    if (!open) {
+      stopPolling()
+      return
+    }
     ticket.value = null
     messages.value = []
     text.value = ''
+    pendingImages.value = []
     load()
+    startPolling()
   }
 )
 
+onBeforeUnmount(stopPolling)
+
+/** 选图即上传：先把文件换成签名地址，发送时只提交地址 */
+async function handleUpload(options) {
+  if (pendingImages.value.length >= MAX_IMAGES) {
+    ElMessage.warning(`单条消息最多 ${MAX_IMAGES} 张图片`)
+    return
+  }
+  uploading.value = true
+  try {
+    const file = await uploadFile(options.file)
+    pendingImages.value.push({ id: file.id, url: file.previewUrl })
+  } catch (error) {
+    ElMessage.error(error.message || '图片上传失败')
+  } finally {
+    uploading.value = false
+  }
+}
+
+function removeImage(index) {
+  pendingImages.value.splice(index, 1)
+}
+
 async function submit() {
+  if (!canSend.value) return
   const content = text.value.trim()
-  if (!content) return
   sending.value = true
   try {
-    await sendMessage({ ticketId: props.ticketId, content })
+    await sendMessage({
+      ticketId: props.ticketId,
+      content,
+      images: pendingImages.value.map((item) => item.url),
+    })
     text.value = ''
+    pendingImages.value = []
     await load()
     emit('changed')
   } catch (error) {
@@ -110,6 +186,11 @@ async function changeStatus(status) {
 
 function imageList(message) {
   return Array.isArray(message.images) ? message.images : []
+}
+
+/** 只发图片时后端存的是空文本，这里不渲染空行 */
+function hasText(message) {
+  return Boolean(message.content && message.content.trim())
 }
 </script>
 
@@ -168,21 +249,23 @@ function imageList(message) {
                 {{ message.senderName || message.senderTypeDesc }} · {{ formatDateTime(message.createTime) }}
               </p>
               <div
-                class="whitespace-pre-line rounded px-2 py-1.5 text-[11px] leading-5"
+                class="rounded px-2 py-1.5 text-[11px] leading-5"
                 :class="Number(message.senderType) === 2
                   ? 'bg-[#fdf1f5] text-[#7c2d45]'
                   : 'bg-[#f1f5f9] text-[#1e293b]'"
               >
-                {{ message.content }}
-                <div v-if="imageList(message).length" class="mt-1 flex flex-wrap gap-1">
+                <p v-if="hasText(message)" class="whitespace-pre-line">{{ message.content }}</p>
+                <div v-if="imageList(message).length" class="mt-1 flex flex-wrap gap-1" :class="hasText(message) ? '' : 'mt-0'">
                   <el-image
                     v-for="(url, index) in imageList(message)"
                     :key="index"
                     :src="url"
                     fit="cover"
-                    class="h-14 w-14 rounded"
+                    class="h-16 w-16 cursor-zoom-in rounded"
                     :preview-src-list="imageList(message)"
+                    :initial-index="index"
                     preview-teleported
+                    lazy
                   />
                 </div>
               </div>
@@ -191,23 +274,50 @@ function imageList(message) {
         </div>
 
         <div class="mt-2">
+          <div v-if="pendingImages.length" class="mb-1 flex flex-wrap gap-1">
+            <div v-for="(image, index) in pendingImages" :key="image.url" class="relative">
+              <el-image :src="image.url" fit="cover" class="h-14 w-14 rounded border border-[#e2e8f0]" />
+              <el-button
+                class="!absolute -right-1 -top-1"
+                size="small"
+                circle
+                :icon="Delete"
+                @click="removeImage(index)"
+              />
+            </div>
+          </div>
           <el-input
             v-model="text"
             type="textarea"
             :rows="3"
             maxlength="5000"
             :disabled="!canReply"
-            :placeholder="canReply ? '输入回复内容，Ctrl + Enter 发送' : '工单已关闭，无法回复'"
+            :placeholder="canReply ? '输入回复内容，Ctrl + Enter 发送；可直接粘贴或选择图片' : '工单已关闭，无法回复'"
             @keydown.ctrl.enter.prevent="submit"
           />
           <div class="mt-1 flex items-center justify-between">
-            <span class="text-[10px] text-[#94a3b8]">首次回复会把「待处理」工单自动转为「处理中」</span>
+            <div class="flex items-center gap-2">
+              <el-upload
+                :show-file-list="false"
+                :http-request="handleUpload"
+                :disabled="!canReply || pendingImages.length >= MAX_IMAGES"
+                accept="image/png,image/jpeg,image/webp"
+                multiple
+              >
+                <el-button size="small" :icon="Picture" :loading="uploading" :disabled="!canReply">
+                  图片
+                </el-button>
+              </el-upload>
+              <span class="text-[10px] text-[#94a3b8]">
+                {{ pendingImages.length }}/{{ MAX_IMAGES }} · 支持 jpg/png/webp，单张 5MB 内
+              </span>
+            </div>
             <el-button
               v-perm="'operations:CsMessage:create'"
               size="small"
               type="primary"
               :loading="sending"
-              :disabled="!canReply || !text.trim()"
+              :disabled="!canSend"
               @click="submit"
             >
               发送回复

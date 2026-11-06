@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rg.common.exception.ErrorCode;
 import com.rg.common.exception.serviceException.OperationsException;
+import com.rg.common.storage.TempUrlSigner;
 import com.rg.common.web.PageResult;
 import com.rg.operations.dto.CsMessageQuery;
 import com.rg.operations.dto.CsMessageSendRequest;
@@ -49,20 +50,25 @@ public class CsMessageServiceImpl extends ServiceImpl<CsMessageMapper, CsMessage
 
     private static final byte SENDER_CUSTOMER = 1;
     private static final byte SENDER_STAFF = 2;
+    /** 会话列表摘要长度：cs_ticket.last_message 列宽 200，留出余量 */
+    private static final int PREVIEW_LENGTH = 100;
 
     private final CsMessageMapper messageMapper;
     private final CsTicketMapper ticketMapper;
     private final OperationsGatewayMapper gateway;
     private final ObjectMapper objectMapper;
+    private final TempUrlSigner tempUrlSigner;
 
     public CsMessageServiceImpl(CsMessageMapper messageMapper,
                                CsTicketMapper ticketMapper,
                                OperationsGatewayMapper gateway,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper,
+                               TempUrlSigner tempUrlSigner) {
         this.messageMapper = messageMapper;
         this.ticketMapper = ticketMapper;
         this.gateway = gateway;
         this.objectMapper = objectMapper;
+        this.tempUrlSigner = tempUrlSigner;
     }
 
     @Override
@@ -91,49 +97,92 @@ public class CsMessageServiceImpl extends ServiceImpl<CsMessageMapper, CsMessage
 
     @Override
     public List<CsMessageVO> listByTicket(Long ticketId) {
-        if (ticketId == null) {
-            throw new OperationsException("工单 ID 不能为空");
-        }
-        if (ticketMapper.selectById(ticketId) == null) {
-            throw new OperationsException(ErrorCode.NOT_FOUND, "工单不存在或已删除");
-        }
-        List<CsMessage> messages = messageMapper.selectList(Wrappers.<CsMessage>lambdaQuery()
-                .eq(CsMessage::getTicketId, ticketId)
-                .orderByAsc(CsMessage::getCreateTime)
-                .orderByAsc(CsMessage::getId));
-        return toVOs(messages);
+        List<CsMessageVO> messages = loadThread(ticketId);
+        // 客服打开对话即视为已读，列表上的未读红点随之消失
+        ticketMapper.update(null, Wrappers.<CsTicket>lambdaUpdate()
+                .eq(CsTicket::getId, ticketId)
+                .set(CsTicket::getStaffUnread, 0));
+        return messages;
+    }
+
+    @Override
+    public List<CsMessageVO> listForCustomer(Long ticketId) {
+        List<CsMessageVO> messages = loadThread(ticketId);
+        ticketMapper.update(null, Wrappers.<CsTicket>lambdaUpdate()
+                .eq(CsTicket::getId, ticketId)
+                .set(CsTicket::getCustomerUnread, 0));
+        return messages;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long send(CsMessageSendRequest request) {
-        CsTicket ticket = ticketMapper.selectById(request.getTicketId());
-        if (ticket == null) {
-            throw new OperationsException(ErrorCode.NOT_FOUND, "工单不存在或已删除");
-        }
+        CsTicket ticket = requireTicket(request.getTicketId());
         if (TicketStateMachine.isTerminal(ticket.getStatus())) {
             throw new OperationsException(ErrorCode.CONFLICT, "工单已关闭，如需继续沟通请新建工单");
         }
 
+        Long operatorId = CurrentOperator.id();
+        Long messageId = append(ticket.getId(), SENDER_STAFF, operatorId == null ? 0L : operatorId,
+                request.getContent(), request.getImages());
+
+        // 客服首次回复即视为接手：待处理推进到处理中，未指派的顺手认领，
+        // 这样客户侧会话页能看到接待人姓名，后台也少一步手动指派
+        boolean needAdvance = ticket.getStatus() == TicketStateMachine.PENDING;
+        boolean needClaim = ticket.getHandlerId() == null && operatorId != null && operatorId > 0;
+        if (needAdvance || needClaim) {
+            var update = Wrappers.<CsTicket>lambdaUpdate()
+                    .eq(CsTicket::getId, ticket.getId())
+                    .eq(CsTicket::getVersion, ticket.getVersion())
+                    .set(CsTicket::getUpdateBy, operatorId)
+                    .set(CsTicket::getVersion, ticket.getVersion() + 1);
+            if (needAdvance) {
+                update.set(CsTicket::getStatus, TicketStateMachine.PROCESSING);
+            }
+            if (needClaim) {
+                update.set(CsTicket::getHandlerId, operatorId);
+            }
+            ticketMapper.update(null, update);
+        }
+        return messageId;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long append(Long ticketId, byte senderType, Long senderId, String content, List<String> images) {
+        CsTicket ticket = requireTicket(ticketId);
+        String text = content == null ? "" : content.trim();
+        List<String> cleaned = cleanImages(images);
+        // 允许「只发图片」，但文字和图片一个都不能少
+        if (text.isEmpty() && cleaned.isEmpty()) {
+            throw new OperationsException("消息内容不能为空");
+        }
+
         CsMessage message = new CsMessage();
         message.setTicketId(ticket.getId());
-        message.setSenderType(SENDER_STAFF);
-        Long operatorId = CurrentOperator.id();
-        message.setSenderId(operatorId == null ? 0L : operatorId);
-        message.setContent(request.getContent().trim());
-        message.setImages(writeImages(request.getImages()));
+        message.setSenderType(senderType);
+        message.setSenderId(senderId == null ? 0L : senderId);
+        message.setContent(text);
+        message.setImages(writeImages(cleaned));
         message.setCreateTime(LocalDateTime.now());
         messageMapper.insert(message);
 
-        // 客服首次回复即视为接手，把「待处理」推进到「处理中」
-        if (ticket.getStatus() == TicketStateMachine.PENDING) {
-            ticketMapper.update(null, Wrappers.<CsTicket>lambdaUpdate()
-                    .eq(CsTicket::getId, ticket.getId())
-                    .eq(CsTicket::getVersion, ticket.getVersion())
-                    .set(CsTicket::getStatus, TicketStateMachine.PROCESSING)
-                    .set(CsTicket::getUpdateBy, operatorId)
-                    .set(CsTicket::getVersion, ticket.getVersion() + 1));
+        String preview = text.isEmpty() ? "[图片]" : text.replaceAll("\\s+", " ");
+        if (preview.length() > PREVIEW_LENGTH) {
+            preview = preview.substring(0, PREVIEW_LENGTH);
         }
+        var unreadUpdate = Wrappers.<CsTicket>lambdaUpdate()
+                .eq(CsTicket::getId, ticket.getId())
+                .set(CsTicket::getLastMessage, preview)
+                .set(CsTicket::getLastMessageTime, message.getCreateTime());
+        if (senderType == SENDER_STAFF) {
+            // 客服发言说明当前对话已被看到，客服侧未读归零，客户侧未读累加
+            unreadUpdate.setSql("customer_unread = customer_unread + 1")
+                    .set(CsTicket::getStaffUnread, 0);
+        } else {
+            unreadUpdate.setSql("staff_unread = staff_unread + 1");
+        }
+        ticketMapper.update(null, unreadUpdate);
         return message.getId();
     }
 
@@ -141,19 +190,45 @@ public class CsMessageServiceImpl extends ServiceImpl<CsMessageMapper, CsMessage
     // 内部方法
     // ──────────────────────────────────────────────
 
+    private CsTicket requireTicket(Long ticketId) {
+        if (ticketId == null) {
+            throw new OperationsException("工单 ID 不能为空");
+        }
+        CsTicket ticket = ticketMapper.selectById(ticketId);
+        if (ticket == null) {
+            throw new OperationsException(ErrorCode.NOT_FOUND, "工单不存在或已删除");
+        }
+        return ticket;
+    }
+
+    /** 读取整段对话，正序，供时间线渲染 */
+    private List<CsMessageVO> loadThread(Long ticketId) {
+        requireTicket(ticketId);
+        List<CsMessage> messages = messageMapper.selectList(Wrappers.<CsMessage>lambdaQuery()
+                .eq(CsMessage::getTicketId, ticketId)
+                .orderByAsc(CsMessage::getCreateTime)
+                .orderByAsc(CsMessage::getId));
+        return toVOs(messages);
+    }
+
+    /** 去空白、去空串、把临时签名链接还原成标准下载地址再落库（签名会过期，不能存库） */
+    private List<String> cleanImages(List<String> images) {
+        if (images == null || images.isEmpty()) {
+            return List.of();
+        }
+        return images.stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .map(tempUrlSigner::canonicalize)
+                .toList();
+    }
+
     private String writeImages(List<String> images) {
         if (images == null || images.isEmpty()) {
             return null;
         }
-        List<String> cleaned = images.stream()
-                .filter(StringUtils::hasText)
-                .map(String::trim)
-                .toList();
-        if (cleaned.isEmpty()) {
-            return null;
-        }
         try {
-            return objectMapper.writeValueAsString(cleaned);
+            return objectMapper.writeValueAsString(images);
         } catch (Exception e) {
             throw new OperationsException("图片地址序列化失败");
         }
@@ -170,6 +245,25 @@ public class CsMessageServiceImpl extends ServiceImpl<CsMessageMapper, CsMessage
             // 历史脏数据不应该让整页 500，解析失败就当没有图片
             return List.of();
         }
+    }
+
+    /**
+     * 出口重签图片链接。
+     * <p>
+     * 聊天记录的生命周期远长于临时链接（默认 2 小时），库里存的是标准下载地址，
+     * 每次读取时按当前密钥重新签发，历史消息里的图片才不会过期变成 401。
+     * 非文件地址（如 /covers/*.png）原样返回。
+     */
+    private List<String> refreshImages(List<String> images) {
+        if (images.isEmpty()) {
+            return images;
+        }
+        return images.stream()
+                .map(url -> {
+                    Long fileId = TempUrlSigner.extractFileId(url);
+                    return fileId == null ? url : tempUrlSigner.build(fileId);
+                })
+                .toList();
     }
 
     private List<CsMessageVO> toVOs(List<CsMessage> messages) {
@@ -206,7 +300,7 @@ public class CsMessageServiceImpl extends ServiceImpl<CsMessageMapper, CsMessage
             vo.setSenderName(staff ? staffNames.getOrDefault(message.getSenderId(), "客服")
                     : customerNames.getOrDefault(message.getSenderId(), "客户"));
             vo.setContent(message.getContent());
-            vo.setImages(readImages(message.getImages()));
+            vo.setImages(refreshImages(readImages(message.getImages())));
             vo.setCreateTime(message.getCreateTime());
             list.add(vo);
         }

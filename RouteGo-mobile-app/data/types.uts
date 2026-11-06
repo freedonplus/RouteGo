@@ -84,3 +84,34 @@ export type CouponItem = {
 	expireTime: string
 	code: string
 }
+
+/** 客服会话（对应后端 CsSessionVO） */
+export type CsSession = {
+	id: number
+	ticketNo: string
+	/** 1 售前，2 订单，3 退款，4 投诉，5 其他 */
+	type: number
+	typeDesc: string
+	title: string
+	/** 0 待处理，1 处理中，2 已解决，3 已关闭 */
+	status: number
+	statusDesc: string
+	lastMessage: string
+	lastMessageTime: string
+	/** 客服回复后累加，进入会话清零 */
+	unread: number
+	/** 接待客服昵称，未指派为空串 */
+	handlerName: string
+}
+
+/** 客服会话中的一条消息（对应后端 CsMessageVO） */
+export type CsMessage = {
+	id: number
+	/** 1 客户，2 客服/系统 */
+	senderType: number
+	senderName: string
+	content: string
+	/** 已补全为绝对地址，可直接给 image 使用 */
+	images: string[]
+	createTime: string
+}

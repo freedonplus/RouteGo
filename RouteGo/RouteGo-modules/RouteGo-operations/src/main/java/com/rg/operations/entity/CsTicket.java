@@ -88,6 +88,30 @@ public class CsTicket implements Serializable {
     private LocalDateTime finishTime;
 
     /**
+     * 最后一条消息时间，会话列表按它倒序
+     */
+    @TableField("last_message_time")
+    private LocalDateTime lastMessageTime;
+
+    /**
+     * 最后一条消息摘要（最多 200 字），会话列表直接展示，避免每行再查一次消息表
+     */
+    @TableField("last_message")
+    private String lastMessage;
+
+    /**
+     * 客户未读数：客服回复后 +1，客户打开会话清零
+     */
+    @TableField("customer_unread")
+    private Integer customerUnread;
+
+    /**
+     * 客服未读数：客户发消息后 +1，客服打开会话清零
+     */
+    @TableField("staff_unread")
+    private Integer staffUnread;
+
+    /**
      * 乐观锁版本号
      */
     @Version
@@ -212,6 +236,38 @@ public class CsTicket implements Serializable {
         this.finishTime = finishTime;
     }
 
+    public LocalDateTime getLastMessageTime() {
+        return lastMessageTime;
+    }
+
+    public void setLastMessageTime(LocalDateTime lastMessageTime) {
+        this.lastMessageTime = lastMessageTime;
+    }
+
+    public String getLastMessage() {
+        return lastMessage;
+    }
+
+    public void setLastMessage(String lastMessage) {
+        this.lastMessage = lastMessage;
+    }
+
+    public Integer getCustomerUnread() {
+        return customerUnread;
+    }
+
+    public void setCustomerUnread(Integer customerUnread) {
+        this.customerUnread = customerUnread;
+    }
+
+    public Integer getStaffUnread() {
+        return staffUnread;
+    }
+
+    public void setStaffUnread(Integer staffUnread) {
+        this.staffUnread = staffUnread;
+    }
+
     public Integer getVersion() {
         return version;
     }
@@ -274,6 +330,10 @@ public class CsTicket implements Serializable {
             ", status = " + status +
             ", handlerId = " + handlerId +
             ", finishTime = " + finishTime +
+            ", lastMessageTime = " + lastMessageTime +
+            ", lastMessage = " + lastMessage +
+            ", customerUnread = " + customerUnread +
+            ", staffUnread = " + staffUnread +
             ", version = " + version +
             ", createBy = " + createBy +
             ", createTime = " + createTime +
