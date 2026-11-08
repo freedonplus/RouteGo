@@ -10,11 +10,11 @@
 						<view
 							v-for="(t, index) in tabs"
 							:key="t.label"
-							:class="index === activeTab ? 'chip chip-active' : 'chip'"
+							:class="index == activeTab ? 'chip chip-active' : 'chip'" hover-class="chip-pressing" hover-start-time="0" hover-stay-time="60"
 							style="margin-right:8px;margin-bottom:8px"
 							@click="switchTab(index)"
 						>
-							<text :class="index === activeTab ? 'chip-text chip-text-active' : 'chip-text'">{{ t.label }}</text>
+							<text :class="index == activeTab ? 'chip-text chip-text-active' : 'chip-text'">{{ t.label }}</text>
 						</view>
 					</view>
 				</view>
@@ -22,7 +22,7 @@
 				<view class="section" style="margin-top:8px">
 					<view v-if="errorText.length > 0" class="card" style="margin-bottom:12px">
 						<text class="body">{{ errorText }}</text>
-						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" @click="loadData">
+						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="retry">
 							<text class="btn-secondary-text">重新加载</text>
 						</view>
 					</view>
@@ -31,7 +31,7 @@
 						<text class="muted">加载中…</text>
 					</view>
 
-					<view v-else-if="coupons.length === 0" class="card" style="align-items:center;padding-top:44px;padding-bottom:44px">
+					<view v-else-if="coupons.length == 0" class="card" style="align-items:center;padding-top:44px;padding-bottom:44px">
 						<text class="h3">{{ emptyTitle }}</text>
 						<text class="muted" style="margin-top:8px">{{ emptyHint }}</text>
 					</view>
@@ -73,6 +73,7 @@
 	import { computed, ref } from 'vue'
 	import { fetchCoupons, isLoggedIn } from '../../data/api.uts'
 	import type { CouponItem } from '../../data/types.uts'
+	import { tap } from '../../utils/feedback.uts'
 
 	type TabItem = {
 		label: string
@@ -84,31 +85,24 @@
 		{ label: '已使用', value: 1 },
 		{ label: '已过期', value: 2 }
 	]
-
 	const activeTab = ref<number>(0)
 	const coupons = ref<CouponItem[]>([] as CouponItem[])
 	const loading = ref<boolean>(true)
 	const errorText = ref<string>('')
-
 	const emptyTitle = computed((): string => {
-		if (activeTab.value === 1) {
+		if (activeTab.value == 1) {
 			return '还没有用过的券'
 		}
-		if (activeTab.value === 2) {
+		if (activeTab.value == 2) {
 			return '没有已过期的券'
 		}
 		return '暂无可用优惠券'
 	})
-
 	const emptyHint = computed((): string => {
-		if (activeTab.value === 0) {
+		if (activeTab.value == 0) {
 			return '关注活动，出券后会出现在这里'
 		}
 		return '换个标签看看'
-	})
-
-	onShow(() => {
-		loadData()
 	})
 
 	function loadData() {
@@ -123,22 +117,31 @@
 		fetchCoupons(tabs[activeTab.value].value).then((list) => {
 			coupons.value = list
 			loading.value = false
-		}).catch((e: Error) => {
-			errorText.value = e.message
+		}).catch((e) => {
+			errorText.value = (e as Error).message
 			coupons.value = [] as CouponItem[]
 			loading.value = false
 		})
 	}
 
+	function retry() {
+		tap()
+		loadData()
+	}
+
+	onShow(() => {
+		loadData()
+	})
+
 	function switchTab(index: number) {
-		if (activeTab.value === index) {
+		tap()
+		if (activeTab.value == index) {
 			return
 		}
 		activeTab.value = index
 		coupons.value = [] as CouponItem[]
 		loadData()
 	}
-
 	function amountText(c: CouponItem): string {
 		if (c.amount > 0) {
 			return c.amount.toFixed(0)
@@ -148,7 +151,6 @@
 		}
 		return '券'
 	}
-
 	function thresholdText(c: CouponItem): string {
 		if (c.amount <= 0 && c.discount > 0) {
 			return c.threshold > 0 ? '满 ' + c.threshold.toFixed(0) + ' 可用' : '无门槛'

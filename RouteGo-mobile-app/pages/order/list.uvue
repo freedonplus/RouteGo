@@ -9,11 +9,11 @@
 						<view
 							v-for="(t, index) in tabs"
 							:key="t.label"
-							:class="index === activeTab ? 'chip chip-active' : 'chip'"
+							:class="index == activeTab ? 'chip chip-active' : 'chip'" hover-class="chip-pressing" hover-start-time="0" hover-stay-time="60"
 							style="margin-right:8px;margin-bottom:8px"
-							@click="activeTab = index"
+							@click="selectTab(index)"
 						>
-							<text :class="index === activeTab ? 'chip-text chip-text-active' : 'chip-text'">{{ t.label }}</text>
+							<text :class="index == activeTab ? 'chip-text chip-text-active' : 'chip-text'">{{ t.label }}</text>
 						</view>
 					</view>
 				</view>
@@ -22,13 +22,13 @@
 					<view
 						v-for="order in visibleOrders"
 						:key="order.id"
-						class="card"
+						class="card" hover-class="card-pressing" hover-start-time="0" hover-stay-time="60"
 						style="margin-bottom:12px"
 						@click="openDetail(order.id)"
 					>
 						<view class="row-between">
 							<text class="faint">{{ order.orderNo }}</text>
-							<text :class="order.status === 0 ? 'status status-warn' : 'status status-ok'">{{ order.statusDesc }}</text>
+							<text :class="order.status == 0 ? 'status status-warn' : 'status status-ok'">{{ order.statusDesc }}</text>
 						</view>
 
 						<view class="divider" style="margin-top:12px;margin-bottom:14px"></view>
@@ -43,13 +43,13 @@
 							</view>
 
 							<view class="row">
-								<view v-if="order.status === 0" class="mini-btn mini-btn-ghost" @click.stop="doCancel(order.id)">
+								<view v-if="order.status == 0" class="mini-btn mini-btn-ghost" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click.stop="doCancel(order.id)">
 									<text class="mini-text-ghost">取消</text>
 								</view>
-								<view v-if="order.status === 0" class="mini-btn mini-btn-primary" style="margin-left:8px" @click.stop="doPay(order.id)">
+								<view v-if="order.status == 0" class="mini-btn mini-btn-primary" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" style="margin-left:8px" @click.stop="doPay(order.id)">
 									<text class="mini-text-primary">去支付</text>
 								</view>
-								<view v-if="order.status === 4" class="mini-btn mini-btn-ghost" @click.stop="rebook">
+								<view v-if="order.status == 4" class="mini-btn mini-btn-ghost" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click.stop="rebook">
 									<text class="mini-text-ghost">再次预订</text>
 								</view>
 							</view>
@@ -58,18 +58,18 @@
 
 					<view v-if="errorText.length > 0" class="card" style="margin-bottom:12px">
 						<text class="body">{{ errorText }}</text>
-						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" @click="loadData">
+						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="retry">
 							<text class="btn-secondary-text">重新加载</text>
 						</view>
 					</view>
 
-					<view v-else-if="!loading && visibleOrders.length === 0" class="card" style="align-items:center;padding-top:44px;padding-bottom:44px">
+					<view v-else-if="!loading && visibleOrders.length == 0" class="card" style="align-items:center;padding-top:44px;padding-bottom:44px">
 						<text class="h3">{{ emptyTitle }}</text>
 						<text class="muted" style="margin-top:8px">{{ emptyHint }}</text>
-						<view v-if="loggedIn" class="btn btn-primary" style="margin-top:20px;padding-left:28px;padding-right:28px" @click="goRoutes">
+						<view v-if="loggedIn" class="btn btn-primary" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" style="margin-top:20px;padding-left:28px;padding-right:28px" @click="goRoutes">
 							<text class="btn-primary-text">去逛线路</text>
 						</view>
-						<view v-else class="btn btn-primary" style="margin-top:20px;padding-left:28px;padding-right:28px" @click="goLogin">
+						<view v-else class="btn btn-primary" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" style="margin-top:20px;padding-left:28px;padding-right:28px" @click="goLogin">
 							<text class="btn-primary-text">去登录</text>
 						</view>
 					</view>
@@ -85,6 +85,7 @@
 	import { computed, ref } from 'vue'
 	import { cancelOrder, fetchOrders, isLoggedIn, payOrder } from '../../data/api.uts'
 	import type { OrderItem } from '../../data/types.uts'
+	import { notifyTabShow, notifyTabTap, tap } from '../../utils/feedback.uts'
 
 	type TabItem = {
 		label: string
@@ -103,42 +104,33 @@
 	const orders = ref<OrderItem[]>([])
 	const loading = ref<boolean>(true)
 	const errorText = ref<string>('')
-
 	const visibleOrders = computed((): OrderItem[] => {
 		const value = tabs[activeTab.value].value
-		if (value === -1) {
+		if (value == -1) {
 			return orders.value
 		}
 		const list: OrderItem[] = []
 		orders.value.forEach((o) => {
-			if (o.status === value) {
+			if (o.status == value) {
 				list.push(o)
 			}
 		})
 		return list
 	})
-
 	const emptyTitle = computed((): string => {
 		if (!loggedIn.value) {
 			return '还没有相关订单'
 		}
-		if (activeTab.value !== 0) {
+		if (activeTab.value != 0) {
 			return '这个状态下没有订单'
 		}
 		return '还没有订单'
 	})
-
 	const emptyHint = computed((): string => {
 		if (!loggedIn.value) {
 			return '登录后可查看你的全部订单'
 		}
 		return '挑一条线路，出发就现在'
-	})
-
-	// 从详情页返回时需要刷新支付/取消后的状态
-	onShow(() => {
-		loggedIn.value = isLoggedIn()
-		loadData()
 	})
 
 	function loadData() {
@@ -149,32 +141,47 @@
 			loading.value = false
 			return
 		}
-		loading.value = true
+		// 已有订单时不清空、不转圈：切 tab 回来先看到旧列表，新数据到了再替换
+		if (orders.value.length == 0) {
+			loading.value = true
+		}
 		errorText.value = ''
 		fetchOrders(-1, 1, 50).then((list) => {
 			orders.value = list
 			loading.value = false
-		}).catch((e: Error) => {
-			errorText.value = e.message
+		}).catch((e) => {
+			errorText.value = (e as Error).message
 			orders.value = [] as OrderItem[]
 			loading.value = false
 		})
 	}
 
-	function openDetail(id: number) {
-		uni.navigateTo({ url: '/pages/order/detail?id=' + id })
+	// 从详情页返回时需要刷新支付/取消后的状态
+	function selectTab(index: number) {
+		tap()
+		activeTab.value = index
 	}
 
+	function retry() {
+		tap()
+		loadData()
+	}
+
+	function openDetail(id: number) {
+		tap()
+		uni.navigateTo({ url: '/pages/order/detail?id=' + id })
+	}
 	function doPay(id: number) {
+		tap()
 		payOrder(id).then(() => {
 			uni.showToast({ title: '支付成功', icon: 'success' })
 			loadData()
-		}).catch((e: Error) => {
-			uni.showToast({ title: e.message, icon: 'none' })
+		}).catch((e) => {
+			uni.showToast({ title: (e as Error).message, icon: 'none' })
 		})
 	}
-
 	function doCancel(id: number) {
+		tap()
 		uni.showModal({
 			title: '取消订单',
 			content: '取消后名额将释放，确定取消吗？',
@@ -183,29 +190,43 @@
 					cancelOrder(id, '用户主动取消').then(() => {
 						uni.showToast({ title: '订单已取消', icon: 'none' })
 						loadData()
-					}).catch((e: Error) => {
-						uni.showToast({ title: e.message, icon: 'none' })
+					}).catch((e) => {
+						uni.showToast({ title: (e as Error).message, icon: 'none' })
 					})
 				}
 			}
 		})
 	}
-
 	function goRoutes() {
+		tap()
 		uni.switchTab({ url: '/pages/route/list' })
 	}
-
 	function goLogin() {
+		tap()
 		uni.navigateTo({ url: '/pages/user/login' })
 	}
-
 	function rebook() {
-		uni.navigateTo({ url: '/pages/route/list' })
+		tap()
+		uni.switchTab({ url: '/pages/route/list' })
 	}
-
 	function goHome() {
 		uni.switchTab({ url: '/pages/index/index' })
 	}
+
+	onShow(() => {
+		// 从别的 tab 切过来：原生 tabBar 不发 @click，这里补一次反馈
+		notifyTabShow('/pages/order/list')
+		loggedIn.value = isLoggedIn()
+		loadData()
+	})
+
+	// 点底部 tab 时的触觉 + 音效（原生 tabBar 不会触发系统音效）
+	// App 平台不支持 onTabItemTap，仅在支持该 API 的平台启用
+	// #ifndef APP
+	onTabItemTap((options) => {
+		notifyTabTap()
+	})
+	// #endif
 </script>
 
 <style>

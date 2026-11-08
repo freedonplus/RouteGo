@@ -1,12 +1,12 @@
 <template>
 	<view class="splash">
 		<view class="center">
-			<image class="logo" src="/static/logo.png" mode="aspectFit"></image>
-			<text class="title">{{ brand }}</text>
-			<text class="slogan">{{ tagline }}</text>
+			<image class="logo" :style="logoStyle" src="/static/logo.png" mode="aspectFit"></image>
+			<text class="title" :style="titleStyle">{{ brand }}</text>
+			<text class="slogan" :style="sloganStyle">{{ tagline }}</text>
 		</view>
 		<view class="footer">
-			<text class="footer-text">全国风景线路 · 精选小团</text>
+			<text class="footer-text" :style="footerStyle">全国风景线路 · 精选小团</text>
 		</view>
 	</view>
 </template>
@@ -15,15 +15,39 @@
 	/**
 	 * 启动页。
 	 *
-	 * 动效说明：logo 900ms 淡入 + 轻微放大（0.92 → 1），文字延迟 260ms 上浮淡入，
-	 * 全部使用 cubic-bezier(0.25, 0.1, 0.25, 1) 减速曲线，没有回弹与位移抖动。
-	 * 系统开启「减弱动效」时，uni-app x 会自动把 CSS 动画降级为直接呈现最终状态。
+	 * 动效说明：uvue（app-android）的 CSS 编译器不支持 @keyframes 与 cubic-bezier，
+	 * 这里改用「初始透明样式 + transition」实现同样的进场动效：
+	 * 挂载后延迟一帧把 shown 置 true，logo 900ms 淡入并轻微放大（0.92 → 1），
+	 * 文案按 260ms / 380ms / 620ms 延迟上浮淡入，曲线用 uvue 支持的 ease，观感接近减速曲线。
 	 */
+	import { computed, ref } from 'vue'
 	import { APP_NAME, APP_SLOGAN } from '../../config/env.uts'
 
-	const STAY_MS = 1500
+	const STAY_MS = 1000
+
+	const shown = ref<boolean>(false)
+
+	const logoStyle = computed((): string => {
+		return shown.value ? 'opacity: 1; transform: scale(1);' : 'opacity: 0; transform: scale(0.92);'
+	})
+
+	const titleStyle = computed((): string => {
+		return shown.value ? 'opacity: 1; transform: translateY(0);' : 'opacity: 0; transform: translateY(8px);'
+	})
+
+	const sloganStyle = computed((): string => {
+		return shown.value ? 'opacity: 1; transform: translateY(0);' : 'opacity: 0; transform: translateY(8px);'
+	})
+
+	const footerStyle = computed((): string => {
+		return shown.value ? 'opacity: 1; transform: translateY(0);' : 'opacity: 0; transform: translateY(8px);'
+	})
 
 	onLoad(() => {
+		// 先让初始（透明）样式渲染一帧，再切到终态，transition 才有起止两端可过渡
+		setTimeout(() => {
+			shown.value = true
+		}, 50)
 		setTimeout(() => {
 			uni.switchTab({
 				url: '/pages/index/index'
@@ -54,22 +78,9 @@
 		width: 96px;
 		height: 96px;
 		margin-bottom: 24px;
-		animation-name: logo-in;
-		animation-duration: 900ms;
-		animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
-		animation-fill-mode: both;
-	}
-
-	@keyframes logo-in {
-		0% {
-			opacity: 0;
-			transform: scale(0.92);
-		}
-
-		100% {
-			opacity: 1;
-			transform: scale(1);
-		}
+		transition-property: opacity, transform;
+		transition-duration: 900ms;
+		transition-timing-function: ease;
 	}
 
 	.title {
@@ -77,34 +88,20 @@
 		font-weight: 600;
 		color: #1d1d1f;
 		letter-spacing: -0.6px;
-		animation-name: text-in;
-		animation-duration: 700ms;
-		animation-delay: 260ms;
-		animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
-		animation-fill-mode: both;
+		transition-property: opacity, transform;
+		transition-duration: 700ms;
+		transition-delay: 260ms;
+		transition-timing-function: ease;
 	}
 
 	.slogan {
 		margin-top: 10px;
 		font-size: 15px;
 		color: #6e6e73;
-		animation-name: text-in;
-		animation-duration: 700ms;
-		animation-delay: 380ms;
-		animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
-		animation-fill-mode: both;
-	}
-
-	@keyframes text-in {
-		0% {
-			opacity: 0;
-			transform: translateY(8px);
-		}
-
-		100% {
-			opacity: 1;
-			transform: translateY(0);
-		}
+		transition-property: opacity, transform;
+		transition-duration: 700ms;
+		transition-delay: 380ms;
+		transition-timing-function: ease;
 	}
 
 	.footer {
@@ -116,10 +113,9 @@
 	.footer-text {
 		font-size: 12px;
 		color: #a1a1a6;
-		animation-name: text-in;
-		animation-duration: 700ms;
-		animation-delay: 620ms;
-		animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
-		animation-fill-mode: both;
+		transition-property: opacity, transform;
+		transition-duration: 700ms;
+		transition-delay: 620ms;
+		transition-timing-function: ease;
 	}
 </style>

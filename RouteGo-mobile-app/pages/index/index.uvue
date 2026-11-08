@@ -9,7 +9,7 @@
 						<text class="muted" style="margin-top:6px">{{ subtitle }}</text>
 					</view>
 
-					<view class="search-box row" @click="goList">
+					<view class="search-box row" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="goList">
 						<text class="search-icon">⌕</text>
 						<text class="search-placeholder">搜索目的地、线路名称</text>
 					</view>
@@ -25,12 +25,12 @@
 						<view
 							v-for="(cat, index) in categories"
 							:key="cat.id"
-							:class="index + 1 === activeCategory ? 'chip chip-active' : 'chip'"
+							:class="index + 1 == activeCategory ? 'chip chip-active' : 'chip'"
 							style="margin-right:8px;margin-bottom:8px"
-							hover-class="chip-pressing"
+							hover-class="chip-pressing" hover-start-time="0" hover-stay-time="60"
 							@click="selectCategory(index)"
 						>
-							<text :class="index + 1 === activeCategory ? 'chip-text chip-text-active' : 'chip-text'">{{ cat.name }}</text>
+							<text :class="index + 1 == activeCategory ? 'chip-text chip-text-active' : 'chip-text'">{{ cat.name }}</text>
 						</view>
 					</view>
 				</view>
@@ -44,21 +44,30 @@
 
 					<view v-if="errorText.length > 0" class="card" style="margin-bottom:14px">
 						<text class="body">{{ errorText }}</text>
-						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" @click="loadData">
+						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="retry">
 							<text class="btn-secondary-text">重新加载</text>
 						</view>
 					</view>
 
-					<view v-else-if="!loading && visibleRoutes.length === 0" class="card" style="margin-bottom:14px">
+					<view v-else-if="!loading && visibleRoutes.length == 0" class="card" style="margin-bottom:14px">
 						<text class="muted">该分类下暂无线路，换个目的地看看</text>
 					</view>
 
+					<!-- 骨架屏：冷启动还没拿到数据时的占位，比空白更像"已经在加载" -->
+					<view v-if="loading && displayRoutes.length == 0">
+						<view v-for="i in skeletonRows" :key="i" class="card-tight" style="margin-bottom:14px">
+							<view class="skeleton-img"></view>
+							<view class="skeleton-line" style="width:68%;margin-top:14px"></view>
+							<view class="skeleton-line" style="width:42%;margin-top:10px"></view>
+						</view>
+					</view>
+
 					<view
-						v-for="item in visibleRoutes"
+						v-for="item in displayRoutes"
 						:key="item.id"
 						class="card-tight"
 						style="margin-bottom:14px"
-						hover-class="card-pressing"
+						hover-class="card-pressing" hover-start-time="0" hover-stay-time="60"
 						@click="openDetail(item.id)"
 					>
 						<view class="cover" style="height:168px">
@@ -89,7 +98,7 @@
 									<text class="price-unit" style="margin-left:6px;margin-bottom:3px">起</text>
 									<text class="price-origin" style="margin-left:8px;margin-bottom:4px">¥{{ item.originalPrice }}</text>
 								</view>
-								<view class="btn btn-primary" style="height:38px;padding-left:18px;padding-right:18px" @click.stop="openDetail(item.id)">
+								<view class="btn btn-primary" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" style="height:38px;padding-left:18px;padding-right:18px" @click.stop="openDetail(item.id)">
 									<text class="btn-primary-text" style="font-size:14px">查看</text>
 								</view>
 							</view>
@@ -99,7 +108,7 @@
 
 				<!-- 定制入口 -->
 				<view class="section" style="margin-top:6px">
-					<view class="card" @click="goCustom">
+					<view class="card" hover-class="card-pressing" hover-start-time="0" hover-stay-time="60" @click="goCustom">
 						<view class="row-between">
 							<view class="col" style="flex:1">
 								<text class="h3">没找到合适的？</text>
@@ -118,16 +127,21 @@
 
 <script setup lang="uts">
 	import { computed, ref } from 'vue'
-	import { fetchCategories, fetchRoutes } from '../../data/api.uts'
+	import { fetchCategories, fetchRoutes, getCachedCategories, getCachedRoutes, hasFreshRoutes } from '../../data/api.uts'
 	import type { Category, RouteItem } from '../../data/types.uts'
+	import { notifyTabShow, notifyTabTap, tap } from '../../utils/feedback.uts'
 
+	/** 首页最多展示的线路数 */
+	const HOME_LIMIT = 6
+	/** 骨架屏占位行：用数组而不是数字 v-for，兼容性更稳 */
+	const skeletonRows: number[] = [0, 1, 2]
+
+	const categories = ref<Category[]>([])
 	/** 0 = 全部；n = 第 n 个分类（与 categories 下标差 1） */
 	const activeCategory = ref<number>(0)
-	const categories = ref<Category[]>([])
 	const routes = ref<RouteItem[]>([])
 	const loading = ref<boolean>(true)
 	const errorText = ref<string>('')
-
 	const subtitle = computed((): string => {
 		if (errorText.value.length > 0) {
 			return '线路加载失败，下拉可重试'
@@ -137,9 +151,8 @@
 		}
 		return '全国 ' + routes.value.length + ' 条风景线路'
 	})
-
 	const visibleRoutes = computed((): RouteItem[] => {
-		if (activeCategory.value === 0) {
+		if (activeCategory.value == 0) {
 			return routes.value
 		}
 		const current = categories.value[activeCategory.value - 1]
@@ -155,44 +168,95 @@
 		return list
 	})
 
-	onLoad(() => {
-		loadData()
+	/**
+	 * 首屏只渲染前 6 条。
+	 * uvue 的 scroll-view 会把子节点一次性全建出来，20 张卡片 = 20 个 image 解码，
+	 * 首屏时间和滚动流畅度都受影响；多出来的交给「查看全部」进列表页看。
+	 */
+	const displayRoutes = computed((): RouteItem[] => {
+		const list = visibleRoutes.value
+		const head: RouteItem[] = []
+		const limit = list.length > HOME_LIMIT ? HOME_LIMIT : list.length
+		for (let i = 0; i < limit; i++) {
+			head.push(list[i])
+		}
+		return head
 	})
 
+	/** 启动预取的缓存：有就直接铺上去，页面不再空等网络 */
+	function applyCache() {
+		const cats = getCachedCategories()
+		if (cats.length > 0) {
+			categories.value = cats
+		}
+		const list = getCachedRoutes()
+		if (list.length > 0) {
+			routes.value = list
+			loading.value = false
+		}
+	}
+
 	function loadData() {
-		loading.value = true
+		// 已经有缓存/数据时不闪 loading，后台静默刷新
+		if (routes.value.length == 0) {
+			loading.value = true
+		}
 		errorText.value = ''
 		fetchCategories().then((list) => {
 			categories.value = list
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			// 分类失败不阻塞主内容，仅保留「全部」
 			categories.value = [] as Category[]
 		})
-		fetchRoutes('', '', 0, 1, 20).then((list) => {
+		fetchRoutes('', '', 0, 1, 50).then((list) => {
 			routes.value = list
 			loading.value = false
-		}).catch((e: Error) => {
-			errorText.value = e.message
+		}).catch((e) => {
+			errorText.value = (e as Error).message
 			routes.value = [] as RouteItem[]
 			loading.value = false
 		})
 	}
 
+	function retry() {
+		tap()
+		loadData()
+	}
+
 	function selectCategory(index: number) {
+		tap()
 		activeCategory.value = index + 1
 	}
-
 	function goList() {
-		uni.navigateTo({ url: '/pages/route/list' })
+		tap()
+		uni.switchTab({ url: '/pages/route/list' })
 	}
-
 	function openDetail(id: number) {
+		tap()
 		uni.navigateTo({ url: '/pages/route/detail?id=' + id })
 	}
-
 	function goCustom() {
+		tap()
 		uni.navigateTo({ url: '/pages/custom/apply' })
 	}
+
+	onShow(() => {
+		// 从别的 tab 切过来：原生 tabBar 不发 @click，这里补一次反馈
+		notifyTabShow('/pages/index/index')
+		applyCache()
+		// 缓存还新鲜就不重复请求；超过 1 分钟再静默刷新
+		if (!hasFreshRoutes()) {
+			loadData()
+		}
+	})
+
+	// 重复点「首页」tab（回到顶部/刷新）也给一次反馈
+	// App 平台不支持 onTabItemTap，仅在支持该 API 的平台启用
+	// #ifndef APP
+	onTabItemTap((options) => {
+		notifyTabTap()
+	})
+	// #endif
 </script>
 
 <style>
@@ -217,6 +281,18 @@
 	.search-placeholder {
 		font-size: 15px;
 		color: #86868b;
+	}
+
+	.skeleton-img {
+		height: 168px;
+		border-radius: 14px;
+		background-color: #ececf0;
+	}
+
+	.skeleton-line {
+		height: 14px;
+		border-radius: 7px;
+		background-color: #ececf0;
 	}
 
 	.chips-wrap {

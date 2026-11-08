@@ -108,11 +108,13 @@ function buildHeader(): UTSJSONObject {
 
 /**
  * 统一处理响应：2xx 返回整个响应体，401 清登录态，其余抛业务错误。
+ * 注意：data 必须由类型化的 success 回调传入（res.data），不能把 res 整体传进来
+ * 再点 .data —— uvue 安卓端（Kotlin）禁止在 any 上直接访问属性。
  */
-function handleResponse(res: any, resolve: (body: UTSJSONObject) => void, reject: (err: Error) => void): void {
+function handleResponse(data: any | null, resolve: (body: UTSJSONObject) => void, reject: (err: Error) => void): void {
 	let body: UTSJSONObject | null = null
 	try {
-		body = res.data as UTSJSONObject
+		body = data as UTSJSONObject
 	} catch (e) {
 		body = null
 	}
@@ -136,10 +138,9 @@ function handleResponse(res: any, resolve: (body: UTSJSONObject) => void, reject
 	reject(new Error(text.length > 0 ? text : '请求失败(' + code + ')'))
 }
 
-function handleFail(err: any, reject: (e: Error) => void): void {
-	const msg = err.errMsg
-	const text = msg == null ? '' : msg!.toString()
-	reject(new Error('网络异常，请检查后端是否已启动：' + text))
+/** 网络层失败：errMsg 由类型化的 fail 回调取出后传入，同上避免在 any 上点属性 */
+function handleFail(errMsg: string, reject: (e: Error) => void): void {
+	reject(new Error('网络异常，请检查后端是否已启动：' + errMsg))
 }
 
 /** GET 请求，返回完整响应体 */
@@ -152,10 +153,10 @@ function requestGet(path: string, query: string): Promise<UTSJSONObject> {
 			header: buildHeader(),
 			timeout: 15000,
 			success: (res) => {
-				handleResponse(res, resolve, reject)
+				handleResponse(res.data, resolve, reject)
 			},
 			fail: (err) => {
-				handleFail(err, reject)
+				handleFail(err.errMsg, reject)
 			}
 		})
 	})
@@ -171,30 +172,37 @@ function requestPost(path: string, payload: UTSJSONObject | null): Promise<UTSJS
 			data: payload,
 			timeout: 15000,
 			success: (res) => {
-				handleResponse(res, resolve, reject)
+				handleResponse(res.data, resolve, reject)
 			},
 			fail: (err) => {
-				handleFail(err, reject)
+				handleFail(err.errMsg, reject)
 			}
 		})
 	})
 }
 
-/** 取 data 为对象时的内容 */
-function dataObject(body: UTSJSONObject): UTSJSONObject | null {
-	const data = body.getJSON('data')
-	return data
+/** 取 data 为对象时的内容；body 允许传 null（parseLoginResponse 等处 body 本身可空） */
+function dataObject(body: UTSJSONObject | null): UTSJSONObject | null {
+	if (body == null) {
+		return null
+	}
+	return body!.getJSON('data')
 }
 
 /** 取 data 为数组时的内容 */
-function dataArray(body: UTSJSONObject): Array<UTSJSONObject> | null {
-	const arr = body.getArray<UTSJSONObject>('data')
-	return arr
+function dataArray(body: UTSJSONObject | null): Array<UTSJSONObject> | null {
+	if (body == null) {
+		return null
+	}
+	return body!.getArray<UTSJSONObject>('data')
 }
 
 /** 取 data 为数字时的内容（同样兼容后端把 Long 序列化成字符串的情况） */
-function dataNumber(body: UTSJSONObject): number {
-	const n = body.getNumber('data')
+function dataNumber(body: UTSJSONObject | null): number {
+	if (body == null) {
+		return 0
+	}
+	const n = body!.getNumber('data')
 	if (n != null) {
 		return n!
 	}
@@ -365,7 +373,7 @@ export function loginByPassword(phone: string, password: string): Promise<Sessio
 	return new Promise<Session>((resolve, reject) => {
 		requestPost('/app/auth/login/password', payload).then((body) => {
 			resolve(parseLoginResponse(body, phone))
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -381,7 +389,7 @@ export function loginByAccount(account: string, password: string): Promise<Sessi
 	return new Promise<Session>((resolve, reject) => {
 		requestPost('/app/auth/login/account', payload).then((body) => {
 			resolve(parseLoginResponse(body, account))
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -399,7 +407,7 @@ export function setLoginPassword(password: string): Promise<boolean> {
 				saveSession(session!)
 			}
 			resolve(true)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -417,7 +425,7 @@ export function registerAccount(phone: string, code: string, password: string, n
 	return new Promise<Session>((resolve, reject) => {
 		requestPost('/app/auth/register', payload).then((body) => {
 			resolve(parseLoginResponse(body, phone))
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -458,7 +466,7 @@ export function sendLoginCode(phone: string): Promise<string> {
 				}
 			}
 			resolve(masked)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -488,7 +496,7 @@ export function loginByCode(phone: string, code: string): Promise<Session> {
 			}
 			saveSession(session)
 			resolve(session)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -514,7 +522,7 @@ export function fetchMe(): Promise<Session> {
 			}
 			saveSession(session)
 			resolve(session)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -522,7 +530,7 @@ export function fetchMe(): Promise<Session> {
 
 /** 退出登录：先尝试注销服务端会话，再清本地 */
 export function logout(): void {
-	requestPost('/app/auth/logout', null).catch((e: Error) => {
+	requestPost('/app/auth/logout', null).catch((e) => {
 		// 服务端失败也要清本地，避免卡在已登录状态
 	})
 	clearSession()
@@ -533,6 +541,39 @@ export function logout(): void {
 /* ------------------------------------------------------------------ */
 
 /** 线路分页；keyword 匹配标题，destination 匹配目的地 */
+/* ------------------------------------------------------------------ */
+/* 线路 / 分类缓存                                                     */
+/* ------------------------------------------------------------------ */
+/**
+ * App 冷启动后，各 tab 首次进入都要等一次网络（真机走公网，200~800ms），
+ * 用户感受到的就是「点了没反应」。
+ *
+ * 这里做两件事：
+ * 1. 启动时（App.uvue onLaunch）预取一次全量线路 + 分类，启动页那 1 秒正好用来等网络；
+ * 2. 页面进入时先用缓存渲染，再后台静默刷新，切换 tab 不再闪 loading。
+ */
+let cachedRoutes: RouteItem[] = []
+let cachedCategories: Category[] = []
+/** 缓存时间戳（毫秒） */
+let routesCacheAt: number = 0
+/** 缓存有效期：1 分钟内的数据视为新鲜，不重复请求 */
+const CACHE_TTL = 60000
+
+/** 缓存里的线路（无缓存时是空数组） */
+export function getCachedRoutes(): RouteItem[] {
+	return cachedRoutes
+}
+
+/** 缓存里的分类 */
+export function getCachedCategories(): Category[] {
+	return cachedCategories
+}
+
+/** 缓存是否还在有效期内 */
+export function hasFreshRoutes(): boolean {
+	return cachedRoutes.length > 0 && (Date.now() - routesCacheAt) < CACHE_TTL
+}
+
 export function fetchRoutes(keyword: string, destination: string, categoryId: number, pageNum: number, pageSize: number): Promise<RouteItem[]> {
 	const parts: string[] = []
 	parts.push('pageNum=' + pageNum)
@@ -559,24 +600,81 @@ export function fetchRoutes(keyword: string, destination: string, categoryId: nu
 					}
 				}
 			}
+			// 只有「无条件的第一页」才有代表性，可作为首页 / 线路页共享缓存
+			if (pageNum == 1 && keyword.length == 0 && destination.length == 0 && categoryId == 0) {
+				cachedRoutes = list
+				routesCacheAt = Date.now()
+			}
 			resolve(list)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
 }
 
 /** 线路详情（含行程、标签） */
+/* ------------------------------------------------------------------ */
+/* 线路详情缓存                                                        */
+/* ------------------------------------------------------------------ */
+/**
+ * 列表 → 详情 → 返回 → 再进同一条线路，每次都等一次网络太亏。
+ * 这里做 2 分钟的短缓存：同一条线路重复打开直接命中，返回列表也不会白等。
+ * 用平行数组而不是 Map，纯粹是为了避免 UTS 上的泛型坑。
+ */
+const DETAIL_TTL = 120000
+let detailIds: number[] = []
+let detailItems: RouteItem[] = []
+let detailAt: number[] = []
+const DETAIL_MAX = 20
+
+function cachedDetail(id: number): RouteItem | null {
+	for (let i = 0; i < detailIds.length; i++) {
+		if (detailIds[i] == id) {
+			if ((Date.now() - detailAt[i]) < DETAIL_TTL) {
+				return detailItems[i]
+			}
+			return null
+		}
+	}
+	return null
+}
+
+function putDetail(id: number, item: RouteItem): void {
+	for (let i = 0; i < detailIds.length; i++) {
+		if (detailIds[i] == id) {
+			detailItems[i] = item
+			detailAt[i] = Date.now()
+			return
+		}
+	}
+	// 简单粗暴：超了整批清掉，避免依赖 Array.shift 这类方法
+	if (detailIds.length >= DETAIL_MAX) {
+		detailIds = []
+		detailItems = []
+		detailAt = []
+	}
+	detailIds.push(id)
+	detailItems.push(item)
+	detailAt.push(Date.now())
+}
+
 export function fetchRouteDetail(id: number): Promise<RouteItem> {
 	return new Promise<RouteItem>((resolve, reject) => {
+		const hit = cachedDetail(id)
+		if (hit != null) {
+			resolve(hit!)
+			return
+		}
 		requestGet('/app/routes/' + id, '').then((body) => {
 			const data = dataObject(body)
 			if (data == null) {
 				reject(new Error('线路不存在'))
 				return
 			}
-			resolve(toRoute(data!))
-		}).catch((e: Error) => {
+			const item = toRoute(data!)
+			putDetail(id, item)
+			resolve(item)
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -594,7 +692,7 @@ export function fetchDepartures(routeId: number): Promise<Departure[]> {
 				}
 			}
 			resolve(list)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -617,10 +715,28 @@ export function fetchCategories(): Promise<Category[]> {
 					list.push(c)
 				}
 			}
+			cachedCategories = list
 			resolve(list)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
+	})
+}
+
+/**
+ * 启动预取：把首页要用的线路（50 条，线路页也复用）与分类拉到缓存里。
+ * 失败静默忽略——页面自己还会再请求一次。
+ */
+export function prefetchHomeData(): void {
+	fetchCategories().then((list) => {
+		console.log('预取分类：' + list.length + ' 个')
+	}).catch((e) => {
+		// 预取失败无所谓，页面自己还会再请求
+	})
+	// 一次取 50 条：首页只用前 6 条，线路页复用同一份缓存
+	fetchRoutes('', '', 0, 1, 50).then((list) => {
+		console.log('预取线路：' + list.length + ' 条')
+	}).catch((e) => {
 	})
 }
 
@@ -655,7 +771,7 @@ export function fetchOrders(status: number, pageNum: number, pageSize: number): 
 				}
 			}
 			resolve(list)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -671,7 +787,7 @@ export function fetchOrderDetail(id: number): Promise<OrderItem> {
 				return
 			}
 			resolve(toOrder(data!))
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -704,7 +820,7 @@ export function createOrder(routeId: number, departureId: number, travelerCount:
 				return
 			}
 			reject(new Error('下单失败：未返回订单 ID'))
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -717,7 +833,7 @@ export function cancelOrder(id: number, reason: string): Promise<void> {
 	return new Promise<void>((resolve, reject) => {
 		requestPost('/app/orders/' + id + '/cancel', payload).then((body) => {
 			resolve()
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -731,7 +847,7 @@ export function payOrder(id: number): Promise<void> {
 	return new Promise<void>((resolve, reject) => {
 		requestPost('/app/orders/' + id + '/pay', payload).then((body) => {
 			resolve()
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -786,7 +902,7 @@ export function fetchCoupons(status: number): Promise<CouponItem[]> {
 				}
 			}
 			resolve(list)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -798,7 +914,7 @@ export function submitCustom(payload: UTSJSONObject): Promise<number> {
 	return new Promise<number>((resolve, reject) => {
 		requestPost('/app/custom', payload).then((body) => {
 			resolve(dataNumber(body))
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -869,7 +985,7 @@ export function fetchCsSessions(): Promise<CsSession[]> {
 				}
 			}
 			resolve(list)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -885,7 +1001,7 @@ export function fetchCsSession(ticketId: number): Promise<CsSession> {
 				return
 			}
 			resolve(toCsSession(data!))
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -903,7 +1019,7 @@ export function fetchCsMessages(ticketId: number): Promise<CsMessage[]> {
 				}
 			}
 			resolve(list)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -918,7 +1034,7 @@ export function sendCsMessage(ticketId: number, content: string, images: string[
 	return new Promise<number>((resolve, reject) => {
 		requestPost('/app/cs/messages', payload).then((body) => {
 			resolve(dataNumber(body))
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -936,7 +1052,7 @@ export function createCsTicket(type: number, title: string, content: string, ima
 	return new Promise<number>((resolve, reject) => {
 		requestPost('/app/cs/tickets', payload).then((body) => {
 			resolve(dataNumber(body))
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -947,7 +1063,7 @@ export function closeCsTicket(ticketId: number): Promise<void> {
 	return new Promise<void>((resolve, reject) => {
 		requestPost('/app/cs/tickets/' + ticketId + '/close', null).then((body) => {
 			resolve()
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -961,7 +1077,7 @@ export function fetchCsUnread(): Promise<number> {
 	return new Promise<number>((resolve, reject) => {
 		requestGet('/app/cs/unread', '').then((body) => {
 			resolve(dataNumber(body))
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			reject(e)
 		})
 	})
@@ -1032,7 +1148,7 @@ export function uploadCsImage(filePath: string): Promise<string> {
 }
 
 /** 会话时间显示：MM-DD HH:mm，跨年时带上年份 */
-export function formatChatTime(raw: string): string {
+export const formatChatTime: (raw: string) => string = function (raw: string): string {
 	if (raw.length < 16) {
 		return raw
 	}

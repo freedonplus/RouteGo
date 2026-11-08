@@ -5,7 +5,7 @@
 				<view v-if="errorText.length > 0" class="section" style="padding-top:14px">
 					<view class="card">
 						<text class="body">{{ errorText }}</text>
-						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" @click="loadData">
+						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="retry">
 							<text class="btn-secondary-text">重新加载</text>
 						</view>
 					</view>
@@ -70,7 +70,7 @@
 							v-for="(img, index) in current.images"
 							:key="img"
 							class="gallery-item"
-							:style="index === current.images.length - 1 ? '' : 'margin-right:10px'"
+							:style="index == current.images.length - 1 ? '' : 'margin-right:10px'"
 						>
 							<image class="gallery-img" :src="img" mode="aspectFill"></image>
 						</view>
@@ -81,24 +81,24 @@
 				<view class="section" style="margin-top:20px">
 					<text class="h3">选择出发日期</text>
 					<view class="card" style="margin-top:10px">
-						<view v-if="loading && current.departures.length === 0">
+						<view v-if="loading && current.departures.length == 0">
 							<text class="muted">正在加载班期…</text>
 						</view>
-						<view v-else-if="current.departures.length === 0">
+						<view v-else-if="current.departures.length == 0">
 							<text class="muted">该线路暂无在售班期，可先提交定制需求</text>
 						</view>
 						<view
 							v-for="(d, index) in current.departures"
 							:key="d.id"
-							:class="d.id === selectedId ? 'depart depart-active' : 'depart'"
-							:style="index === current.departures.length - 1 ? '' : 'margin-bottom:10px'"
-							@click="selectedId = d.id"
+							:class="d.id == selectedId ? 'depart depart-active' : 'depart'" hover-class="chip-pressing" hover-start-time="0" hover-stay-time="60"
+							:style="index == current.departures.length - 1 ? '' : 'margin-bottom:10px'"
+							@click="selectDeparture(d.id)"
 						>
 							<view class="col">
-								<text :class="d.id === selectedId ? 'depart-date depart-date-active' : 'depart-date'">{{ d.departDate }}</text>
-								<text :class="d.id === selectedId ? 'depart-stock depart-stock-active' : 'depart-stock'">剩余 {{ d.remaining }} 位</text>
+								<text :class="d.id == selectedId ? 'depart-date depart-date-active' : 'depart-date'">{{ d.departDate }}</text>
+								<text :class="d.id == selectedId ? 'depart-stock depart-stock-active' : 'depart-stock'">剩余 {{ d.remaining }} 位</text>
 							</view>
-							<text :class="d.id === selectedId ? 'depart-price depart-price-active' : 'depart-price'">¥{{ d.adultPrice }}</text>
+							<text :class="d.id == selectedId ? 'depart-price depart-price-active' : 'depart-price'">¥{{ d.adultPrice }}</text>
 						</view>
 					</view>
 				</view>
@@ -112,7 +112,7 @@
 							:key="it.day"
 							class="row"
 							style="align-items:flex-start"
-							:style="index === current.itineraries.length - 1 ? '' : 'margin-bottom:18px'"
+							:style="index == current.itineraries.length - 1 ? '' : 'margin-bottom:18px'"
 						>
 							<view class="day-badge">
 								<text class="day-badge-text">D{{ it.day }}</text>
@@ -157,7 +157,7 @@
 				</view>
 				<text class="faint" style="margin-top:2px">{{ selectedDateText }}</text>
 			</view>
-			<view class="btn btn-primary" style="padding-left:32px;padding-right:32px" hover-class="btn-pressing" @click="goConfirm">
+			<view class="btn btn-primary" style="padding-left:32px;padding-right:32px" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="goConfirm">
 				<text class="btn-primary-text">立即预订</text>
 			</view>
 		</view>
@@ -168,83 +168,12 @@
 	import { computed, ref } from 'vue'
 	import { fetchDepartures, fetchRouteDetail } from '../../data/api.uts'
 	import type { Departure, RouteItem } from '../../data/types.uts'
+	import { tap } from '../../utils/feedback.uts'
 
 	const routeId = ref<number>(0)
 	const selectedId = ref<number>(0)
 	const loading = ref<boolean>(true)
 	const errorText = ref<string>('')
-	const route = ref<RouteItem>(emptyRoute())
-
-	/** 模板统一读 current，避免详情加载前后字段访问出错 */
-	const current = computed((): RouteItem => route.value)
-
-	const selected = computed((): Departure => {
-		const list = current.value.departures
-		if (list.length === 0) {
-			return emptyDeparture()
-		}
-		let found: Departure = list[0]
-		list.forEach((d) => {
-			if (d.id === selectedId.value) {
-				found = d
-			}
-		})
-		return found
-	})
-
-	const displayPrice = computed((): number => {
-		if (selected.value.id === 0) {
-			return current.value.minPrice
-		}
-		return selected.value.adultPrice
-	})
-
-	const selectedDateText = computed((): string => {
-		if (selected.value.id === 0) {
-			return '暂无在售班期'
-		}
-		return selected.value.departDate + ' 出发'
-	})
-
-	onLoad((options) => {
-		const raw = options['id']
-		if (raw != null) {
-			const parsed = parseInt(raw.toString())
-			if (parsed > 0) {
-				routeId.value = parsed
-			}
-		}
-		loadData()
-	})
-
-	function loadData() {
-		if (routeId.value <= 0) {
-			errorText.value = '缺少线路参数'
-			loading.value = false
-			return
-		}
-		loading.value = true
-		errorText.value = ''
-		fetchRouteDetail(routeId.value).then((detail) => {
-			fetchDepartures(routeId.value).then((list) => {
-				detail.departures = list
-				route.value = detail
-				if (list.length > 0) {
-					selectedId.value = list[0].id
-				}
-				loading.value = false
-			}).catch((e: Error) => {
-				// 班期拉取失败仍展示线路本体，只是不能下单
-				route.value = detail
-				errorText.value = e.message
-				loading.value = false
-			})
-		}).catch((e: Error) => {
-			errorText.value = e.message
-			route.value = emptyRoute()
-			loading.value = false
-		})
-	}
 
 	function emptyDeparture(): Departure {
 		const d: Departure = {
@@ -256,7 +185,6 @@
 		}
 		return d
 	}
-
 	function emptyRoute(): RouteItem {
 		const r: RouteItem = {
 			id: 0,
@@ -284,8 +212,88 @@
 		return r
 	}
 
+	const route = ref<RouteItem>(emptyRoute())
+	/** 模板统一读 current，避免详情加载前后字段访问出错 */
+	const current = computed((): RouteItem => route.value)
+	const selected = computed((): Departure => {
+		const list = current.value.departures
+		if (list.length == 0) {
+			return emptyDeparture()
+		}
+		let found: Departure = list[0]
+		list.forEach((d) => {
+			if (d.id == selectedId.value) {
+				found = d
+			}
+		})
+		return found
+	})
+	const displayPrice = computed((): number => {
+		if (selected.value.id == 0) {
+			return current.value.minPrice
+		}
+		return selected.value.adultPrice
+	})
+	const selectedDateText = computed((): string => {
+		if (selected.value.id == 0) {
+			return '暂无在售班期'
+		}
+		return selected.value.departDate + ' 出发'
+	})
+
+	function loadData() {
+		if (routeId.value <= 0) {
+			errorText.value = '缺少线路参数'
+			loading.value = false
+			return
+		}
+		loading.value = true
+		errorText.value = ''
+		fetchRouteDetail(routeId.value).then((detail) => {
+			fetchDepartures(routeId.value).then((list) => {
+				detail.departures = list
+				route.value = detail
+				if (list.length > 0) {
+					selectedId.value = list[0].id
+				}
+				loading.value = false
+			}).catch((e) => {
+				// 班期拉取失败仍展示线路本体，只是不能下单
+				route.value = detail
+				errorText.value = (e as Error).message
+				loading.value = false
+			})
+		}).catch((e) => {
+			errorText.value = (e as Error).message
+			route.value = emptyRoute()
+			loading.value = false
+		})
+	}
+
+	function selectDeparture(id: number) {
+		tap()
+		selectedId.value = id
+	}
+
+	function retry() {
+		tap()
+		loadData()
+	}
+
+	onLoad((options) => {
+		const raw = options['id']
+		if (raw != null) {
+			const parsed = parseInt(raw.toString())
+			if (parsed > 0) {
+				routeId.value = parsed
+			}
+		}
+		loadData()
+	})
+
 	function goConfirm() {
-		if (selected.value.id === 0) {
+		tap()
+		if (selected.value.id == 0) {
 			uni.showToast({ title: '该线路暂无可预订班期', icon: 'none' })
 			return
 		}

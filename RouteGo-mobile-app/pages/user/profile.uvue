@@ -26,19 +26,19 @@
 						<view class="divider" style="margin-top:18px;margin-bottom:16px"></view>
 
 						<view class="row-between">
-							<view class="stat" @click="goCoupons">
+							<view class="stat" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="goCoupons">
 								<text class="stat-value">{{ couponCount }}</text>
 								<text class="stat-label">优惠券</text>
 							</view>
-							<view class="stat" @click="goOrders">
+							<view class="stat" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="goOrders">
 								<text class="stat-value">{{ tripCount }}</text>
 								<text class="stat-label">待出行</text>
 							</view>
-							<view class="stat" @click="onTodo('收藏')">
+							<view class="stat" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="onTodo('收藏')">
 								<text class="stat-value">0</text>
 								<text class="stat-label">收藏</text>
 							</view>
-							<view class="stat" @click="onTodo('足迹')">
+							<view class="stat" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="onTodo('足迹')">
 								<text class="stat-value">0</text>
 								<text class="stat-label">足迹</text>
 							</view>
@@ -54,19 +54,19 @@
 							<text class="faint" @click="goOrders">全部 ›</text>
 						</view>
 						<view class="row-between" style="margin-top:16px">
-							<view class="quick" @click="goOrders">
+							<view class="quick" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="goOrders">
 								<text class="quick-icon">¥</text>
 								<text class="quick-label">待支付</text>
 							</view>
-							<view class="quick" @click="goOrders">
+							<view class="quick" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="goOrders">
 								<text class="quick-icon">✈</text>
 								<text class="quick-label">待出行</text>
 							</view>
-							<view class="quick" @click="goOrders">
+							<view class="quick" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="goOrders">
 								<text class="quick-icon">✓</text>
 								<text class="quick-label">已完成</text>
 							</view>
-							<view class="quick" @click="goOrders">
+							<view class="quick" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="goOrders">
 								<text class="quick-icon">↺</text>
 								<text class="quick-label">退款</text>
 							</view>
@@ -77,7 +77,7 @@
 				<!-- 功能列表 -->
 				<view class="section" style="margin-top:20px">
 					<view class="card" style="padding-top:0;padding-bottom:0">
-						<view v-for="(row, index) in rows" :key="row.label" class="list-row" @click="onRow(row.label)">
+						<view v-for="(row, index) in rows" :key="row.label" class="list-row" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="onRow(row.label)">
 							<view class="row-between list-inner">
 								<text class="body">{{ row.label }}</text>
 								<view class="row">
@@ -85,7 +85,7 @@
 									<text class="faint">›</text>
 								</view>
 							</view>
-							<view v-if="index !== rows.length - 1" class="list-divider"></view>
+							<view v-if="index != rows.length - 1" class="list-divider"></view>
 						</view>
 					</view>
 				</view>
@@ -103,6 +103,7 @@
 <script setup lang="uts">
 	import { computed, ref } from 'vue'
 	import { fetchCoupons, fetchCsUnread, fetchMe, fetchOrders, getSession, logout } from '../../data/api.uts'
+	import { notifyTabShow, notifyTabTap, tap } from '../../utils/feedback.uts'
 
 	type Row = {
 		label: string
@@ -110,7 +111,6 @@
 	}
 
 	const csUnread = ref<number>(0)
-
 	const rows = computed((): Row[] => {
 		const list: Row[] = [
 			{ label: '定制行程', hint: '24 小时出方案' },
@@ -121,14 +121,12 @@
 		]
 		return list
 	})
-
 	const loggedIn = ref<boolean>(false)
 	// 券包与待出行的真实数量：之前写死的 3/2/6/12 是假数据，点了也没反应
 	const couponCount = ref<number>(0)
 	const tripCount = ref<number>(0)
 	const nickname = ref<string>('')
 	const phone = ref<string>('')
-
 	const displayName = computed((): string => {
 		if (!loggedIn.value) {
 			return '点击登录'
@@ -138,7 +136,6 @@
 		}
 		return 'RouteGo 会员'
 	})
-
 	const displayPhone = computed((): string => {
 		if (!loggedIn.value) {
 			return '登录后同步订单与券包'
@@ -148,7 +145,6 @@
 		}
 		return '已登录'
 	})
-
 	const avatarText = computed((): string => {
 		if (!loggedIn.value) {
 			return '登'
@@ -159,7 +155,105 @@
 		return '我'
 	})
 
+	/** 客服未读数：客服回复后累加，进会话即清零，这里只做入口提示 */
+	function loadCsUnread() {
+		if (!loggedIn.value) {
+			csUnread.value = 0
+			return
+		}
+		fetchCsUnread().then((count) => {
+			csUnread.value = count
+		}).catch((e) => {
+			csUnread.value = 0
+		})
+	}
+	/** 优惠券可用数量 + 待出行（已支付未完成）数量 */
+	function loadStat() {
+		fetchCoupons(0).then((list) => {
+			couponCount.value = list.length
+		}).catch((e) => {
+			couponCount.value = 0
+		})
+		fetchOrders(-1, 1, 50).then((list) => {
+			let count = 0
+			list.forEach((o) => {
+				if (o.status == 1) {
+					count++
+				}
+			})
+			tripCount.value = count
+		}).catch((e) => {
+			tripCount.value = 0
+		})
+	}
+
+	/** 上次拉统计的时间：切 tab 很频繁，30 秒内不重复请求 */
+	let lastStatAt = 0
+
+	function goOrders() {
+		tap()
+		uni.switchTab({ url: '/pages/order/list' })
+	}
+	function onTodo(name: string) {
+		tap()
+		uni.showToast({ title: name + '功能开发中', icon: 'none' })
+	}
+	function goLogin() {
+		uni.navigateTo({ url: '/pages/user/login' })
+	}
+	function goCoupons() {
+		tap()
+		if (!loggedIn.value) {
+			goLogin()
+			return
+		}
+		uni.navigateTo({ url: '/pages/user/coupon' })
+	}
+	function onSwitchAccount() {
+		tap()
+		if (!loggedIn.value) {
+			goLogin()
+			return
+		}
+		uni.showModal({
+			title: '退出登录',
+			content: '退出后需要重新验证手机号才能查看订单',
+			success: (res) => {
+				if (res.confirm) {
+					lastStatAt = 0
+					logout()
+					loggedIn.value = false
+					nickname.value = ''
+					phone.value = ''
+					uni.showToast({ title: '已退出登录', icon: 'none' })
+				}
+			}
+		})
+	}
+	function onRow(label: string) {
+		tap()
+		if (label == '定制行程') {
+			uni.navigateTo({ url: '/pages/custom/apply' })
+			return
+		}
+		if (label == '优惠券') {
+			goCoupons()
+			return
+		}
+		if (label == '联系客服') {
+			uni.navigateTo({ url: '/pages/cs/list' })
+			return
+		}
+		if (!loggedIn.value) {
+			goLogin()
+			return
+		}
+		uni.showToast({ title: label + '功能开发中', icon: 'none' })
+	}
+
 	onShow(() => {
+		// 从别的 tab 切过来：原生 tabBar 不发 @click，这里补一次反馈
+		notifyTabShow('/pages/user/profile')
 		const session = getSession()
 		if (session == null) {
 			loggedIn.value = false
@@ -171,108 +265,29 @@
 		loggedIn.value = true
 		nickname.value = session!.nickname
 		phone.value = session!.phone
+		// 节流：切 tab 很频繁，30 秒内复用上次的数据，避免每次都打 4 个接口
+		const now = Date.now()
+		if (now - lastStatAt < 30000) {
+			return
+		}
+		lastStatAt = now
 		// 后台静默刷新一次，拿到最新昵称与手机号
 		fetchMe().then((me) => {
 			nickname.value = me.nickname
 			phone.value = me.phone
-		}).catch((e: Error) => {
+		}).catch((e) => {
 		})
 		loadStat()
 		loadCsUnread()
 	})
 
-	/** 客服未读数：客服回复后累加，进会话即清零，这里只做入口提示 */
-	function loadCsUnread() {
-		if (!loggedIn.value) {
-			csUnread.value = 0
-			return
-		}
-		fetchCsUnread().then((count) => {
-			csUnread.value = count
-		}).catch((e: Error) => {
-			csUnread.value = 0
-		})
-	}
-
-	/** 优惠券可用数量 + 待出行（已支付未完成）数量 */
-	function loadStat() {
-		fetchCoupons(0).then((list) => {
-			couponCount.value = list.length
-		}).catch((e: Error) => {
-			couponCount.value = 0
-		})
-		fetchOrders(-1, 1, 50).then((list) => {
-			let count = 0
-			list.forEach((o) => {
-				if (o.status === 1) {
-					count++
-				}
-			})
-			tripCount.value = count
-		}).catch((e: Error) => {
-			tripCount.value = 0
-		})
-	}
-
-	function goOrders() {
-		uni.switchTab({ url: '/pages/order/list' })
-	}
-
-	function goCoupons() {
-		if (!loggedIn.value) {
-			goLogin()
-			return
-		}
-		uni.navigateTo({ url: '/pages/user/coupon' })
-	}
-
-	function onTodo(name: string) {
-		uni.showToast({ title: name + '功能开发中', icon: 'none' })
-	}
-
-	function goLogin() {
-		uni.navigateTo({ url: '/pages/user/login' })
-	}
-
-	function onSwitchAccount() {
-		if (!loggedIn.value) {
-			goLogin()
-			return
-		}
-		uni.showModal({
-			title: '退出登录',
-			content: '退出后需要重新验证手机号才能查看订单',
-			success: (res) => {
-				if (res.confirm) {
-					logout()
-					loggedIn.value = false
-					nickname.value = ''
-					phone.value = ''
-					uni.showToast({ title: '已退出登录', icon: 'none' })
-				}
-			}
-		})
-	}
-
-	function onRow(label: string) {
-		if (label === '定制行程') {
-			uni.navigateTo({ url: '/pages/custom/apply' })
-			return
-		}
-		if (label === '优惠券') {
-			goCoupons()
-			return
-		}
-		if (label === '联系客服') {
-			uni.navigateTo({ url: '/pages/cs/list' })
-			return
-		}
-		if (!loggedIn.value) {
-			goLogin()
-			return
-		}
-		uni.showToast({ title: label + '功能开发中', icon: 'none' })
-	}
+	// 点底部 tab 时的触觉 + 音效（原生 tabBar 不会触发系统音效）
+	// App 平台不支持 onTabItemTap，仅在支持该 API 的平台启用
+	// #ifndef APP
+	onTabItemTap((options) => {
+		notifyTabTap()
+	})
+	// #endif
 </script>
 
 <style>

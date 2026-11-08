@@ -13,7 +13,7 @@
 						:key="s.id"
 						class="card"
 						style="margin-bottom:12px"
-						hover-class="card-pressing"
+						hover-class="card-pressing" hover-start-time="0" hover-stay-time="60"
 						@click="openChat(s)"
 					>
 						<view class="row-between">
@@ -36,15 +36,15 @@
 
 					<view v-if="errorText.length > 0" class="card" style="margin-bottom:12px">
 						<text class="body">{{ errorText }}</text>
-						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" @click="loadData">
+						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="retry">
 							<text class="btn-secondary-text">重新加载</text>
 						</view>
 					</view>
 
-					<view v-else-if="!loading && sessions.length === 0" class="card" style="align-items:center;padding-top:40px;padding-bottom:40px">
+					<view v-else-if="!loading && sessions.length == 0" class="card" style="align-items:center;padding-top:40px;padding-bottom:40px">
 						<text class="h3">还没有咨询记录</text>
 						<text class="muted" style="margin-top:8px;text-align:center">行程、订单、退款有问题，都可以直接问客服</text>
-						<view class="btn btn-primary" style="margin-top:20px;padding-left:28px;padding-right:28px" @click="goCreate">
+						<view class="btn btn-primary" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" style="margin-top:20px;padding-left:28px;padding-right:28px" @click="goCreate">
 							<text class="btn-primary-text">发起咨询</text>
 						</view>
 					</view>
@@ -53,7 +53,7 @@
 		</scroll-view>
 
 		<view class="footer">
-			<view class="btn btn-primary" style="flex:1" hover-class="btn-pressing" @click="goCreate">
+			<view class="btn btn-primary" style="flex:1" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="goCreate">
 				<text class="btn-primary-text">发起新咨询</text>
 			</view>
 		</view>
@@ -64,14 +64,11 @@
 	import { ref } from 'vue'
 	import { fetchCsSessions, formatChatTime, isLoggedIn } from '../../data/api.uts'
 	import type { CsSession } from '../../data/types.uts'
+	import { tap } from '../../utils/feedback.uts'
 
 	const sessions = ref<CsSession[]>([])
 	const loading = ref<boolean>(true)
 	const errorText = ref<string>('')
-
-	onShow(() => {
-		loadData()
-	})
 
 	function loadData() {
 		if (!isLoggedIn()) {
@@ -85,12 +82,21 @@
 		fetchCsSessions().then((list) => {
 			loading.value = false
 			sessions.value = list
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			loading.value = false
 			sessions.value = []
-			errorText.value = e.message
+			errorText.value = (e as Error).message
 		})
 	}
+
+	function retry() {
+		tap()
+		loadData()
+	}
+
+	onShow(() => {
+		loadData()
+	})
 
 	function previewText(s: CsSession): string {
 		if (s.lastMessage.length > 0) {
@@ -98,39 +104,36 @@
 		}
 		return '暂无消息'
 	}
-
 	function handlerText(s: CsSession): string {
 		if (s.handlerName.length > 0) {
 			return '客服 ' + s.handlerName
 		}
-		return s.status === 3 ? '会话已结束' : '等待客服接入'
+		return s.status == 3 ? '会话已结束' : '等待客服接入'
 	}
-
 	function unreadText(count: number): string {
 		if (count > 99) {
 			return '99+'
 		}
 		return count.toString()
 	}
-
 	function statusClass(status: number): string {
-		if (status === 0) {
+		if (status == 0) {
 			return 'status status-pending'
 		}
-		if (status === 1) {
+		if (status == 1) {
 			return 'status status-processing'
 		}
-		if (status === 2) {
+		if (status == 2) {
 			return 'status status-done'
 		}
 		return 'status status-closed'
 	}
-
 	function openChat(s: CsSession) {
+		tap()
 		uni.navigateTo({ url: '/pages/cs/chat?id=' + s.id })
 	}
-
 	function goCreate() {
+		tap()
 		if (!isLoggedIn()) {
 			uni.navigateTo({ url: '/pages/user/login' })
 			return

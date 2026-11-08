@@ -1,0 +1,120 @@
+/**
+ * 点击反馈：轻触觉（震动）+ 极短音效。
+ *
+ * 为什么需要它：uvue 在安卓端自绘 view，不会触发系统 View 的点击音效，
+ * 视觉上也只有 hover-class 的轻微变化，点起来"没手感"。这里统一补两件事：
+ * 1. uni.vibrateShort({ type: 'light' })：安卓端 5.08+ 支持，近乎零延迟；
+ * 2. innerAudioContext 播放 12ms 的 tap.wav：用 3 个实例轮转，避免连续点击被截断。
+ *
+ * 用法：在点击处理函数的第一行调用 tap()，例如
+ *   function goList() { tap(); uni.switchTab({ url: '/pages/route/list' }) }
+ * 注意别在 onLoad / onShow 会复用的函数里直接调用，否则进页面会响；
+ * 底部 tabBar 走 notifyTabShow / notifyTabTap（见文件末尾）。
+ */
+
+const TAP_SOUND = '/static/sounds/tap.wav'
+/** 同时预热的实例数：连点三下也能各自发声 */
+const POOL_SIZE = 3
+
+let pool: InnerAudioContext[] = []
+let cursor = 0
+let enabled = true
+/**
+ * 去重窗口：同一次点击可能被两处同时触发
+ * （例如切 tab 时 onShow 与 onTabItemTap 都会回调），窗口内只响一次。
+ */
+let lastAt = 0
+const DEDUPE_MS = 250
+
+function ensurePool(): void {
+	if (pool.length > 0) {
+		return
+	}
+	for (let i = 0; i < POOL_SIZE; i++) {
+		const ctx = uni.createInnerAudioContext()
+		ctx.src = TAP_SOUND
+		// 轻一点，只是"嗒"一下，不喧宾夺主
+		ctx.volume = 0.28
+		pool.push(ctx)
+	}
+}
+
+/**
+ * 静音"空放"一次：逼安卓音频栈把 wav 解码进内存并建好播放器。
+ * 不做这一步，冷启动后的第一次点击要等 100~300ms 才出声。
+ */
+function primeDecoder(): void {
+	const ctx = uni.createInnerAudioContext()
+	ctx.src = TAP_SOUND
+	ctx.volume = 0
+	ctx.play()
+	setTimeout(() => {
+		ctx.stop()
+	}, 400)
+}
+
+/** 提前创建实例，首次点击就不用等音频加载 */
+export function warmUpTap(): void {
+	ensurePool()
+	primeDecoder()
+}
+
+/** 开关：以后接入设置页时调用 */
+export function setTapFeedback(on: boolean): void {
+	enabled = on
+}
+
+export function isTapFeedbackOn(): boolean {
+	return enabled == true
+}
+
+/** 点击反馈统一入口：音效 + 触觉，任一不可用都不影响另一个 */
+export function tap(): void {
+	if (!enabled) {
+		return
+	}
+	// 同一次点击的去重：切 tab 时 onShow 与 onTabItemTap 可能各回调一次
+	const now = Date.now()
+	if (now - lastAt < DEDUPE_MS) {
+		return
+	}
+	lastAt = now
+	// 先出声：音频加载有耗时，放在震动之后会明显感觉"慢半拍"
+	ensurePool()
+	const ctx = pool[cursor % pool.length]
+	cursor = cursor + 1
+	// stop 会把进度拨回 0，保证每次都从头"嗒"一声
+	ctx.stop()
+	ctx.play()
+	// 触觉：H5 / 无马达设备会走 fail，静默忽略即可
+	uni.vibrateShort({
+		type: 'light',
+		fail: (err) => {
+		}
+	})
+}
+
+/* ------------------------------------------------------------------ */
+/* 底部 tabBar                                                         */
+/* ------------------------------------------------------------------ */
+/**
+ * 原生 tabBar 是系统控件，点击不会走我们任何 @click，
+ * 所以要在 tab 页自己补反馈：onTabItemTap + onShow 双保险。
+ */
+let currentTabPath = ''
+
+/**
+ * tab 页 onShow 里调用：从别的 tab 切过来时补一次反馈。
+ * 从详情页返回、App 切回前台时路径没变，不会误响。
+ */
+export function notifyTabShow(path: string): void {
+	if (currentTabPath.length > 0 && currentTabPath != path) {
+		tap()
+	}
+	currentTabPath = path
+}
+
+/** tab 页 onTabItemTap 里调用：重复点当前 tab（回顶/刷新）也有反馈 */
+export function notifyTabTap(): void {
+	tap()
+}

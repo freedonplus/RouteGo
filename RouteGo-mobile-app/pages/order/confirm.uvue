@@ -29,11 +29,11 @@
 								<text class="faint" style="margin-top:3px">¥{{ departure.adultPrice }} / 人</text>
 							</view>
 							<view class="row">
-								<view class="step-btn" @click="changeAdult(-1)">
+								<view class="step-btn" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="changeAdult(-1)">
 									<text class="step-text">−</text>
 								</view>
 								<text class="step-value">{{ adultCount }}</text>
-								<view class="step-btn" @click="changeAdult(1)">
+								<view class="step-btn" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="changeAdult(1)">
 									<text class="step-text">+</text>
 								</view>
 							</view>
@@ -47,11 +47,11 @@
 								<text class="faint" style="margin-top:3px">¥{{ departure.childPrice }} / 人</text>
 							</view>
 							<view class="row">
-								<view class="step-btn" @click="changeChild(-1)">
+								<view class="step-btn" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="changeChild(-1)">
 									<text class="step-text">−</text>
 								</view>
 								<text class="step-value">{{ childCount }}</text>
-								<view class="step-btn" @click="changeChild(1)">
+								<view class="step-btn" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="changeChild(1)">
 									<text class="step-text">+</text>
 								</view>
 							</view>
@@ -127,7 +127,7 @@
 				</view>
 				<text class="faint" style="margin-top:2px">共 {{ totalTravelers }} 人</text>
 			</view>
-			<view class="btn btn-primary" style="padding-left:32px;padding-right:32px" @click="submit">
+			<view class="btn btn-primary" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" style="padding-left:32px;padding-right:32px" @click="submit">
 				<text class="btn-primary-text">提交订单</text>
 			</view>
 		</view>
@@ -138,6 +138,7 @@
 	import { computed, ref } from 'vue'
 	import { createOrder, fetchDepartures, fetchRouteDetail, isLoggedIn } from '../../data/api.uts'
 	import type { Departure, RouteItem } from '../../data/types.uts'
+	import { tap } from '../../utils/feedback.uts'
 
 	const routeId = ref<number>(0)
 	const departureId = ref<number>(0)
@@ -148,71 +149,7 @@
 	const discount = ref<number>(0)
 	const submitting = ref<boolean>(false)
 	const errorText = ref<string>('')
-	const route = ref<RouteItem>(emptyRoute())
-
-	const departure = computed((): Departure => {
-		const list = route.value.departures
-		if (list.length === 0) {
-			return emptyDeparture()
-		}
-		let found: Departure = list[0]
-		list.forEach((d) => {
-			if (d.id === departureId.value) {
-				found = d
-			}
-		})
-		return found
-	})
-
-	const departDate = computed((): string => departure.value.departDate)
 	const totalTravelers = computed((): number => adultCount.value + childCount.value)
-	const adultAmount = computed((): number => adultCount.value * departure.value.adultPrice)
-	const childAmount = computed((): number => childCount.value * departure.value.childPrice)
-	const payAmount = computed((): number => adultAmount.value + childAmount.value - discount.value)
-
-	onLoad((options) => {
-		const r = options['routeId']
-		if (r != null) {
-			const parsed = parseInt(r.toString())
-			if (parsed > 0) {
-				routeId.value = parsed
-			}
-		}
-		const d = options['departureId']
-		if (d != null) {
-			const parsed = parseInt(d.toString())
-			if (parsed > 0) {
-				departureId.value = parsed
-			}
-		}
-		loadData()
-	})
-
-	function loadData() {
-		if (routeId.value <= 0) {
-			errorText.value = '缺少线路参数，请返回重新选择'
-			return
-		}
-		fetchRouteDetail(routeId.value).then((detail) => {
-			fetchDepartures(routeId.value).then((list) => {
-				detail.departures = list
-				route.value = detail
-				if (departureId.value === 0 && list.length > 0) {
-					departureId.value = list[0].id
-				}
-			}).catch((e: Error) => {
-				route.value = detail
-				errorText.value = e.message
-			})
-		}).catch((e: Error) => {
-			errorText.value = e.message
-		})
-	}
-
-	function emptyDeparture(): Departure {
-		const d: Departure = { id: 0, departDate: '', adultPrice: 0, childPrice: 0, remaining: 0 }
-		return d
-	}
 
 	function emptyRoute(): RouteItem {
 		const r: RouteItem = {
@@ -241,21 +178,63 @@
 		return r
 	}
 
+	const route = ref<RouteItem>(emptyRoute())
+
+	function loadData() {
+		if (routeId.value <= 0) {
+			errorText.value = '缺少线路参数，请返回重新选择'
+			return
+		}
+		fetchRouteDetail(routeId.value).then((detail) => {
+			fetchDepartures(routeId.value).then((list) => {
+				detail.departures = list
+				route.value = detail
+				if (departureId.value == 0 && list.length > 0) {
+					departureId.value = list[0].id
+				}
+			}).catch((e) => {
+				route.value = detail
+				errorText.value = (e as Error).message
+			})
+		}).catch((e) => {
+			errorText.value = (e as Error).message
+		})
+	}
+
+	onLoad((options) => {
+		const r = options['routeId']
+		if (r != null) {
+			const parsed = parseInt(r.toString())
+			if (parsed > 0) {
+				routeId.value = parsed
+			}
+		}
+		const d = options['departureId']
+		if (d != null) {
+			const parsed = parseInt(d.toString())
+			if (parsed > 0) {
+				departureId.value = parsed
+			}
+		}
+		loadData()
+	})
+
 	function changeAdult(delta: number) {
+		tap()
 		const next = adultCount.value + delta
 		if (next >= 1 && next <= 9) {
 			adultCount.value = next
 		}
 	}
-
 	function changeChild(delta: number) {
+		tap()
 		const next = childCount.value + delta
 		if (next >= 0 && next <= 9) {
 			childCount.value = next
 		}
 	}
-
 	function submit() {
+		tap()
 		if (submitting.value) {
 			return
 		}
@@ -263,15 +242,15 @@
 			uni.navigateTo({ url: '/pages/user/login' })
 			return
 		}
-		if (contactName.value.length === 0) {
+		if (contactName.value.length == 0) {
 			uni.showToast({ title: '请填写联系人姓名', icon: 'none' })
 			return
 		}
-		if (contactPhone.value.length !== 11) {
+		if (contactPhone.value.length != 11) {
 			uni.showToast({ title: '请填写正确的手机号', icon: 'none' })
 			return
 		}
-		if (departureId.value === 0) {
+		if (departureId.value == 0) {
 			uni.showToast({ title: '该线路暂无可预订班期', icon: 'none' })
 			return
 		}
@@ -282,11 +261,34 @@
 			setTimeout(() => {
 				uni.redirectTo({ url: '/pages/order/detail?id=' + orderId })
 			}, 800)
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			submitting.value = false
-			uni.showToast({ title: e.message, icon: 'none' })
+			uni.showToast({ title: (e as Error).message, icon: 'none' })
 		})
 	}
+
+	function emptyDeparture(): Departure {
+		const d: Departure = { id: 0, departDate: '', adultPrice: 0, childPrice: 0, remaining: 0 }
+		return d
+	}
+
+	const departure = computed((): Departure => {
+		const list = route.value.departures
+		if (list.length == 0) {
+			return emptyDeparture()
+		}
+		let found: Departure = list[0]
+		list.forEach((d) => {
+			if (d.id == departureId.value) {
+				found = d
+			}
+		})
+		return found
+	})
+	const departDate = computed((): string => departure.value.departDate)
+	const adultAmount = computed((): number => adultCount.value * departure.value.adultPrice)
+	const childAmount = computed((): number => childCount.value * departure.value.childPrice)
+	const payAmount = computed((): number => adultAmount.value + childAmount.value - discount.value)
 </script>
 
 <style>

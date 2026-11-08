@@ -1,6 +1,6 @@
 <template>
 	<view class="page-root">
-		<scroll-view class="page-scroll" style="flex:1">
+		<scroll-view class="page-scroll" style="flex:1" :lower-threshold="160" @scrolltolower="loadMore">
 			<view class="page">
 				<view class="section" style="padding-top:14px">
 					<view class="row-between">
@@ -14,21 +14,21 @@
 						<view
 							v-for="(f, index) in filters"
 							:key="f"
-							:class="index === activeFilter ? 'chip chip-active' : 'chip'"
+							:class="index == activeFilter ? 'chip chip-active' : 'chip'"
 							style="margin-right:8px;margin-bottom:8px"
-							hover-class="chip-pressing"
-							@click="activeFilter = index"
+							hover-class="chip-pressing" hover-start-time="0" hover-stay-time="60"
+							@click="selectFilter(index)"
 						>
-							<text :class="index === activeFilter ? 'chip-text chip-text-active' : 'chip-text'">{{ f }}</text>
+							<text :class="index == activeFilter ? 'chip-text chip-text-active' : 'chip-text'">{{ f }}</text>
 						</view>
 					</view>
 				</view>
 
 				<view class="section" style="margin-top:8px">
 					<view
-						v-for="item in filtered"
+						v-for="item in shown"
 						:key="item.id"
-						class="card-tight route-row"
+						class="card-tight route-row" hover-class="card-pressing" hover-start-time="0" hover-stay-time="60"
 						style="margin-bottom:12px"
 						@click="openDetail(item.id)"
 					>
@@ -57,12 +57,12 @@
 
 					<view v-if="errorText.length > 0" class="card" style="margin-bottom:12px">
 						<text class="body">{{ errorText }}</text>
-						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" @click="loadData">
+						<view class="btn btn-secondary" style="margin-top:14px" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="retry">
 							<text class="btn-secondary-text">重新加载</text>
 						</view>
 					</view>
 
-					<view v-else-if="!loading && filtered.length === 0" class="card" style="align-items:center;padding-top:36px;padding-bottom:36px">
+					<view v-else-if="!loading && filtered.length == 0" class="card" style="align-items:center;padding-top:36px;padding-bottom:36px">
 						<text class="h3">没有符合条件的线路</text>
 						<text class="muted" style="margin-top:8px">换个筛选条件，或者告诉我们你想去哪</text>
 					</view>
@@ -76,37 +76,52 @@
 
 <script setup lang="uts">
 	import { computed, ref } from 'vue'
-	import { fetchRoutes } from '../../data/api.uts'
+	import { fetchRoutes, getCachedRoutes, hasFreshRoutes } from '../../data/api.uts'
 	import type { RouteItem } from '../../data/types.uts'
+	import { notifyTabShow, notifyTabTap, tap } from '../../utils/feedback.uts'
 
 	const filters: string[] = ['推荐', '3 天内', '4–6 天', '7 天以上', '价格从低到高']
 	const activeFilter = ref<number>(0)
 	const routes = ref<RouteItem[]>([])
 	const loading = ref<boolean>(true)
+	/** 首屏渲染条数：50 条一次性建节点 + 50 张图解码，滚动明显发涩 */
+	const PAGE_SIZE = 12
+	const visibleCount = ref<number>(PAGE_SIZE)
 	const errorText = ref<string>('')
-
 	const filtered = computed((): RouteItem[] => {
 		const list: RouteItem[] = []
 		routes.value.forEach((item) => {
 			const f = activeFilter.value
-			if (f === 1 && item.days > 3) {
+			if (f == 1 && item.days > 3) {
 				return
 			}
-			if (f === 2 && (item.days < 4 || item.days > 6)) {
+			if (f == 2 && (item.days < 4 || item.days > 6)) {
 				return
 			}
-			if (f === 3 && item.days < 7) {
+			if (f == 3 && item.days < 7) {
 				return
 			}
 			list.push(item)
 		})
 
-		if (activeFilter.value === 4) {
+		if (activeFilter.value == 4) {
 			list.sort((a, b) => a.minPrice - b.minPrice)
 		}
 		return list
 	})
-
+	/** 当前已展开的列表 */
+	const shown = computed((): RouteItem[] => {
+		const list = filtered.value
+		const limit = visibleCount.value
+		if (list.length <= limit) {
+			return list
+		}
+		const head: RouteItem[] = []
+		for (let i = 0; i < limit; i++) {
+			head.push(list[i])
+		}
+		return head
+	})
 	const countText = computed((): string => {
 		if (loading.value) {
 			return '正在加载…'
@@ -117,26 +132,71 @@
 		return '共 ' + filtered.value.length + ' 条可选'
 	})
 
-	onLoad(() => {
-		loadData()
-	})
+	/** 启动预取的缓存，命中就直接渲染 */
+	function applyCache() {
+		const list = getCachedRoutes()
+		if (list.length > 0) {
+			routes.value = list
+			loading.value = false
+		}
+	}
 
 	function loadData() {
-		loading.value = true
+		if (routes.value.length == 0) {
+			loading.value = true
+		}
 		errorText.value = ''
 		fetchRoutes('', '', 0, 1, 50).then((list) => {
 			routes.value = list
 			loading.value = false
-		}).catch((e: Error) => {
-			errorText.value = e.message
+		}).catch((e) => {
+			errorText.value = (e as Error).message
 			routes.value = [] as RouteItem[]
 			loading.value = false
 		})
 	}
 
+	function selectFilter(index: number) {
+		tap()
+		activeFilter.value = index
+		visibleCount.value = PAGE_SIZE
+	}
+
+	/** 触底渐进加载，避免一次性构建整页 */
+	function loadMore() {
+		if (visibleCount.value >= filtered.value.length) {
+			return
+		}
+		visibleCount.value = visibleCount.value + PAGE_SIZE
+	}
+
+	function retry() {
+		tap()
+		loadData()
+	}
+
+	// 点底部「线路」时的触觉 + 音效
+
 	function openDetail(id: number) {
+		tap()
 		uni.navigateTo({ url: '/pages/route/detail?id=' + id })
 	}
+
+	onShow(() => {
+		// 从别的 tab 切过来：原生 tabBar 不发 @click，这里补一次反馈
+		notifyTabShow('/pages/route/list')
+		applyCache()
+		if (!hasFreshRoutes()) {
+			loadData()
+		}
+	})
+
+	// App 平台不支持 onTabItemTap，仅在支持该 API 的平台启用
+	// #ifndef APP
+	onTabItemTap((options) => {
+		notifyTabTap()
+	})
+	// #endif
 </script>
 
 <style>

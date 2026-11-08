@@ -1,10 +1,17 @@
 <script setup lang="uts">
+	import { prefetchHomeData } from './data/api.uts'
+	import { warmUpTap } from './utils/feedback.uts'
+
 	// #ifdef APP-ANDROID || APP-HARMONY
 	let firstBackTime = 0
 	// #endif
 
 	onLaunch(() => {
 		console.log('RouteGo launch')
+		// 提前把点击音效实例建好，第一次点击就不会等音频加载
+		warmUpTap()
+		// 启动页停留的这 1 秒正好用来预取线路与分类：首页/线路页可直接用缓存渲染
+		prefetchHomeData()
 	})
 
 	onAppShow(() => {
@@ -43,11 +50,8 @@
 	   RouteGo Mobile —— Apple Style 设计系统
 	   背景 #f5f5f7 / 强调 #0071e3 / 正文 #1d1d1f
 	   无渐变、无重阴影、克制配色
+	   说明：uvue 只支持类名选择器，页面背景统一由下方 .page-root 提供
 	   ============================================================ */
-
-	page {
-		background-color: #f5f5f7;
-	}
 
 	/*
 	 * 页面骨架：page-root(flex:1) > scroll-view(flex:1) > page(内容)
@@ -119,6 +123,9 @@
 		border-radius: 20px;
 		padding: 20px;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+		transition-property: transform, opacity;
+		transition-duration: 120ms;
+		transition-timing-function: ease;
 	}
 
 	.card-tight {
@@ -126,6 +133,9 @@
 		border-radius: 20px;
 		padding: 16px;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+		transition-property: transform, opacity;
+		transition-duration: 120ms;
+		transition-timing-function: ease;
 	}
 
 	.divider {
@@ -142,6 +152,9 @@
 		flex-direction: row;
 		align-items: center;
 		justify-content: center;
+		transition-property: transform, opacity;
+		transition-duration: 120ms;
+		transition-timing-function: ease;
 	}
 
 	.btn-primary {
@@ -187,6 +200,9 @@
 		border-width: 1px;
 		border-style: solid;
 		border-color: #e5e5ea;
+		transition-property: transform, opacity;
+		transition-duration: 120ms;
+		transition-timing-function: ease;
 	}
 
 	.chip-active {
@@ -241,7 +257,7 @@
 	.price-origin {
 		font-size: 13px;
 		color: #86868b;
-		text-decoration: line-through;
+		text-decoration-line: line-through;
 	}
 
 	/* ---------- 输入框 ---------- */
@@ -296,20 +312,28 @@
 	/* 按压缩放：触感反馈 */
 	.press {
 		transition-property: transform, opacity;
-		transition-duration: 200ms;
+		transition-duration: 120ms;
+		transition-timing-function: ease;
+		opacity: 0.55;
+		transform: scale(0.96);
 	}
 
 	.card-pressing {
-		opacity: 0.92;
-		transform: scale(0.985);
+		opacity: 0.88;
+		transform: scale(0.976);
 	}
 
 	.btn-pressing {
-		opacity: 0.86;
-		transform: scale(0.97);
+		opacity: 0.78;
+		transform: scale(0.955);
+	}
+
+	.row-pressing {
+		opacity: 0.6;
 	}
 
 	.chip-pressing {
-		opacity: 0.9;
+		opacity: 0.7;
+		transform: scale(0.96);
 	}
 </style>

@@ -7,7 +7,7 @@
 					<text class="chat-title">{{ headTitle }}</text>
 					<text class="faint" style="margin-top:4px">{{ headHint }}</text>
 				</view>
-				<view v-if="canReply" class="end-btn" hover-class="press" @click="endSession">
+				<view v-if="canReply" class="end-btn" hover-class="press" hover-start-time="0" hover-stay-time="60" @click="endSession">
 					<text class="end-text">结束会话</text>
 				</view>
 			</view>
@@ -22,13 +22,13 @@
 			:scroll-into-view="scrollTarget"
 		>
 			<view class="msg-wrap">
-				<view v-if="messages.length === 0 && !loading" class="empty-tip">
+				<view v-if="messages.length == 0 && !loading" class="empty-tip">
 					<text class="muted">已发送，客服接入后会在这里回复你</text>
 				</view>
 
-				<view v-for="m in messages" :key="m.id" class="msg-row" :class="m.senderType === 1 ? 'row-right' : 'row-left'">
-					<view class="msg-bubble" :class="m.senderType === 1 ? 'bubble-mine' : 'bubble-other'">
-						<text v-if="m.content.length > 0" class="msg-text" :class="m.senderType === 1 ? 'text-mine' : 'text-other'">{{ m.content }}</text>
+				<view v-for="m in messages" :key="m.id" class="msg-row" :class="m.senderType == 1 ? 'row-right' : 'row-left'">
+					<view class="msg-bubble" :class="m.senderType == 1 ? 'bubble-mine' : 'bubble-other'">
+						<text v-if="m.content.length > 0" class="msg-text" :class="m.senderType == 1 ? 'text-mine' : 'text-other'">{{ m.content }}</text>
 						<view v-if="m.images.length > 0" class="msg-imgs">
 							<image
 								v-for="(url, index) in m.images"
@@ -52,7 +52,7 @@
 			<view v-if="pending.length > 0 || uploading" class="pending-row">
 				<view v-for="(url, index) in pending" :key="'p' + index" class="pending-cell">
 					<image class="pending-img" :src="url" mode="aspectFill" @click="previewImage(pending, index)" />
-					<view class="pending-del" @click="removePending(index)">
+					<view class="pending-del" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="removePending(index)">
 						<text class="pending-del-text">×</text>
 					</view>
 				</view>
@@ -62,7 +62,7 @@
 			</view>
 
 			<view class="input-row">
-				<view :class="canReply ? 'img-btn' : 'img-btn img-btn-disabled'" @click="pickImages">
+				<view :class="canReply ? 'img-btn' : 'img-btn img-btn-disabled'" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="pickImages">
 					<text class="img-btn-text">＋</text>
 				</view>
 				<view class="input-box">
@@ -77,7 +77,7 @@
 						@confirm="send"
 					/>
 				</view>
-				<view :class="canSend ? 'send-btn' : 'send-btn send-disabled'" @click="send">
+				<view :class="canSend ? 'send-btn' : 'send-btn send-disabled'" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" @click="send">
 					<text class="send-text">{{ sending ? '发送中' : '发送' }}</text>
 				</view>
 			</view>
@@ -97,9 +97,9 @@
 		uploadCsImage
 	} from '../../data/api.uts'
 	import type { CsMessage, CsSession } from '../../data/types.uts'
+	import { tap } from '../../utils/feedback.uts'
 
 	const POLL_INTERVAL = 4000
-
 	const ticketId = ref<number>(0)
 	const session = ref<CsSession | null>(null)
 	const messages = ref<CsMessage[]>([])
@@ -111,28 +111,24 @@
 	const scrollTarget = ref<string>('')
 	let uploadingCount = 0
 	let timer: number = -1
-
 	const canReply = computed((): boolean => {
 		if (session.value == null) {
 			return false
 		}
-		return session.value!.status !== 3
+		return session.value!.status != 3
 	})
-
 	const canSend = computed((): boolean => {
 		if (!canReply.value || sending.value || uploading.value) {
 			return false
 		}
 		return draft.value.trim().length > 0 || pending.value.length > 0
 	})
-
 	const headTitle = computed((): string => {
 		if (session.value == null) {
 			return '在线客服'
 		}
 		return session.value!.title
 	})
-
 	const headHint = computed((): string => {
 		if (session.value == null) {
 			return '正在加载…'
@@ -140,6 +136,83 @@
 		const s = session.value!
 		const who = s.handlerName.length > 0 ? '客服 ' + s.handlerName : '等待客服接入'
 		return s.statusDesc + ' · ' + who
+	})
+
+	function stopPoll() {
+		if (timer != -1) {
+			clearInterval(timer)
+			timer = -1
+		}
+	}
+
+	onUnload(() => {
+		stopPoll()
+	})
+
+	/** 被其他页覆盖或切后台时停掉 4 秒一次的轮询，回来再继续 */
+	onHide(() => {
+		stopPoll()
+	})
+
+	/** 会话头信息：客服接手或状态变化后，头部提示要跟着变 */
+	function loadSession(first: boolean) {
+		fetchCsSession(ticketId.value).then((item) => {
+			const changed = session.value == null || session.value!.status != item.status
+			session.value = item
+			if (changed && first) {
+				uni.setNavigationBarTitle({ title: item.title })
+			}
+			if (first) {
+				loading.value = false
+			}
+		}).catch((e) => {
+			if (first) {
+				loading.value = false
+				uni.showToast({ title: (e as Error).message, icon: 'none' })
+			}
+		})
+	}
+	function scrollToBottom() {
+		scrollTarget.value = ''
+		setTimeout(() => {
+			scrollTarget.value = 'chat-bottom'
+		}, 40)
+	}
+	function loadMessages(first: boolean) {
+		fetchCsMessages(ticketId.value).then((list) => {
+			const before = messages.value.length
+			const lastOld = before > 0 ? messages.value[before - 1].id : 0
+			const lastNew = list.length > 0 ? list[list.length - 1].id : 0
+			messages.value = list
+			loading.value = false
+			if (before == 0 || lastOld != lastNew || first) {
+				scrollToBottom()
+			}
+		}).catch((e) => {
+			loading.value = false
+			if (first) {
+				uni.showToast({ title: (e as Error).message, icon: 'none' })
+			}
+		})
+	}
+	function startPoll() {
+		stopPoll()
+		timer = setInterval(() => {
+			if (sending.value || uploading.value) {
+				return
+			}
+			loadMessages(false)
+			loadSession(false)
+		}, POLL_INTERVAL)
+	}
+
+	/** 从其他页返回或切回前台时刷新数据并恢复轮询 */
+	onShow(() => {
+		if (ticketId.value > 0 && isLoggedIn()) {
+			loadSession(false)
+			loadMessages(false)
+			startPoll()
+		}
 	})
 
 	onLoad((options) => {
@@ -163,73 +236,26 @@
 		startPoll()
 	})
 
-	onUnload(() => {
-		stopPoll()
-	})
-
-	function startPoll() {
-		stopPoll()
-		timer = setInterval(() => {
-			if (sending.value || uploading.value) {
-				return
-			}
-			loadMessages(false)
-			loadSession(false)
-		}, POLL_INTERVAL)
-	}
-
-	function stopPoll() {
-		if (timer !== -1) {
-			clearInterval(timer)
-			timer = -1
-		}
-	}
-
-	/** 会话头信息：客服接手或状态变化后，头部提示要跟着变 */
-	function loadSession(first: boolean) {
-		fetchCsSession(ticketId.value).then((item) => {
-			const changed = session.value == null || session.value!.status !== item.status
-			session.value = item
-			if (changed && first) {
-				uni.setNavigationBarTitle({ title: item.title })
-			}
-			if (first) {
-				loading.value = false
-			}
-		}).catch((e: Error) => {
-			if (first) {
-				loading.value = false
-				uni.showToast({ title: e.message, icon: 'none' })
-			}
+	function uploadOne(path: string) {
+		uploadingCount = uploadingCount + 1
+		uploading.value = true
+		uploadCsImage(path).then((url) => {
+			uploadingCount = uploadingCount - 1
+			uploading.value = uploadingCount > 0
+			const next: string[] = []
+			pending.value.forEach((item) => {
+				next.push(item)
+			})
+			next.push(url)
+			pending.value = next
+		}).catch((e) => {
+			uploadingCount = uploadingCount - 1
+			uploading.value = uploadingCount > 0
+			uni.showToast({ title: (e as Error).message, icon: 'none' })
 		})
 	}
-
-	function loadMessages(first: boolean) {
-		fetchCsMessages(ticketId.value).then((list) => {
-			const before = messages.value.length
-			const lastOld = before > 0 ? messages.value[before - 1].id : 0
-			const lastNew = list.length > 0 ? list[list.length - 1].id : 0
-			messages.value = list
-			loading.value = false
-			if (before === 0 || lastOld !== lastNew || first) {
-				scrollToBottom()
-			}
-		}).catch((e: Error) => {
-			loading.value = false
-			if (first) {
-				uni.showToast({ title: e.message, icon: 'none' })
-			}
-		})
-	}
-
-	function scrollToBottom() {
-		scrollTarget.value = ''
-		setTimeout(() => {
-			scrollTarget.value = 'chat-bottom'
-		}, 40)
-	}
-
 	function pickImages() {
+		tap()
 		if (!canReply.value) {
 			return
 		}
@@ -248,41 +274,22 @@
 			}
 		})
 	}
-
-	function uploadOne(path: string) {
-		uploadingCount = uploadingCount + 1
-		uploading.value = true
-		uploadCsImage(path).then((url) => {
-			uploadingCount = uploadingCount - 1
-			uploading.value = uploadingCount > 0
-			const next: string[] = []
-			pending.value.forEach((item) => {
-				next.push(item)
-			})
-			next.push(url)
-			pending.value = next
-		}).catch((e: Error) => {
-			uploadingCount = uploadingCount - 1
-			uploading.value = uploadingCount > 0
-			uni.showToast({ title: e.message, icon: 'none' })
-		})
-	}
-
 	function removePending(index: number) {
+		tap()
 		const next: string[] = []
 		pending.value.forEach((item, i) => {
-			if (i !== index) {
+			if (i != index) {
 				next.push(item)
 			}
 		})
 		pending.value = next
 	}
-
 	function previewImage(urls: string[], index: number) {
+		tap()
 		uni.previewImage({ urls: urls, current: urls[index] })
 	}
-
 	function send() {
+		tap()
 		if (!canSend.value) {
 			return
 		}
@@ -297,13 +304,13 @@
 			pending.value = []
 			loadMessages(false)
 			scrollToBottom()
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			sending.value = false
-			uni.showToast({ title: e.message, icon: 'none' })
+			uni.showToast({ title: (e as Error).message, icon: 'none' })
 		})
 	}
-
 	function endSession() {
+		tap()
 		uni.showModal({
 			title: '结束会话',
 			content: '结束后不能再发消息，需要继续沟通请重新发起咨询。',
@@ -315,8 +322,8 @@
 					uni.showToast({ title: '会话已结束', icon: 'none' })
 					loadSession(false)
 					loadMessages(false)
-				}).catch((e: Error) => {
-					uni.showToast({ title: e.message, icon: 'none' })
+				}).catch((e) => {
+					uni.showToast({ title: (e as Error).message, icon: 'none' })
 				})
 			}
 		})
@@ -382,7 +389,7 @@
 	}
 
 	.msg-bubble {
-		max-width: 76%;
+		max-width: 570rpx;
 		border-radius: 16px;
 		padding: 10px 12px;
 	}

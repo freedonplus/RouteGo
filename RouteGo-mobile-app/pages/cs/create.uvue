@@ -14,11 +14,11 @@
 						<view
 							v-for="(item, index) in types"
 							:key="item.value"
-							:class="index === typeIndex ? 'chip chip-active' : 'chip'"
+							:class="index == typeIndex ? 'chip chip-active' : 'chip'" hover-class="chip-pressing" hover-start-time="0" hover-stay-time="60"
 							style="margin-right:8px;margin-bottom:8px"
-							@click="typeIndex = index"
+							@click="selectType(index)"
 						>
-							<text :class="index === typeIndex ? 'chip-text chip-text-active' : 'chip-text'">{{ item.label }}</text>
+							<text :class="index == typeIndex ? 'chip-text chip-text-active' : 'chip-text'">{{ item.label }}</text>
 						</view>
 					</view>
 				</view>
@@ -55,11 +55,11 @@
 					<view class="img-grid">
 						<view v-for="(url, index) in images" :key="'img' + index" class="img-cell">
 							<image class="img-thumb" :src="url" mode="aspectFill" @click="previewImage(index)" />
-							<view class="img-del" @click="removeImage(index)">
+							<view class="img-del" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="removeImage(index)">
 								<text class="img-del-text">×</text>
 							</view>
 						</view>
-						<view v-if="images.length < 9" class="img-add" @click="pickImages">
+						<view v-if="images.length < 9" class="img-add" hover-class="row-pressing" hover-start-time="0" hover-stay-time="60" @click="pickImages">
 							<text class="img-add-icon">{{ uploading ? '…' : '+' }}</text>
 							<text class="img-add-text">{{ uploading ? '上传中' : '添加图片' }}</text>
 						</view>
@@ -72,7 +72,7 @@
 			<view class="col" style="flex:1;margin-right:16px">
 				<text class="faint">提交后可在「我的-联系客服」里继续对话</text>
 			</view>
-			<view :class="canSubmit ? 'btn btn-primary' : 'btn btn-disabled'" style="padding-left:26px;padding-right:26px" @click="submit">
+			<view :class="canSubmit ? 'btn btn-primary' : 'btn btn-disabled'" hover-class="btn-pressing" hover-start-time="0" hover-stay-time="60" style="padding-left:26px;padding-right:26px" @click="submit">
 				<text class="btn-primary-text">{{ submitting ? '提交中' : '提交' }}</text>
 			</view>
 		</view>
@@ -82,6 +82,7 @@
 <script setup lang="uts">
 	import { computed, ref } from 'vue'
 	import { createCsTicket, isLoggedIn, uploadCsImage } from '../../data/api.uts'
+	import { tap } from '../../utils/feedback.uts'
 
 	type TypeOption = {
 		label: string
@@ -95,7 +96,6 @@
 		{ label: '投诉建议', value: 4 },
 		{ label: '其他', value: 5 }
 	]
-
 	const typeIndex = ref<number>(0)
 	const title = ref<string>('')
 	const content = ref<string>('')
@@ -103,7 +103,6 @@
 	const submitting = ref<boolean>(false)
 	const uploading = ref<boolean>(false)
 	let uploadingCount = 0
-
 	const canSubmit = computed((): boolean => {
 		if (submitting.value) {
 			return false
@@ -114,7 +113,26 @@
 		return content.value.trim().length > 0 || images.value.length > 0
 	})
 
+	function uploadOne(path: string) {
+		uploadingCount = uploadingCount + 1
+		uploading.value = true
+		uploadCsImage(path).then((url) => {
+			uploadingCount = uploadingCount - 1
+			uploading.value = uploadingCount > 0
+			const next: string[] = []
+			images.value.forEach((item) => {
+				next.push(item)
+			})
+			next.push(url)
+			images.value = next
+		}).catch((e) => {
+			uploadingCount = uploadingCount - 1
+			uploading.value = uploadingCount > 0
+			uni.showToast({ title: (e as Error).message, icon: 'none' })
+		})
+	}
 	function pickImages() {
+		tap()
 		const remain = 9 - images.value.length
 		if (remain <= 0) {
 			uni.showToast({ title: '最多上传 9 张图片', icon: 'none' })
@@ -130,44 +148,25 @@
 			}
 		})
 	}
-
-	function uploadOne(path: string) {
-		uploadingCount = uploadingCount + 1
-		uploading.value = true
-		uploadCsImage(path).then((url) => {
-			uploadingCount = uploadingCount - 1
-			uploading.value = uploadingCount > 0
-			const next: string[] = []
-			images.value.forEach((item) => {
-				next.push(item)
-			})
-			next.push(url)
-			images.value = next
-		}).catch((e: Error) => {
-			uploadingCount = uploadingCount - 1
-			uploading.value = uploadingCount > 0
-			uni.showToast({ title: e.message, icon: 'none' })
-		})
-	}
-
 	function removeImage(index: number) {
+		tap()
 		const next: string[] = []
 		images.value.forEach((item, i) => {
-			if (i !== index) {
+			if (i != index) {
 				next.push(item)
 			}
 		})
 		images.value = next
 	}
-
 	function previewImage(index: number) {
+		tap()
 		uni.previewImage({
 			urls: images.value,
 			current: images.value[index]
 		})
 	}
-
 	function submit() {
+		tap()
 		if (!canSubmit.value) {
 			return
 		}
@@ -179,11 +178,16 @@
 		createCsTicket(types[typeIndex.value].value, title.value.trim(), content.value.trim(), images.value).then((id) => {
 			submitting.value = false
 			uni.redirectTo({ url: '/pages/cs/chat?id=' + id })
-		}).catch((e: Error) => {
+		}).catch((e) => {
 			submitting.value = false
-			uni.showToast({ title: e.message, icon: 'none' })
+			uni.showToast({ title: (e as Error).message, icon: 'none' })
 		})
 	}
+	function selectType(index: number) {
+		tap()
+		typeIndex.value = index
+	}
+
 </script>
 
 <style>
