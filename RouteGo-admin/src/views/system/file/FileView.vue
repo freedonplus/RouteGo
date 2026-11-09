@@ -1,6 +1,5 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Refresh, Search, UploadFilled } from '@element-plus/icons-vue'
 import { deleteFile, downloadFile, pageFiles, uploadFile } from '@/api/system'
 import { formatDateTime, formatFileSize } from '@/utils/format'

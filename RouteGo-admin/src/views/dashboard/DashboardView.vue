@@ -1,7 +1,5 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import {
   Key,
   Menu as MenuIcon,
@@ -19,7 +17,6 @@ import StatusTag from '@/components/StatusTag.vue'
 import TrendChart from '@/components/TrendChart.vue'
 import DonutChart from '@/components/DonutChart.vue'
 
-const router = useRouter()
 const loading = ref(true)
 const errorMessage = ref('')
 const data = ref({

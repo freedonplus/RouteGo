@@ -1,6 +1,5 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { pageCustomers } from '@/api/customer'
 import { formatDate } from '@/utils/format'

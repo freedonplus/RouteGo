@@ -75,6 +75,31 @@ http.interceptors.response.use(
   }
 )
 
+/* ------------------------------------------------------------------ */
+/* 进行中请求管理：路由切换时统一取消，旧页面的响应不再覆盖新页面       */
+/* ------------------------------------------------------------------ */
+const pending = new Map()
+let pendingSeq = 0
+
+/** 取消当前所有进行中的请求（router.afterEach 里调用） */
+export function abortPendingRequests() {
+  pending.forEach((controller) => controller.abort())
+  pending.clear()
+}
+
 export function request(config) {
-  return http.request(config)
+  const controller = new AbortController()
+  const id = ++pendingSeq
+  pending.set(id, controller)
+  return http
+    .request({ ...config, signal: controller.signal })
+    .catch((error) => {
+      // 主动取消的请求静默处理：既不进调用方的 catch（不弹错误提示），
+      // 也不给调用方返回数据——页面已切换，结果无人消费
+      if (axios.isCancel(error)) {
+        return new Promise(() => {})
+      }
+      throw error
+    })
+    .finally(() => pending.delete(id))
 }

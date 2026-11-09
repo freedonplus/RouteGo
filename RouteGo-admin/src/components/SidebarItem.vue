@@ -1,7 +1,6 @@
 <script setup>
 import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElCollapseTransition } from 'element-plus'
 import { ArrowRight } from '@element-plus/icons-vue'
 import { isGroupOpen, openGroup, toggleGroup } from '@/utils/sidebar-groups'
 import { resolveMenuIcon } from './menu-icons'

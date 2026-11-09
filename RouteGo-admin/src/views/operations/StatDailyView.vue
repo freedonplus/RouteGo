@@ -1,6 +1,5 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { getStatSummary, getStatTrend, pageStats, rebuildStats } from '@/api/operations'
 import { formatDate, formatMoney, formatNumber } from '@/utils/format'

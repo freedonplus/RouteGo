@@ -1,6 +1,5 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Picture } from '@element-plus/icons-vue'
 import { getTicket, listMessages, sendMessage, setTicketStatus } from '@/api/operations'
 import { uploadFile } from '@/api/system'

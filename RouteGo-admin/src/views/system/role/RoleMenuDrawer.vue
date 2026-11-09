@@ -1,6 +1,5 @@
 <script setup>
 import { nextTick, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { assignRoleMenus, getMenuTree, getRoleMenus } from '@/api/system'
 
 const props = defineProps({

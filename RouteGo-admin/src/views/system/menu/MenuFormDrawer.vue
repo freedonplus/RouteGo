@@ -1,6 +1,5 @@
 <script setup>
 import { computed, nextTick, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { createMenu, getMenu, getMenuTree, updateMenu } from '@/api/system'
 import { resolveMenuIcon } from '@/components/menu-icons'
 

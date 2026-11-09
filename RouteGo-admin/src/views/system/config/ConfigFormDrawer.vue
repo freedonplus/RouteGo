@@ -1,6 +1,5 @@
 <script setup>
 import { computed, nextTick, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { createConfig, getConfig, updateConfig } from '@/api/system'
 
 const props = defineProps({

@@ -1,6 +1,5 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import {
   createCustomer,
@@ -8,7 +7,7 @@ import {
   pageCustomers,
   setCustomerStatus,
 } from '@/api/customer'
-import { formatDate, formatDateTime, formatMoney, resolveFileUrl } from '@/utils/format'
+import { formatDate, formatMoney, resolveFileUrl } from '@/utils/format'
 import PageHeader from '@/components/PageHeader.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import StatusTag from '@/components/StatusTag.vue'

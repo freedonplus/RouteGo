@@ -1,6 +1,5 @@
 <script setup>
 import { computed, nextTick, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { createUser, getUser, pageRoles, updateUser } from '@/api/system'
 import ImageUpload from '@/components/ImageUpload.vue'
 

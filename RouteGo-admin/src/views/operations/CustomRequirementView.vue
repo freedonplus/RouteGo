@@ -1,6 +1,5 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import {
   assignRequirement,
@@ -126,7 +125,7 @@ async function submitAssign() {
 }
 
 async function changeStatus(row, status) {
-  let remark = ''
+  let remark
   try {
     const { value } = await ElMessageBox.prompt(
       status === 2 ? '线下成交会把需求置为已成交，请填写成交说明。' : '填写关闭原因（选填）。',

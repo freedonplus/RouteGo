@@ -1,6 +1,5 @@
 <script setup>
 import { reactive, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Plus, Refresh } from '@element-plus/icons-vue'
 import {
   createAssignRule,

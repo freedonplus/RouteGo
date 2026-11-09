@@ -1,6 +1,5 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Expand, Fold, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { deleteMenu, getMenuTree, setMenuStatus, setMenuVisible } from '@/api/system'
 import { useAuthStore } from '@/stores/auth'

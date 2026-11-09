@@ -59,7 +59,6 @@ const lineB = computed(() =>
 const areaA = computed(() => {
   if (!props.data.length) return ''
   const first = props.data[0]
-  const last = props.data[props.data.length - 1]
   return `M${px(0)},${py(first.a)} L${lineA.value} L${px(props.data.length - 1)},${py(0)} L${px(0)},${py(0)} Z`
 })
 

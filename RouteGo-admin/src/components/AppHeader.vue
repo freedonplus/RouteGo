@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import {
   ArrowDown,
   Bell,
@@ -18,7 +17,7 @@ import { menuTrail } from '@/utils/menu'
 import CommandPalette from './CommandPalette.vue'
 import ChangePasswordDialog from './ChangePasswordDialog.vue'
 
-const props = defineProps({
+defineProps({
   collapsed: { type: Boolean, default: false },
 })
 const emit = defineEmits(['toggle'])

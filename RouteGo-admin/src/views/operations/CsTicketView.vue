@@ -1,6 +1,5 @@
 <script setup>
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { Bell, MuteNotification, Plus, Refresh, Search, Setting } from '@element-plus/icons-vue'
 import {
   assignTicket,

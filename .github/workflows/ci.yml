@@ -1,0 +1,36 @@
+name: CI
+
+# 生产级前端流水线：lint → test → build，任一失败阻断合并/发布
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  frontend:
+    name: RouteGo-admin lint / test / build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: RouteGo-admin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: RouteGo-admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build

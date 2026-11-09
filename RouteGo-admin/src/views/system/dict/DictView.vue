@@ -1,6 +1,5 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import {
   deleteDictData,
@@ -12,7 +11,6 @@ import {
   setDictTypeStatus,
 } from '@/api/system'
 import PageHeader from '@/components/PageHeader.vue'
-import StatusTag from '@/components/StatusTag.vue'
 import DictTypeDrawer from './DictTypeDrawer.vue'
 import DictDataDrawer from './DictDataDrawer.vue'
 
@@ -45,7 +43,7 @@ async function loadTypes() {
       pageSize: typePage.pageSize,
     })
     types.value = result.records || []
-    typepage.total = Number(result.total || 0)
+    typePage.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '字典类型加载失败')
     types.value = []
@@ -71,7 +69,7 @@ async function loadData() {
       pageSize: dataPage.pageSize,
     })
     dataRows.value = result.records || []
-    datapage.total = Number(result.total || 0)
+    dataPage.total = Number(result.total || 0)
   } catch (error) {
     ElMessage.error(error.message || '字典数据加载失败')
     dataRows.value = []

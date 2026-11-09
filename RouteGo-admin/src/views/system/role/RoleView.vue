@@ -1,6 +1,5 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { deleteRole, pageRoles, setRoleStatus } from '@/api/system'
 import { useAuthStore } from '@/stores/auth'

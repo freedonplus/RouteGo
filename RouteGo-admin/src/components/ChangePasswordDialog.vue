@@ -1,11 +1,10 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { changePassword } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 
-const props = defineProps({
+defineProps({
   modelValue: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue'])

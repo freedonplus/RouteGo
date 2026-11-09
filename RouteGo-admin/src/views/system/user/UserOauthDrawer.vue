@@ -1,6 +1,5 @@
 <script setup>
 import { reactive, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { bindUserOauth, getUserOauth, unbindUserOauth } from '@/api/system'
 import { formatDate } from '@/utils/format'
 import ImageUpload from '@/components/ImageUpload.vue'

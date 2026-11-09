@@ -1,6 +1,5 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { Delete, Plus } from '@element-plus/icons-vue'
 import { listDepartures, pageRoutes } from '@/api/catalog'
 import { pageCustomers } from '@/api/customer'

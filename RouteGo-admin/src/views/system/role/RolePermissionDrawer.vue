@@ -1,6 +1,5 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { assignRolePermissions, getGroupedPermissions, getRolePermissions } from '@/api/system'
 

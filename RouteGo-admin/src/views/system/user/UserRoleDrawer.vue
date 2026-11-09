@@ -1,6 +1,5 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { assignUserRoles, getUserRoles, pageRoles } from '@/api/system'
 
 const props = defineProps({

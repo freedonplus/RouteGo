@@ -1,6 +1,5 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { getOperLog, pageOperLogs } from '@/api/system'
 import { formatDateTime } from '@/utils/format'

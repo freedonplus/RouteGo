@@ -1,6 +1,5 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { Delete, Plus, UploadFilled } from '@element-plus/icons-vue'
 import { uploadFile } from '@/api/system'
 import { resolveFileUrl } from '@/utils/format'

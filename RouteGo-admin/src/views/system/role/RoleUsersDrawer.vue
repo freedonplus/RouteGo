@@ -1,6 +1,5 @@
 <script setup>
 import { reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { pageRoleUsers } from '@/api/system'
 import { formatDate } from '@/utils/format'
 import StatusTag from '@/components/StatusTag.vue'

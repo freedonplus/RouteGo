@@ -1,6 +1,5 @@
 <script setup>
 import { reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { resetUserPassword } from '@/api/system'
 
 const props = defineProps({
