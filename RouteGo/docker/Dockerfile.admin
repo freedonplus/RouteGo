@@ -11,16 +11,15 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-# 接口前缀由 compose 注入，默认同源 /api（与 .env.production 一致）
-ARG VITE_API_BASE_URL=/api
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+# 后端地址在 RouteGo-admin/.env.production 的 VITE_API_BASE_URL 里配置，
+# 由 Vite 在 npm run build 时写进产物；这里不注入 ENV，否则会覆盖 .env.production。
+# 换后端地址 → 改 .env.production → 重新构建本镜像。
 
 # 依赖层独立缓存：只改业务代码时不会重装 node_modules
 COPY RouteGo-admin/package.json RouteGo-admin/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY RouteGo-admin/ ./
-# .env.production 里 VITE_API_BASE_URL=/api，与同源 nginx 反代保持一致
 RUN npm run build
 
 # ---------- 运行阶段 ----------

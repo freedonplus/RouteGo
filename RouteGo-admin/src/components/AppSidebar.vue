@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router'
 import { Odometer } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import SidebarItem from './SidebarItem.vue'
+import BrandMark from './BrandMark.vue'
 
 defineProps({
   collapsed: { type: Boolean, default: false },
@@ -16,7 +17,7 @@ const route = useRoute()
 <template>
   <div class="flex h-full flex-col bg-[#121212]">
     <div class="flex h-12 shrink-0 items-center gap-2 border-b border-[#2a2a2a] px-3">
-      <span class="h-5 w-5 shrink-0 rounded bg-[#e89aaf]" aria-hidden="true"></span>
+      <BrandMark :size="20" class="shrink-0 text-white" />
       <template v-if="!collapsed">
         <span class="text-sm font-semibold tracking-tight text-white">RouteGo</span>
         <span class="ml-auto rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[10px] text-[#94a3b8]">

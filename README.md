@@ -198,14 +198,18 @@ C 端注册用户默认绑定**普通用户**；只有 `super_admin` 拥有通�
 
 ## 生产部署（Docker Compose）
 
-`RouteGo/docker/` 里是一套完整的单机编排：MySQL 8 + Redis 7 + MinIO + 后端 + 管理后台（nginx 同源托管 + 反代 `/api`），
-浏览器只访问一个端口，中间件端口一律绑 `127.0.0.1`。
+`RouteGo/docker/` 里是一套完整的单机编排：MySQL 8 + Redis 7 + MinIO + 后端 + 管理后台。
+管理后台是纯静态托管，**不经 nginx 反代接口**——浏览器直接请求后端，
+接口地址来自 `RouteGo-admin/.env.production` 的 `VITE_API_BASE_URL`；中间件端口一律绑 `127.0.0.1`。
 
 ```bash
-cd RouteGo/docker
+cd RouteGo-admin
+vim .env.production  # 必改：VITE_API_BASE_URL 改成浏览器能访问到的后端地址
+
+cd ../RouteGo/docker
 cp .env.example .env
 ./deploy.sh init     # 生成 MySQL / Redis / MinIO / AES / HMAC / 临时链接密钥，并校验必填项
-vim .env             # 必改 ROUTEGO_SECURITY_ALLOWED_ORIGINS 为真实域名
+vim .env             # 必改：ROUTEGO_SECURITY_ALLOWED_ORIGINS（前端地址）
 ./deploy.sh up       # 构建镜像 → 启动 → 等健康检查通过
 ```
 
@@ -214,24 +218,37 @@ vim .env             # 必改 ROUTEGO_SECURITY_ALLOWED_ORIGINS 为真实域名
   Swagger 默认关闭、Cookie `Secure`、`X-Forwarded-*` 还原真实 IP；敏感项缺失直接启动失败
 - 详细变量说明、HTTPS、备份恢复、升级流程、故障排查见 [`RouteGo/docker/README.md`](RouteGo/docker/README.md)
 
+### 配置文件怎么分层
+
+| 文件 | 内容 |
+| --- | --- |
+| `application.yaml` | **只有 profile 和端口**（`SPRING_PROFILES_ACTIVE`、`SERVER_PORT`、`context-path: /api`） |
+| `application-dev.yaml` | 开发环境全部配置，每项都有本地默认值，克隆下来就能跑 |
+| `application-prod.yaml` | 生产环境全部配置，敏感项只从环境变量读，缺失即启动失败 |
+
+两份 profile 文件都自包含（MyBatis-Plus、Sa-Token、multipart、Jackson 各写一遍），
+互不依赖公共文件的兜底——这样生产**不可能**意外继承到开发默认值。
+
 常用命令：`./deploy.sh ps | logs app | restart | backup | down | destroy`。
 
 ## 常用配置
 
-生产环境请用环境变量覆盖以下默认值（详见 `RouteGo/RouteGo-app/src/main/resources/application.yaml`）：
+下表的值**只存在于 `application-dev.yaml`**，用于本地开箱即跑。生产环境由
+`application-prod.yaml` 从环境变量读取同名项（`RouteGo/docker/.env`），没有开发默认值可继承：
 
-| 变量 | 说明 | 默认 |
+| 变量 | 说明 | 开发默认 |
 | --- | --- | --- |
 | `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | 对象存储连接 | `127.0.0.1:9000` / `minio` / `12345678` |
 | `ROUTEGO_STORAGE_TYPE` | `minio` 或 `local`（本地磁盘兜底） | `minio` |
-| `ROUTEGO_TEMP_URL_SECRET` | 临时预览链接签名密钥，**生产必须改** | 开发占位值 |
-| `ROUTEGO_CRYPTO_AES_KEY` / `ROUTEGO_CRYPTO_HMAC_KEY` | 敏感字段加密密钥，**生产必须改且两把不能相同** | 开发占位值 |
-| `ROUTEGO_SECURITY_ALLOWED_ORIGINS` | CORS 允许来源 | `localhost:5173` 等 |
+| `ROUTEGO_TEMP_URL_SECRET` | 临时预览链接签名密钥，**生产必填** | 开发占位值 |
+| `ROUTEGO_CRYPTO_AES_KEY` / `ROUTEGO_CRYPTO_HMAC_KEY` | 敏感字段加密密钥，**生产必填且两把不能相同** | 开发占位值 |
+| `ROUTEGO_SECURITY_ALLOWED_ORIGINS` | CORS 允许来源，**生产必填** | `localhost:5173` 等 |
 | `SPRING_DATA_REDIS_PASSWORD` | Redis 密码（无密码时不要写空值） | 空 |
 
 ### 反向代理与 SSE
 
-客服推送走 `Server-Sent Events`，放在 nginx 后面时有两处必须改，否则表现是「消息攒着才到」：
+管理后台的 nginx 只托管静态文件，不再反代接口。若你自己在前面加了一层 nginx / SLB 把 `/api`
+转发到后端（同域部署），客服推送这段必须单独配置，否则表现是「消息攒着才到」：
 
 ```nginx
 location /api/operations/cs/stream {

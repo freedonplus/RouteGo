@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Refresh, Search, UploadFilled } from '@element-plus/icons-vue'
 import { deleteFile, downloadFile, pageFiles, uploadFile } from '@/api/system'
 import { formatDateTime, formatFileSize } from '@/utils/format'
+import { API_BASE_URL } from '@/utils/api-base'
 import PageHeader from '@/components/PageHeader.vue'
 import FilterBar from '@/components/FilterBar.vue'
 
@@ -15,7 +16,7 @@ const page = reactive({ pageNum: 1, pageSize: 10, total: 0 })
 
 const ALLOWED = ['jpg', 'jpeg', 'png', 'webp', 'pdf']
 const MAX_SIZE = 20 * 1024 * 1024
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
+const API_BASE = API_BASE_URL
 const IMAGE_TYPES = ['jpg', 'jpeg', 'png', 'webp']
 const STORAGE_LABELS = { 1: '本地', 2: 'OSS', 3: 'MinIO' }
 

@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '@/utils/api-base'
+
 const EMPTY = '—'
 
 export function isMasked(value) {
@@ -87,6 +89,7 @@ export function formatRelative(value) {
 export function resolveFileUrl(url) {
   if (!url) return ''
   if (/^(https?:)?\/\//.test(url) || url.startsWith('data:')) return url
-  const base = import.meta.env.VITE_API_BASE_URL || '/api'
-  return base + url
+  // 运行时地址可能是 https://api.example.com/api，末尾带斜杠会拼出 //file/...
+  const base = API_BASE_URL.replace(/\/+$/, '')
+  return base + (url.startsWith('/') ? url : `/${url}`)
 }

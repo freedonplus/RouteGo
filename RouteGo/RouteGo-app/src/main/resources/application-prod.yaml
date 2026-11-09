@@ -10,7 +10,7 @@
 # =============================================================================
 
 server:
-  port: 8080
+  # 端口与 context-path 由 application.yaml 统一控制（SERVER_PORT，默认 8080）
   # 优雅停机：先摘流量（容器 stop 的 SIGTERM），再等在途请求与 SSE 连接收尾
   shutdown: graceful
   forward-headers-strategy: native
@@ -39,6 +39,11 @@ spring:
   lifecycle:
     # 比单请求超时更长：给 SSE 广播、异步任务留出收尾时间
     timeout-per-shutdown-phase: 30s
+
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -195,17 +200,42 @@ routego:
 # 会把 /v3/api-docs 和 Swagger UI 一起暴露到公网。
 springdoc:
   api-docs:
+    path: /v3/api-docs
     enabled: ${ROUTEGO_OPENAPI_ENABLED:false}
   swagger-ui:
+    path: /swagger-ui.html
     enabled: ${ROUTEGO_OPENAPI_ENABLED:false}
+    tags-sorter: alpha
+    operations-sorter: alpha
 
-# Token 策略沿用主配置，这里只收紧生产相关的部分
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.rg.admin.entity,com.rg.catalog.entity,com.rg.trade.entity,com.rg.customer.entity,com.rg.operations.entity
+  global-config:
+    banner: false
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+
+# 认证：Header 与 HttpOnly Cookie 双通道；生产强制 Secure（纯 HTTP 试运行设 SA_TOKEN_COOKIE_SECURE=false）
 sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 2592000
+  active-timeout: 1800
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
   is-log: false
-  # 浏览器的 Cookie 只走 HTTPS；纯 HTTP 先用内网 IP 访问时设 SA_TOKEN_COOKIE_SECURE=false
+  is-read-cookie: true
+  is-read-header: true
+  is-read-body: false
   cookie:
-    secure: ${SA_TOKEN_COOKIE_SECURE:true}
     http-only: true
+    secure: ${SA_TOKEN_COOKIE_SECURE:true}
     same-site: Lax
     path: /
 

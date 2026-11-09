@@ -6,13 +6,36 @@ Vue 3 + Element Plus 管理端，Data Dense 风格，深色侧栏 `#121212` + �
 
 | 文件 | 用途 |
 | --- | --- |
-| `.env.development` | 开发默认，真实后端，Vite 代理 `/api` |
-| `.env.production` | 生产构建，真实后端，同源 `/api` |
+| `.env.development` | 开发默认，后端地址 `http://localhost:8080/api` |
+| `.env.production` | 生产构建，填部署机器的真实后端地址 |
 | `.env.mock` | 内存 mock，用于无后端演示 |
 
 可复制 `.env.example` 为 `.env.local` 覆盖本机配置（`.env.local` 不入库）。
 
-后端地址通过 `VITE_PROXY_TARGET` 修改，默认 `http://localhost:8080`。
+### 后端地址怎么配
+
+接口地址统一由 `src/utils/api-base.js` 从 `import.meta.env.VITE_API_BASE_URL` 读取，
+兜底 `/api`。**不做反向代理**，浏览器直接请求该地址。
+
+按环境改对应的 env 文件即可：
+
+| 文件 | 用途 | 默认 |
+| --- | --- | --- |
+| `.env.development` | `npm run dev` | `http://localhost:8080/api` |
+| `.env.production` | `npm run build` | 部署机器的真实后端地址 |
+
+```ini
+# .env.production
+VITE_API_BASE_URL=http://1.2.3.4:8080/api
+```
+
+这是构建期注入，地址会被编译进静态产物——**改完要重新构建**（容器部署就是重建 admin 镜像）。
+
+如果确实要走同源反代（外层 nginx 把 `/api` 转发到后端），把值写成 `/api` 即可；
+`npm run dev` 下的 `/api` 会由 Vite 代理到 `VITE_PROXY_TARGET`。
+
+跨域时后端 `ROUTEGO_SECURITY_ALLOWED_ORIGINS` 必须包含本前端的访问地址（协议+域名+端口），
+否则接口被 CORS 拦截、写操作被 `CsrfOriginFilter` 判为非法跨站请求。
 
 ## 运行
 

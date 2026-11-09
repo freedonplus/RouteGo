@@ -1,5 +1,6 @@
 import { createStreamTicket } from '@/api/operations'
 import { USE_MOCK } from '@/api/request'
+import { API_BASE_URL } from '@/utils/api-base'
 
 /**
  * 客服消息推送客户端。
@@ -19,7 +20,7 @@ export function createCsStream({ onEvent, onStatus } = {}) {
   let retryTimer = null
   let retryCount = 0
 
-  const base = import.meta.env.VITE_API_BASE_URL || '/api'
+  const base = API_BASE_URL
 
   function parse(raw) {
     try {

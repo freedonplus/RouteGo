@@ -191,8 +191,9 @@ services:
       minio:
         condition: service_started
     ports:
-      # 便于宿主机 nginx / 本地调试直连；不需要可删掉，web 走容器内网
-      - "127.0.0.1:${APP_PORT:-8080}:8080"
+      # 前端与后端分离部署后，浏览器要能直达后端；这里默认监听所有网卡。
+      # 只允许本机排查时把 APP_BIND_HOST 改成 127.0.0.1。
+      - "${APP_BIND_HOST:-0.0.0.0}:${APP_PORT:-8080}:8080"
     volumes:
       - app-logs:/app/logs
       - app-uploads:/app/uploads
@@ -213,18 +214,12 @@ services:
     build:
       context: ../..
       dockerfile: RouteGo/docker/Dockerfile.admin
-      args:
-        # 前端构建时注入的接口前缀，默认同源 /api
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     image: ${COMPOSE_PROJECT_NAME:-routego}/admin:${APP_IMAGE_TAG:-latest}
     container_name: ${COMPOSE_PROJECT_NAME:-routego}-web
     restart: unless-stopped
     logging: *default-logging
     environment:
       TZ: ${TZ:-Asia/Shanghai}
-    depends_on:
-      app:
-        condition: service_started
     ports:
       - "${WEB_HTTP_PORT:-80}:80"
     volumes:

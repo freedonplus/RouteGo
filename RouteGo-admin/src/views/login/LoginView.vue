@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { getOauthProviders, getOauthUrl, sendCode } from '@/api/auth'
+import BrandMark from '@/components/BrandMark.vue'
 
 const REMEMBER_KEY = 'rg-remember-account'
 const isMock = import.meta.env.VITE_USE_MOCK === 'true'
@@ -213,7 +214,7 @@ onBeforeUnmount(() => {
       class="hidden w-[44%] shrink-0 flex-col justify-between bg-[#121212] px-5 py-5 lg:flex"
     >
       <div class="flex items-center gap-2">
-        <span class="h-6 w-6 rounded bg-[#e89aaf]" aria-hidden="true"></span>
+        <BrandMark :size="22" class="shrink-0 text-white" />
         <span class="text-sm font-semibold tracking-tight text-white">RouteGo</span>
         <span class="ml-auto rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[10px] text-[#94a3b8]">
           Admin
@@ -253,7 +254,7 @@ onBeforeUnmount(() => {
     <section class="flex min-w-0 flex-1 items-center justify-center px-4 py-6">
       <div class="w-full max-w-[360px]">
         <div class="mb-4 flex items-center gap-2 lg:hidden">
-          <span class="h-5 w-5 rounded bg-[#e89aaf]" aria-hidden="true"></span>
+          <BrandMark :size="18" class="shrink-0 text-[#121212]" />
           <span class="text-sm font-semibold tracking-tight text-[#121212]">RouteGo Admin</span>
         </div>
 

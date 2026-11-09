@@ -1,7 +1,8 @@
 # RouteGo · 生产部署（Docker Compose）
 
-一套 compose 拉起 **MySQL 8 + Redis 7 + MinIO + 后端 + 管理后台**，管理后台由 nginx 同源托管并反代 `/api`，
-浏览器只访问一个端口。
+一套 compose 拉起 **MySQL 8 + Redis 7 + MinIO + 后端 + 管理后台**。
+管理后台由 nginx 托管静态产物，**不做 API 反代**——浏览器直接请求后端，
+接口地址来自 `RouteGo-admin/.env.production` 的 `VITE_API_BASE_URL`，前后端可分别部署。
 
 ```
 RouteGo/docker/
@@ -9,7 +10,7 @@ RouteGo/docker/
 ├── Dockerfile             # 后端（Maven 多阶段 → JRE 17 Alpine，非 root 运行）
 ├── Dockerfile.admin       # 管理后台（Node 构建 → nginx 托管静态产物）
 ├── Dockerfile.mysql       # MySQL（把 my.cnf 烘进镜像，避免挂载后权限被改写而失效）
-├── nginx/routego.conf     # SPA 回退、/api 反代、SSE 专用 location
+├── nginx/routego.conf     # 纯静态托管：SPA 回退、静态缓存、健康检查
 ├── mysql/my.cnf           # utf8mb4、时区、慢查询、严格模式（构建时 COPY 进镜像）
 ├── .env.example           # 变量模板（提交入库）
 ├── .env                   # 实际配置，含随机密钥（已被 .gitignore 忽略）
@@ -25,15 +26,22 @@ RouteGo/docker/
 ## 二、三步上线
 
 ```bash
-cd RouteGo/docker
+cd RouteGo-admin
+vim .env.production   # 唯一必改：VITE_API_BASE_URL 改成浏览器能访问到的后端地址
+
+cd ../RouteGo/docker
 cp .env.example .env
 ./deploy.sh init      # 自动生成 MySQL/Redis/MinIO/加密密钥，并检查必填项
-vim .env              # 必改：ROUTEGO_SECURITY_ALLOWED_ORIGINS 改成真实域名
+vim .env              # 必改：ROUTEGO_SECURITY_ALLOWED_ORIGINS 改成前端访问地址
 ./deploy.sh up        # 构建 + 启动 + 等健康检查
 ```
 
-`up` 结束后访问 `http://<服务器IP>`，用初始化脚本里的超管账号
+`up` 结束后访问 `http://<服务器IP>:${WEB_HTTP_PORT}`，用初始化脚本里的超管账号
 `taishangxue520 / 12345678Ss` 登录，**第一件事是改密码，并给每个员工建独立账号**。
+
+> 前端和后端是两个入口：管理后台在 `${WEB_HTTP_PORT}`，接口在 `${APP_PORT}`。
+> `VITE_API_BASE_URL` 必须写浏览器能访问到的地址；写成 `127.0.0.1` 只有服务器本机浏览器能用，
+> 远程访问会登录失败——`deploy.sh check` 会给出提示。
 
 > 首次启动会自动执行 `sql/routego.sql`（建表）与 `sql/admin-init.sql`（角色/权限/菜单/超管），
 > **只在 MySQL 数据卷为空时执行**。已有数据库请勿用本方式覆盖，见「升级与迁移」。
@@ -73,14 +81,50 @@ AES/HMAC 密钥换掉后，库里已有的手机号、证件号密文将无法�
 
 | 服务 | 容器内 | 宿主机 | 说明 |
 | --- | --- | --- | --- |
-| web | 80 | `${WEB_HTTP_PORT}` | 唯一对外端口，托管前端 + 反代 `/api` |
-| app | 8080 | `127.0.0.1:${APP_PORT}` | 仅供本机排查，公网不直达 |
+| web | 80 | `${WEB_HTTP_PORT}` | 只托管前端静态文件，**不做 API 反代** |
+| app | 8080 | `${APP_BIND_HOST}:${APP_PORT}` | 浏览器直连，默认监听 `0.0.0.0` |
 | app 管理端点 | 9090 | 不发布 | `/actuator/health`、`/actuator/prometheus` |
 | mysql | 3306 | `127.0.0.1:${MYSQL_PUBLISH_PORT}` | 只绑本机 |
 | redis | 6379 | 不发布 | 只在容器网络内 |
 | minio | 9000 / 9001 | 控制台绑 `127.0.0.1:9001` | 对象下载一律走后端签名链接 |
 
 需要 Prometheus 采集时，给 `app` 加一行 `- "127.0.0.1:9090:9090"` 再 `./deploy.sh restart`。
+
+### 前后端分离：接口地址怎么配
+
+管理后台不再经 nginx 反代 `/api`，浏览器直接请求后端，接口地址在**前端项目的 env 文件**里：
+
+```ini
+# RouteGo-admin/.env.production
+VITE_API_BASE_URL=https://api.example.com/api
+```
+
+这是**构建期**注入：改完要重新构建 web 镜像（`./deploy.sh up` 会自动重建），
+因为地址已经被 Vite 编译进静态产物。
+
+两种常见形态：
+
+| 场景 | VITE_API_BASE_URL |
+| --- | --- |
+| 后端独立域名 | `https://api.example.com/api` |
+| 同机不同端口 | `http://1.2.3.4:8080/api` |
+| 外层 nginx 同域反代 `/api` | `/api` |
+
+后端要能被浏览器访问到，`.env` 里对应两项：
+
+```ini
+APP_BIND_HOST=0.0.0.0            # 后端监听所有网卡（只允许本机排查时改 127.0.0.1）
+APP_PORT=8080
+```
+
+跨域相关的三件事必须一起对上，否则表现为「能打开页面但登录不上」：
+
+1. `ROUTEGO_SECURITY_ALLOWED_ORIGINS` 要包含前端访问地址（含协议和端口），多个用逗号分隔；
+2. 前端 axios 已开 `withCredentials`，后端 CORS 已开 `allowCredentials`，不能再用 `*`；
+3. Sa-Token 用 HttpOnly Cookie 存登录态。**前后端跨站**（域名不同）时必须上 HTTPS 并把
+   `SA_TOKEN_COOKIE_SECURE` 设为 `true`，同时 Cookie 需要 `SameSite=None`；同站不同端口不受影响。
+
+登录后的写操作还会经过 `CsrfOriginFilter` 校验 `Origin`，同样依赖上面第 1 条的名单。
 
 ### 关于 MySQL 配置
 
@@ -97,25 +141,48 @@ docker compose build mysql && docker compose up -d mysql
 
 ## 五、HTTPS
 
-本 compose 不带证书。两种常见做法：
+本 compose 不带证书。前后端分离后，有两个要暴露的入口，常见做法：
 
-1. **前面挂 SLB / 云负载均衡**：证书放云上，回源到本机 80。
-   注意把 SLB 网段加进 `application-prod.yaml` 的 `routego.security.trusted-proxies`，否则登录日志里的 IP 是 SLB 地址。
-2. **本机再加一层 nginx + certbot**：把这套 compose 的 `WEB_HTTP_PORT` 改成 `8081`，
-   外层 nginx 监听 443 反代到 `127.0.0.1:8081`，并抄一份 SSE 的 location 配置：
+1. **前面挂 SLB / 云负载均衡（推荐）**：前端域名回源到本机 `${WEB_HTTP_PORT}`，
+   后端域名回源到本机 `${APP_PORT}`，证书都放云上。
+   注意把 SLB 网段加进 `application-prod.yaml` 的 `routego.security.trusted-proxies`，
+   否则登录日志里的 IP 是 SLB 地址。此时 `VITE_API_BASE_URL=https://api.example.com/api`。
+
+2. **本机再加一层 nginx + certbot，同域反代**：本套 compose 的 `WEB_HTTP_PORT` 改成 `8081`、
+   `APP_BIND_HOST` 改回 `127.0.0.1`，外层 nginx 用同一个域名分流——静态走前端，`/api` 走后端：
 
 ```nginx
-location /api/operations/cs/stream {
-    proxy_pass         http://127.0.0.1:8081;
-    proxy_http_version 1.1;
-    proxy_set_header   Connection '';
-    proxy_buffering    off;      # 不关会让客服消息「攒一批才到」
-    proxy_read_timeout 1h;       # 默认 60s 会掐断长连接
-    gzip               off;
+server {
+    listen 443 ssl;
+    server_name admin.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+    }
+
+    # 客服实时推送：必须关缓冲、放长超时，否则消息「攒一批才到」或 60s 断连
+    location /api/operations/cs/stream {
+        proxy_pass         http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header   Connection '';
+        proxy_buffering    off;
+        proxy_read_timeout 1h;
+        gzip               off;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_request_buffering off;
+    }
 }
 ```
 
-上了 HTTPS 之后记得把 `.env` 的 `ROUTEGO_SECURITY_ALLOWED_ORIGINS` 换成 `https://...`。
+这种形态下 `VITE_API_BASE_URL` 写 `/api` 即可（同源），重新构建 web 镜像生效。上了 HTTPS 之后记得把 `.env` 的
+`ROUTEGO_SECURITY_ALLOWED_ORIGINS` 换成 `https://...`。
 
 ## 六、日常运维
 

@@ -1,4 +1,28 @@
+# =============================================================================
+# RouteGo · 开发环境（SPRING_PROFILES_ACTIVE=dev，application.yaml 里的默认值）
+#
+# 目标：克隆下来连上本机 MySQL/Redis 就能跑，不需要配任何环境变量。
+# 下面写死的密钥、账号、地址都是**本地开发专用**，生产环境一律用 application-prod.yaml。
+# =============================================================================
+
+server:
+  # 优雅停机：停止接收新请求，等在途请求处理完再退出，避免开发时热重启出现连接异常
+  shutdown: graceful
+
 spring:
+  lifecycle:
+    # 单次优雅停机的最长等待时间，超时后强制关闭
+    timeout-per-shutdown-phase: 20s
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+  # 与数据库、日志时区统一，避免返回的时间比本地时间少 8 小时
+  jackson:
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:routego}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
@@ -15,12 +39,174 @@ spring:
       idle-timeout: 600000
       max-lifetime: 1800000
       initialization-fail-timeout: 10000
+
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:6379}
       database: ${REDIS_DATABASE:0}
       timeout: 3s
+
+# 认证：Header 与 HttpOnly Cookie 双通道，本地用 HTTP 所以 cookie.secure=false
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 2592000
+  active-timeout: 1800
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-log: false
+  is-read-cookie: true
+  is-read-header: true
+  is-read-body: false
+  cookie:
+    http-only: true
+    secure: false
+    same-site: Lax
+    path: /
+
+# 开发环境开放 Swagger，便于手测接口
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.rg.admin.entity,com.rg.catalog.entity,com.rg.trade.entity,com.rg.customer.entity,com.rg.operations.entity
+  global-config:
+    banner: false
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+
+routego:
+  redis:
+    enabled: true
+
+  # 敏感字段加密（手机号、证件号）。库里只存密文，等值查询走 HMAC 盲索引。
+  # 注意：这两把是开发库既有数据使用的密钥，改动会导致本地历史数据解不开。
+  crypto:
+    enabled: true
+    aes-key: ${ROUTEGO_CRYPTO_AES_KEY:cba2tV+2lEON482NJelomUy4xwTrSj63D8441XIawp0=}
+    hmac-key: ${ROUTEGO_CRYPTO_HMAC_KEY:routego-hmac-index-key-change-me-in-prod}
+
+  # 消息域尚未投入使用（EventPublisher 无调用方），默认关闭
+  mq:
+    enabled: false
+
+  openapi:
+    enabled: true
+
+  web:
+    request-logging-enabled: true
+    max-log-text-length: 1000
+
+  storage:
+    # minio：对象存储（默认）；local：本地磁盘兜底
+    type: ${ROUTEGO_STORAGE_TYPE:minio}
+    local-path: ./uploads
+    max-size: 20971520
+    allowed-extensions: [jpg, jpeg, png, webp, pdf]
+    minio:
+      endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+      access-key: ${MINIO_ACCESS_KEY:minio}
+      secret-key: ${MINIO_SECRET_KEY:12345678}
+      bucket: ${MINIO_BUCKET:routego}
+    temp-url:
+      # 文件临时预览链接（HMAC 签名 + 过期时间），供 <img> 等无法携带登录态的场景
+      secret: ${ROUTEGO_TEMP_URL_SECRET:routego-dev-temp-url-secret}
+      ttl: 2h
+
+  security:
+    # 本机前端各端口：Vite 默认 5173、备用 3000、App H5 调试 5180
+    # localhost 与 127.0.0.1 在浏览器里是两个不同 Origin，必须都放行
+    allowed-origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+      - http://localhost:3000
+      - http://localhost:5180
+      - http://127.0.0.1:5180
+    # 只有直接对端命中这些地址时才信任 X-Forwarded-For / X-Real-IP
+    trusted-proxies:
+      - 127.0.0.1
+      - ::1
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+
+  # 短信验证码（接口盒子 apihz 短信代发送）
+  sms:
+    enabled: true
+    endpoint: https://cn.apihz.cn/api/sms/dfapi.php
+    id: ${ROUTEGO_SMS_ID:10023179}
+    key: ${ROUTEGO_SMS_KEY:d67b1fc736ae3e27effcbb79faa83212}
+    code-length: 6
+    code-ttl: 5m
+    resend-interval: 60s
+    daily-limit: 20
+    hourly-limit-per-ip: 20
+
+  # IP 归属地（与短信共用 apihz 账号）
+  ip-location:
+    enabled: true
+    endpoint: https://cn.apihz.cn/api/ip/chaapi.php
+    id: ${ROUTEGO_SMS_ID:10023179}
+    key: ${ROUTEGO_SMS_KEY:d67b1fc736ae3e27effcbb79faa83212}
+    td: "0"
+    cache-ttl: 7d
+
+  # 第三方登录（JustAuth）。未填 client-id/secret 的平台保持 disabled，
+  # 前端只会渲染已启用的平台按钮。
+  oauth:
+    success-redirect: ${ROUTEGO_OAUTH_SUCCESS_REDIRECT:http://localhost:5173/login?oauth=success}
+    failure-redirect: ${ROUTEGO_OAUTH_FAILURE_REDIRECT:http://localhost:5173/login?oauth=failed}
+    providers:
+      github:
+        enabled: false
+        client-id: ${GITHUB_CLIENT_ID:}
+        client-secret: ${GITHUB_CLIENT_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:http://localhost:8080/api}/admin/auth/oauth/github/callback
+      gitee:
+        enabled: false
+        client-id: ${GITEE_CLIENT_ID:}
+        client-secret: ${GITEE_CLIENT_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:http://localhost:8080/api}/admin/auth/oauth/gitee/callback
+      wechat:
+        enabled: false
+        client-id: ${WECHAT_OPEN_APP_ID:}
+        client-secret: ${WECHAT_OPEN_APP_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:http://localhost:8080/api}/admin/auth/oauth/wechat/callback
+      qq:
+        enabled: false
+        client-id: ${QQ_APP_ID:}
+        client-secret: ${QQ_APP_KEY:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:http://localhost:8080/api}/admin/auth/oauth/qq/callback
+      dingtalk:
+        enabled: false
+        client-id: ${DINGTALK_APP_KEY:}
+        client-secret: ${DINGTALK_APP_SECRET:}
+        redirect-uri: ${ROUTEGO_OAUTH_BASE_URL:http://localhost:8080/api}/admin/auth/oauth/dingtalk/callback
+
+# 开发只打控制台，不落文件；com.rg 用 debug 方便看 SQL 与业务分支
+logging:
+  level:
+    root: info
+    com.rg: debug
+
+# 本机看健康状态用：http://127.0.0.1:8080/api/actuator/health
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
 
 # RocketMQ 已下线（消息域无调用方，routego.mq.enabled=false 且不配置 name-server）。
 # 需要重新启用时：取消注释并设置 routego.mq.enabled=true
@@ -30,12 +216,3 @@ spring:
 #     group: RouteGo-app-producer
 #     send-message-timeout: 3000
 #     retry-times-when-send-failed: 3
-
-logging:
-  level:
-    com.rg: debug
-
-sa-token:
-  cookie:
-    secure: false
-

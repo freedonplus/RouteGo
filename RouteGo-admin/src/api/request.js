@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { mockAdapter } from '@/mock'
+import { API_BASE_URL } from '@/utils/api-base'
 
 export const TOKEN_KEY = 'rg-admin-token'
 
@@ -28,7 +29,7 @@ function currentToken() {
 }
 
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: API_BASE_URL,
   timeout: 15000,
   withCredentials: true,
 })

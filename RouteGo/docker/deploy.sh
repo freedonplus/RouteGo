@@ -41,7 +41,8 @@ cmd_init() {
     log "$ENV_FILE 已存在，仅补齐留空的密钥"
   fi
 
-  # 逐项补齐（只在值为空时写入），保持 .env 幂等；用 awk 而不是 sed -i，避开 BSD/GNU 差异
+  # 逐项补齐，保持 .env 幂等；用 awk 而不是 sed -i，避开 BSD/GNU 差异
+  # 三种情况：空值行 → 填入；整行缺失 → 追加；已有非空值 → 不动（避免覆盖线上密钥）
   fill() {
     local key="$1" value="$2" tmp
     if grep -qE "^${key}=$" "$ENV_FILE"; then
@@ -49,6 +50,10 @@ cmd_init() {
       awk -v k="$key" -v v="$value" -F= 'BEGIN{OFS="="} $1==k && $2=="" {$0=k OFS v} {print}' \
         "$ENV_FILE" > "$tmp" && mv "$tmp" "$ENV_FILE"
       log "  生成 ${key}"
+    elif ! grep -qE "^${key}=" "$ENV_FILE"; then
+      # 旧版 .env 可能整体缺这一项，只补空值行是不够的（会导致密钥为空却通过校验）
+      printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+      log "  追加 ${key}"
     fi
   }
 
@@ -93,6 +98,18 @@ cmd_check() {
   if grep -qE '^ROUTEGO_SECURITY_ALLOWED_ORIGINS=http://localhost' "$ENV_FILE"; then
     warn "ROUTEGO_SECURITY_ALLOWED_ORIGINS 仍是 localhost，正式域名上线后记得改成实际前端地址"
   fi
+
+  # 前端由浏览器直连后端，接口地址写死在 RouteGo-admin/.env.production（构建期注入）
+  local front_env="../../RouteGo-admin/.env.production" api_base
+  api_base=$(grep -E '^VITE_API_BASE_URL=' "$front_env" 2>/dev/null | head -1 | cut -d= -f2- || true)
+  case "${api_base}" in
+    ''|/api)
+      warn "RouteGo-admin/.env.production 的 VITE_API_BASE_URL 为 ${api_base:-空}，但本套 nginx 已不做反代——请改成后端真实地址，如 http://<服务器IP>:8080/api"
+      ;;
+    *127.0.0.1*|*localhost*)
+      warn "VITE_API_BASE_URL 为 ${api_base}，只有服务器本机浏览器能用，远程访问会请求失败——请改成公网可达地址"
+      ;;
+  esac
   log "配置检查通过"
 }
 
