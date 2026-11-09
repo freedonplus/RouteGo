@@ -102,6 +102,15 @@ routego:
   mq:
     enabled: false
 
+  # 定时任务：本地开发也会跑超时关单，若不想本地自动关单改 enabled=false
+  job:
+    order-timeout:
+      enabled: true
+      cron: "0 * * * * ?"
+      timeout-minutes: 30
+      scan-limit: 200
+      lease-seconds: 300
+
   openapi:
     enabled: true
 
@@ -143,23 +152,26 @@ routego:
       - 192.168.0.0/16
 
   # 短信验证码（接口盒子 apihz 短信代发送）
+  # 安全约定：apihz 账号 id/key 是付费真实凭据，禁止写入本仓库（含默认值）。
+  # 本地需要真发短信时，在启动环境变量中注入 ROUTEGO_SMS_ENABLED=true 与
+  # ROUTEGO_SMS_ID / ROUTEGO_SMS_KEY（可放 docker/.env 或 IDE 运行配置）。
   sms:
-    enabled: true
+    enabled: ${ROUTEGO_SMS_ENABLED:false}
     endpoint: https://cn.apihz.cn/api/sms/dfapi.php
-    id: ${ROUTEGO_SMS_ID:10023179}
-    key: ${ROUTEGO_SMS_KEY:d67b1fc736ae3e27effcbb79faa83212}
+    id: ${ROUTEGO_SMS_ID:}
+    key: ${ROUTEGO_SMS_KEY:}
     code-length: 6
     code-ttl: 5m
     resend-interval: 60s
     daily-limit: 20
     hourly-limit-per-ip: 20
 
-  # IP 归属地（与短信共用 apihz 账号）
+  # IP 归属地（与短信共用 apihz 账号，同样禁止凭据入库）
   ip-location:
-    enabled: true
+    enabled: ${ROUTEGO_IP_LOCATION_ENABLED:false}
     endpoint: https://cn.apihz.cn/api/ip/chaapi.php
-    id: ${ROUTEGO_SMS_ID:10023179}
-    key: ${ROUTEGO_SMS_KEY:d67b1fc736ae3e27effcbb79faa83212}
+    id: ${ROUTEGO_SMS_ID:}
+    key: ${ROUTEGO_SMS_KEY:}
     td: "0"
     cache-ttl: 7d
 
