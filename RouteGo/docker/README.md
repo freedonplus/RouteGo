@@ -191,6 +191,7 @@ server {
 ./deploy.sh logs app           # 跟后端日志（web / mysql 同理）
 ./deploy.sh restart            # 重启全部
 ./deploy.sh backup             # 导出库到 ./backup/routego-时间.sql.gz
+./deploy.sh backup-install     # 安装每日 03:17 自动备份（crontab，保留 14 天），幂等可重复执行
 ./deploy.sh down               # 停止，保留数据卷
 ./deploy.sh destroy            # 停止并删卷（会丢库，需输入 DESTROY 确认）
 ```
@@ -242,5 +243,5 @@ docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" routeg
 - [ ] `ROUTEGO_SECURITY_ALLOWED_ORIGINS` 只包含真实域名
 - [ ] 生产默认关闭 Swagger（`ROUTEGO_OPENAPI_ENABLED` 不设或 `false`）
 - [ ] MySQL / Redis / MinIO 端口没有直接暴露到公网（保持 `127.0.0.1` 绑定）
-- [ ] 已配置 `./deploy.sh backup` 的定时任务（建议每天凌晨 + 保留 7 天）
+- [ ] 已执行 `./deploy.sh backup-install` 安装每日自动备份（03:17，保留 14 天）
 - [ ] 已把 `admin:config:SaToken:*` 之外的敏感缓存策略确认一遍（Redis 设了密码、未发布端口）

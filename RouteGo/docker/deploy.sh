@@ -10,6 +10,7 @@
 #   ./deploy.sh down      停止（保留数据卷）
 #   ./deploy.sh destroy   停止并删除数据卷（会丢库，需二次确认）
 #   ./deploy.sh backup    备份数据库到 ./backup
+#   ./deploy.sh backup-install  安装每日 03:17 自动备份（crontab，保留 14 天）
 # =============================================================================
 set -euo pipefail
 
@@ -170,6 +171,21 @@ cmd_backup() {
   log "备份完成：$(du -h "$file" | cut -f1)  $file"
 }
 
+# 每日自动备份（审核报告 P1-8）：方案书 12 章要求「每日全量备份」，手动 backup
+# 忘了跑等于没有备份。幂等安装：重复执行会替换旧的 cron 条目。
+# 保留 14 天（方案书允许 7–30 天），备份失败当天不会清理旧文件（&& 串联）。
+BACKUP_KEEP_DAYS=14
+cmd_backup_install() {
+  need_cmd crontab
+  local script_dir
+  script_dir=$(cd "$(dirname "$0")" && pwd)
+  local cron_line
+  cron_line="17 3 * * * cd ${script_dir} && ./deploy.sh backup >> backup/backup.log 2>&1 && find ${script_dir}/backup -name 'routego-*.sql.gz' -mtime +$((BACKUP_KEEP_DAYS - 1)) -delete"
+  (crontab -l 2>/dev/null | grep -v 'deploy.sh backup' ; echo "$cron_line") | crontab -
+  log "已安装每日 03:17 自动备份，保留 ${BACKUP_KEEP_DAYS} 天。查看：crontab -l"
+  warn "cron 环境 PATH 精简，请确认 docker 在 /usr/bin 或 /usr/local/bin 下（command -v docker 验证）；日志在 docker/backup/backup.log"
+}
+
 usage() {
   sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
   exit 1
@@ -185,5 +201,6 @@ case "${1:-up}" in
   ps)      cmd_ps ;;
   logs)    shift; cmd_logs "$@" ;;
   backup)  cmd_backup ;;
+  backup-install) cmd_backup_install ;;
   *)       usage ;;
 esac
