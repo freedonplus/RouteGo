@@ -106,6 +106,15 @@ routego:
     # 交易域接入 MQ 时改 true，并在下方 rocketmq 段配置 name-server
     enabled: false
 
+  # 定时任务（多实例部署时任务内部用 lock:job:* 分布式锁选主，天然防重复执行）
+  job:
+    order-timeout:
+      enabled: true
+      cron: "0 * * * * ?"        # 每分钟扫描一次
+      timeout-minutes: 30        # 待支付超过 30 分钟自动关单（方案书 12 章标准）
+      scan-limit: 200            # 每轮最多处理 200 单，防止积压时单次跑太久
+      lease-seconds: 300         # 选主锁持有上限，须大于单轮最长执行时间
+
   # Swagger / OpenAPI 文档：生产默认关闭，需要临时排查时 ROUTEGO_OPENAPI_ENABLED=true
   openapi:
     enabled: ${ROUTEGO_OPENAPI_ENABLED:false}
