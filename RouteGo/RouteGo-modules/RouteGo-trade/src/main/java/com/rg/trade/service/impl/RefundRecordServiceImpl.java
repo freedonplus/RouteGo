@@ -140,9 +140,18 @@ public class RefundRecordServiceImpl implements RefundRecordService {
             throw new TradeException(ErrorCode.CONFLICT,
                     "只有「已支付」订单可以申请退款，当前状态为「" + status.getDesc() + "」");
         }
-        if (request.getAmount().compareTo(order.getPayAmount()) > 0) {
+        // 累计校验：历史已退款 + 在途（待审核）+ 本次 不能超过实付金额。
+        // 只比对单笔会让多次部分退款累计超过实付（审核报告 P0-3），这里以订单为口径重新计算。
+        java.math.BigDecimal refundedOrPending = refundedAmountOf(orderId);
+        java.math.BigDecimal refundable = order.getPayAmount().subtract(refundedOrPending);
+        if (refundable.signum() < 0) {
+            refundable = java.math.BigDecimal.ZERO;
+        }
+        if (request.getAmount().compareTo(refundable) > 0) {
             throw new TradeException(ErrorCode.BAD_REQUEST,
-                    "退款金额不能超过实付金额 " + order.getPayAmount().toPlainString() + " 元");
+                    "退款金额超过可退余额 " + refundable.toPlainString() + " 元（实付 "
+                            + order.getPayAmount().toPlainString()
+                            + " 元，历史退款及在途 " + refundedOrPending.toPlainString() + " 元）");
         }
 
         RefundRecord record = new RefundRecord();
@@ -197,7 +206,10 @@ public class RefundRecordServiceImpl implements RefundRecordService {
             throw new TradeException(ErrorCode.CONFLICT, "退款单已被其他人处理，请刷新后重试");
         }
 
-        boolean fullRefund = record.getAmount().compareTo(order.getPayAmount()) >= 0;
+        // 退款单已更新为本单终态后再统计累计：累计达到实付即视为整单退完，
+        // 进入「已退款」终态触发库存/统计回补；否则部分退款回「已支付」。
+        java.math.BigDecimal refundedTotal = refundedAmountOf(order.getId());
+        boolean fullRefund = refundedTotal.compareTo(order.getPayAmount()) >= 0;
         if (fullRefund) {
             stateMachine.transition(order, OrderStatus.REFUNDED, "退款完成，全额退还 " + record.getAmount().toPlainString() + " 元",
                     patch -> patch.setPayStatus((byte) 2));
@@ -210,6 +222,21 @@ public class RefundRecordServiceImpl implements RefundRecordService {
 
     private String safeRemark(String remark) {
         return StringUtils.hasText(remark) ? remark.trim() : "无";
+    }
+
+    /**
+     * 某订单「已占用」的退款金额：已退款 + 待审核（在途）。
+     * 已驳回的退款单不占额度。用于防多次部分退款累计超额。
+     */
+    private java.math.BigDecimal refundedAmountOf(Long orderId) {
+        List<RefundRecord> records = refundRecordMapper.selectList(
+                Wrappers.<RefundRecord>lambdaQuery()
+                        .eq(RefundRecord::getOrderId, orderId)
+                        .ne(RefundRecord::getStatus, STATUS_REJECTED));
+        return records.stream()
+                .map(RefundRecord::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
     }
 
     private RefundRecord requireRefund(Long id) {

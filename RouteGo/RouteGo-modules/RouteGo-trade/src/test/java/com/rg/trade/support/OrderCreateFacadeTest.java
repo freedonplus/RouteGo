@@ -61,7 +61,7 @@ class OrderCreateFacadeTest {
 
     @Test
     void firstSubmitCreatesOrderAndMarksDone() {
-        when(redisService.setIfAbsent(anyString(), any(), any(Duration.class))).thenReturn(true);
+        when(redisService.setIfAbsent(anyString(), any(Object.class), any(Duration.class))).thenReturn(true);
         when(orderService.create(any())).thenReturn(99L);
 
         Long orderId = facade.create(request(5L), "key-1");
@@ -72,7 +72,7 @@ class OrderCreateFacadeTest {
 
     @Test
     void duplicateSubmitReturnsSameOrderWithoutCallingService() {
-        when(redisService.setIfAbsent(anyString(), any(), any(Duration.class))).thenReturn(false);
+        when(redisService.setIfAbsent(anyString(), any(Object.class), any(Duration.class))).thenReturn(false);
         when(redisService.get("trade:order:idem:11:key-1")).thenReturn("DONE:99");
 
         Long orderId = facade.create(request(5L), "key-1");
@@ -84,7 +84,7 @@ class OrderCreateFacadeTest {
 
     @Test
     void submitWhilePendingIsRejected() {
-        when(redisService.setIfAbsent(anyString(), any(), any(Duration.class))).thenReturn(false);
+        when(redisService.setIfAbsent(anyString(), any(Object.class), any(Duration.class))).thenReturn(false);
         when(redisService.get(anyString())).thenReturn("PENDING");
 
         assertThatThrownBy(() -> facade.create(request(5L), "key-1"))
@@ -95,7 +95,7 @@ class OrderCreateFacadeTest {
 
     @Test
     void failureReleasesPlaceholderSoUserCanRetry() {
-        when(redisService.setIfAbsent(anyString(), any(), any(Duration.class))).thenReturn(true);
+        when(redisService.setIfAbsent(anyString(), any(Object.class), any(Duration.class))).thenReturn(true);
         when(orderService.create(any())).thenThrow(new TradeException(
                 com.rg.common.exception.ErrorCode.CONFLICT, "该班期余位不足"));
 
@@ -108,7 +108,7 @@ class OrderCreateFacadeTest {
 
     @Test
     void withoutIdempotencyKeyFallsBackToWindowDedupKey() {
-        when(redisService.setIfAbsent(anyString(), any(), any(Duration.class))).thenReturn(true);
+        when(redisService.setIfAbsent(anyString(), any(Object.class), any(Duration.class))).thenReturn(true);
         when(orderService.create(any())).thenReturn(1L);
 
         facade.create(request(5L), null);
@@ -119,7 +119,7 @@ class OrderCreateFacadeTest {
 
     @Test
     void orderWithoutDepartureSkipsLock() {
-        when(redisService.setIfAbsent(anyString(), any(), any(Duration.class))).thenReturn(true);
+        when(redisService.setIfAbsent(anyString(), any(Object.class), any(Duration.class))).thenReturn(true);
         when(orderService.create(any())).thenReturn(3L);
 
         facade.create(request(null), "key-2");
@@ -130,7 +130,7 @@ class OrderCreateFacadeTest {
 
     @Test
     void orderWithDepartureTakesLockOnDeparture() {
-        when(redisService.setIfAbsent(anyString(), any(), any(Duration.class))).thenReturn(true);
+        when(redisService.setIfAbsent(anyString(), any(Object.class), any(Duration.class))).thenReturn(true);
         when(orderService.create(any())).thenReturn(4L);
 
         facade.create(request(5L), "key-3");
